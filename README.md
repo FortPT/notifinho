@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.png" width="220">
+  <img src="docs/images/logo.png" width="240" alt="Notifinho Logo">
 </p>
 
 <h1 align="center">Notifinho</h1>
@@ -9,17 +9,29 @@
 </p>
 
 <p align="center">
-Built for homelabs • Ready for enterprise
+Built for Homelabs • Ready for Enterprise
 </p>
 
 <p align="center">
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
-![Python](https://img.shields.io/badge/python-3.13-blue)
-![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Xen Orchestra](https://img.shields.io/badge/Xen%20Orchestra-supported-orange)
-![Discord](https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white)
-![Microsoft Teams](https://img.shields.io/badge/Microsoft%20Teams-coming%20soon-6264A7?logo=microsoftteams&logoColor=white)
+
+<a href="https://github.com/FortPT/notifinho/releases">
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version">
+</a>
+
+<a href="https://www.python.org/">
+  <img src="https://img.shields.io/badge/python-3.13-blue" alt="Python">
+</a>
+
+<img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
+
+<img src="https://img.shields.io/badge/license-MIT-green" alt="License">
+
+<img src="https://img.shields.io/badge/Xen%20Orchestra-supported-orange" alt="Xen Orchestra">
+
+<img src="https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white" alt="Discord">
+
+<img src="https://img.shields.io/badge/Microsoft%20Teams-coming%20soon-6264A7?logo=microsoftteams&logoColor=white" alt="Microsoft Teams">
+
 </p>
 
 ---

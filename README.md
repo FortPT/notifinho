@@ -1,4 +1,20 @@
-# Notifinho
+<p align="center">
+  <img src="docs/images/logo.png" width="180">
+</p>
+
+<h1 align="center">Notifinho</h1>
+
+<p align="center">
+  <strong>Infrastructure Notification Engine</strong>
+</p>
+
+<p align="center">
+Transform infrastructure events into rich, actionable notifications.
+</p>
+
+<p align="center">
+Built for homelabs • Ready for enterprise
+</p>
 
 > **Transform infrastructure email notifications into rich Discord and Microsoft Teams alerts.**
 

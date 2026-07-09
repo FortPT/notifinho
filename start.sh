@@ -1,7 +1,15 @@
 #!/bin/sh
 
+APP_VERSION=$(python3 - <<'PY'
+import sys
+sys.path.insert(0, "/notifinho/src")
+from version import VERSION
+print(VERSION)
+PY
+)
+
 echo "========================================="
-echo " Notifinho v1.0.0"
+echo " Notifinho ${APP_VERSION}"
 echo " Infrastructure Notification Engine"
 echo "========================================="
 

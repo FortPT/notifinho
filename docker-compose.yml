@@ -1,0 +1,16 @@
+services:
+  notifinho-dev:
+    build:
+      context: /docker/notifinho-dev
+      dockerfile: Dockerfile.dev
+    image: notifinho-dev:local
+    container_name: notifinho-dev
+    restart: unless-stopped
+    working_dir: /notifinho
+    ports:
+      - "8026:8025"
+    volumes:
+      - /docker/notifinho-dev:/notifinho
+    environment:
+      TZ: Europe/Lisbon
+    command: /notifinho/start.sh

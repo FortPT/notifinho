@@ -1,0 +1,23 @@
+FROM python:3.13-slim
+
+WORKDIR /notifinho
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       bash \
+       curl \
+       git \
+       nano \
+       procps \
+       iputils-ping \
+       netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /notifinho/requirements.txt
+
+RUN pip install --no-cache-dir -r /notifinho/requirements.txt
+
+CMD ["/notifinho/start.sh"]

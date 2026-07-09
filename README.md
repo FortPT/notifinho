@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/logo.png" width="180">
+  <img src="docs/images/logo.png" width="220">
 </p>
 
 <h1 align="center">Notifinho</h1>
@@ -9,15 +9,10 @@
 </p>
 
 <p align="center">
-Transform infrastructure events into rich, actionable notifications.
-</p>
-
-<p align="center">
 Built for homelabs • Ready for enterprise
 </p>
 
-> **Transform infrastructure email notifications into rich Discord and Microsoft Teams alerts.**
-
+<p align="center">
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Python](https://img.shields.io/badge/python-3.13-blue)
 ![Docker](https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white)
@@ -25,10 +20,7 @@ Built for homelabs • Ready for enterprise
 ![Xen Orchestra](https://img.shields.io/badge/Xen%20Orchestra-supported-orange)
 ![Discord](https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white)
 ![Microsoft Teams](https://img.shields.io/badge/Microsoft%20Teams-coming%20soon-6264A7?logo=microsoftteams&logoColor=white)
-
-Developed and maintained by **FortPT**.
-
-> **Built for homelabs. Ready for enterprise.**
+</p>
 
 ---
 

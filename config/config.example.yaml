@@ -1,0 +1,46 @@
+application:
+  debug: false
+
+logging:
+  level: INFO
+  file: /notifinho/logs/notifinho.log
+
+smtp:
+  host: 0.0.0.0
+  port: 8025
+
+outputs:
+
+  discord:
+
+    enabled: true
+
+    default:
+
+      webhook: "https://discord.com/api/webhooks/CHANGE_ME"
+
+routing:
+
+  xo:
+    output: discord
+    target: default
+
+  zabbix:
+    output: discord
+    target: default
+
+  generic:
+    output: discord
+    target: default
+
+notifications:
+
+  xo:
+
+    success: false
+
+    skipped: true
+
+    failure: true
+
+    show_ids: false

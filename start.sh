@@ -2,7 +2,7 @@
 
 echo "========================================="
 echo " Notifinho v1.0.0"
-echo " SMTP Notification Gateway"
+echo " Infrastructure Notification Engine"
 echo "========================================="
 
 mkdir -p /notifinho/logs/emails

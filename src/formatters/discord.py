@@ -12,9 +12,9 @@ from datetime import datetime
 
 from config import config
 from models import Notification
+from formatters.base import BaseFormatter
 
-
-class DiscordFormatter:
+class DiscordFormatter(BaseFormatter):
 
     MONTHS = {
         "January": "Jan",

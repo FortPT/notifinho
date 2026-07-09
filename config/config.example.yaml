@@ -19,6 +19,14 @@ outputs:
 
       webhook: "https://discord.com/api/webhooks/CHANGE_ME"
 
+  teams:
+
+    enabled: false
+
+    default:
+
+      webhook: "https://outlook.office.com/webhook/CHANGE_ME"
+
 routing:
 
   xo:

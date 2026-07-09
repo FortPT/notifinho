@@ -14,6 +14,7 @@ from logger import log
 from models import Notification
 
 from outputs.discord import DiscordOutput
+from outputs.teams import TeamsOutput
 
 
 class Router:
@@ -26,6 +27,7 @@ class Router:
 
         self.outputs = {
             "discord": DiscordOutput(),
+            "teams": TeamsOutput(),
         }
 
         log.info(

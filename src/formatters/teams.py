@@ -14,7 +14,6 @@ from typing import Any
 from config import config
 from formatters.base import BaseFormatter
 from models import Notification
-from version import VERSION
 
 
 class TeamsFormatter(BaseFormatter):
@@ -418,6 +417,22 @@ class TeamsFormatter(BaseFormatter):
 
         return value
 
+    def _remove_ordinal_suffixes(
+        self,
+        value: str,
+    ) -> str:
+
+        for day in range(1, 32):
+
+            for suffix in ("st", "nd", "rd", "th"):
+
+                value = value.replace(
+                    f"{day}{suffix}",
+                    str(day),
+                )
+
+        return value
+
     def _format_datetime(
         self,
         value: str,
@@ -429,7 +444,21 @@ class TeamsFormatter(BaseFormatter):
 
         value = str(value).strip()
 
+        value = self._remove_ordinal_suffixes(
+            value,
+        )
+
+        value = value.replace(
+            " am",
+            " AM",
+        ).replace(
+            " pm",
+            " PM",
+        )
+
         formats = [
+            "%A, %B %d %Y, %I:%M:%S %p",
+            "%A, %B %d %Y, %I:%M %p",
             "%B %d, %Y at %I:%M %p",
             "%B %d, %Y %I:%M %p",
             "%Y-%m-%d %H:%M:%S",

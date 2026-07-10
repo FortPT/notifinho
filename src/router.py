@@ -21,10 +21,6 @@ class Router:
 
     def __init__(self):
 
-        #
-        # Output registry
-        #
-
         self.outputs = {
             "discord": DiscordOutput(),
             "teams": TeamsOutput(),
@@ -41,10 +37,6 @@ class Router:
         notification: Notification,
     ) -> bool:
 
-        #
-        # Lookup routing
-        #
-
         route = config.get(
             "routing",
             notification.source,
@@ -59,39 +51,90 @@ class Router:
 
             return False
 
-        output_name = route.get("output")
+        routes = route.get("outputs")
 
-        target = route.get("target")
+        if routes is None:
 
-        log.info(
-            "Routing '%s' -> %s (%s)",
-            notification.source,
-            output_name,
-            target,
-        )
+            routes = [route]
 
-        #
-        # Get output implementation
-        #
-
-        output = self.outputs.get(
-            output_name,
-        )
-
-        if output is None:
+        if not isinstance(routes, list):
 
             log.error(
-                "Unknown output '%s'",
-                output_name,
+                "Invalid routing configured for '%s'",
+                notification.source,
             )
 
             return False
 
-        #
-        # Send notification
-        #
+        success = False
 
-        return output.send(
-            notification,
-            target,
-        )
+        for destination in routes:
+
+            if not isinstance(destination, dict):
+
+                log.error(
+                    "Invalid output routing configured for '%s'",
+                    notification.source,
+                )
+
+                continue
+
+            output_name = destination.get("output")
+
+            target = destination.get(
+                "target",
+                "default",
+            )
+
+            log.info(
+                "Routing '%s' -> %s (%s)",
+                notification.source,
+                output_name,
+                target,
+            )
+
+            output = self.outputs.get(
+                output_name,
+            )
+
+            if output is None:
+
+                log.error(
+                    "Unknown output '%s'",
+                    output_name,
+                )
+
+                continue
+
+            try:
+
+                sent = output.send(
+                    notification,
+                    target,
+                )
+
+            except Exception:
+
+                log.exception(
+                    "Failed to route '%s' -> %s (%s)",
+                    notification.source,
+                    output_name,
+                    target,
+                )
+
+                continue
+
+            if sent:
+
+                success = True
+
+            else:
+
+                log.error(
+                    "Failed to route '%s' -> %s (%s)",
+                    notification.source,
+                    output_name,
+                    target,
+                )
+
+        return success

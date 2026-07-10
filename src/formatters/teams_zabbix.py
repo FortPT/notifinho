@@ -40,7 +40,7 @@ class ZabbixTeamsFormatter(BaseFormatter):
 
         is_recovery = (
             event_type == "recovery"
-            or notification.status.lower()
+            or (notification.status or "").lower()
             in (
                 "success",
                 "resolved",
@@ -84,23 +84,26 @@ class ZabbixTeamsFormatter(BaseFormatter):
         if is_recovery:
 
             icon = "✅"
-            color = "Good"
+            accent_color = "Good"
             status_text = "Problem Resolved"
-            problem_label = "Resolved problem"
-            severity_label = "Previous severity"
-            time_label = "Resolved"
+            problem_heading = "Resolved problem"
+            problem_icon = "✅"
+            severity_heading = "Previous severity"
+            time_heading = "Resolved"
+            time_icon = "🏁"
 
         else:
 
-            icon = self._severity_icon(
+            icon, accent_color = self._severity_meta(
                 severity,
             )
 
-            color = "Attention"
             status_text = "Problem"
-            problem_label = "Problem"
-            severity_label = "Severity"
-            time_label = "Started"
+            problem_heading = "Active problem"
+            problem_icon = "🚨"
+            severity_heading = "Severity"
+            time_heading = "Started"
+            time_icon = "🕒"
 
         body: list[dict[str, Any]] = [
             {
@@ -108,7 +111,7 @@ class ZabbixTeamsFormatter(BaseFormatter):
                 "text": f"{icon} {host}",
                 "weight": "Bolder",
                 "size": "Large",
-                "color": color,
+                "color": accent_color,
                 "wrap": True,
             },
             {
@@ -119,53 +122,96 @@ class ZabbixTeamsFormatter(BaseFormatter):
                 "wrap": True,
             },
             {
-                "type": "TextBlock",
-                "text": f"**{problem_label}**",
-                "weight": "Bolder",
+                "type": "Container",
+                "style": "emphasis",
                 "spacing": "Medium",
                 "separator": True,
-                "wrap": True,
-            },
-            {
-                "type": "TextBlock",
-                "text": problem_name,
-                "spacing": "Small",
-                "wrap": True,
+                "items": [
+                    {
+                        "type": "TextBlock",
+                        "text": f"{problem_icon} {problem_heading}",
+                        "weight": "Bolder",
+                        "color": accent_color,
+                        "wrap": True,
+                    },
+                    {
+                        "type": "TextBlock",
+                        "text": problem_name,
+                        "weight": "Bolder",
+                        "size": "Medium",
+                        "spacing": "Small",
+                        "wrap": True,
+                    },
+                ],
             },
         ]
 
-        facts: list[dict[str, str]] = []
+        metric_columns: list[dict[str, Any]] = []
 
-        self._add_fact(
-            facts,
-            severity_label,
-            severity,
-        )
-
-        if notification.duration:
-
-            self._add_fact(
-                facts,
-                "Duration",
-                notification.duration,
+        metric_columns.append(
+            self._metric_column(
+                icon="⚠️",
+                label=severity_heading,
+                value=severity,
             )
+        )
 
         if event_time:
 
-            self._add_fact(
-                facts,
-                time_label,
-                self._format_datetime(
-                    event_time,
-                ),
+            metric_columns.append(
+                self._metric_column(
+                    icon=time_icon,
+                    label=time_heading,
+                    value=self._format_datetime(
+                        event_time,
+                    ),
+                )
+            )
+
+        if notification.duration:
+
+            metric_columns.append(
+                self._metric_column(
+                    icon="⏱",
+                    label="Duration",
+                    value=notification.duration,
+                )
+            )
+
+        if metric_columns:
+
+            body.append(
+                {
+                    "type": "ColumnSet",
+                    "spacing": "Medium",
+                    "columns": metric_columns,
+                }
             )
 
         if operational_data:
 
-            self._add_fact(
-                facts,
-                "Operational data",
-                operational_data,
+            body.append(
+                {
+                    "type": "Container",
+                    "spacing": "Medium",
+                    "separator": True,
+                    "items": [
+                        {
+                            "type": "TextBlock",
+                            "text": "📊 Operational data",
+                            "weight": "Bolder",
+                            "wrap": True,
+                        },
+                        {
+                            "type": "TextBlock",
+                            "text": str(
+                                operational_data,
+                            ),
+                            "spacing": "Small",
+                            "wrap": True,
+                        },
+                    ],
+                }
             )
 
         show_ids = config.get(
@@ -177,19 +223,15 @@ class ZabbixTeamsFormatter(BaseFormatter):
 
         if show_ids and problem_id:
 
-            self._add_fact(
-                facts,
-                "Problem ID",
-                problem_id,
-            )
-
-        if facts:
-
             body.append(
                 {
-                    "type": "FactSet",
+                    "type": "TextBlock",
+                    "text": f"Event ID: `{problem_id}`",
+                    "isSubtle": True,
+                    "size": "Small",
                     "spacing": "Medium",
-                    "facts": facts,
+                    "separator": True,
+                    "wrap": True,
                 }
             )
 
@@ -219,55 +261,85 @@ class ZabbixTeamsFormatter(BaseFormatter):
             "type": "message",
             "attachments": [
                 {
-                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "contentType": (
+                        "application/vnd.microsoft.card.adaptive"
+                    ),
                     "content": card,
                 }
             ],
         }
 
-    def _severity_icon(
+    def _metric_column(
         self,
-        severity: str,
-    ) -> str:
+        icon: str,
+        label: str,
+        value,
+    ) -> dict[str, Any]:
 
-        icons = {
-            "disaster": "🚨",
-            "high": "🔴",
-            "average": "🟠",
-            "warning": "🟡",
-            "information": "🔵",
-            "not classified": "⚪",
+        return {
+            "type": "Column",
+            "width": "stretch",
+            "items": [
+                {
+                    "type": "TextBlock",
+                    "text": f"{icon} {label}",
+                    "weight": "Bolder",
+                    "size": "Small",
+                    "wrap": True,
+                },
+                {
+                    "type": "TextBlock",
+                    "text": str(
+                        value or "-",
+                    ),
+                    "spacing": "Small",
+                    "wrap": True,
+                },
+            ],
         }
 
-        return icons.get(
-            str(severity or "").lower(),
-            "🚨",
-        )
-
-    def _add_fact(
+    def _severity_meta(
         self,
-        facts: list[dict[str, str]],
-        title: str,
-        value,
-    ) -> None:
+        severity: str,
+    ) -> tuple[str, str]:
 
-        if value is None:
+        normalized = str(
+            severity or "",
+        ).lower()
 
-            return
+        values = {
+            "disaster": (
+                "🚨",
+                "Attention",
+            ),
+            "high": (
+                "🔴",
+                "Attention",
+            ),
+            "average": (
+                "🟠",
+                "Warning",
+            ),
+            "warning": (
+                "🟡",
+                "Warning",
+            ),
+            "information": (
+                "🔵",
+                "Accent",
+            ),
+            "not classified": (
+                "⚪",
+                "Default",
+            ),
+        }
 
-        value = str(
-            value,
-        ).strip()
-
-        if not value or value == "-":
-
-            return
-
-        facts.append(
-            {
-                "title": f"{title}:",
-                "value": value,
-            }
+        return values.get(
+            normalized,
+            (
+                "🚨",
+                "Attention",
+            ),
         )
 
     def _format_datetime(

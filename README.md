@@ -514,44 +514,51 @@ The configuration is intentionally simple and organized into logical sections.
 ## Example Configuration
 
 ```yaml
-application:
-  debug: false
-
-logging:
-  level: INFO
-  file: /notifinho/logs/notifinho.log
-
 smtp:
   host: 0.0.0.0
   port: 8025
 
 outputs:
-
   discord:
-
+    # Set to false to disable Discord notifications.
     enabled: true
 
     default:
+      webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
-      webhook: "https://discord.com/api/webhooks/CHANGE_ME"
+  teams:
+    # Change to true after adding a valid webhook and enabling a Teams route.
+    enabled: false
+
+    default:
+      webhook: "PASTE_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
-
   xo:
-    output: discord
-    target: default
+    outputs:
+      - output: discord
+        target: default
 
-notifications:
+      # To also send Xen Orchestra notifications to Microsoft Teams:
+      # 1. Paste the Teams workflow webhook above.
+      # 2. Change outputs.teams.enabled to true.
+      # 3. Uncomment the following route.
+      #
+      # - output: teams
+      #   target: default
 
-  xo:
+  zabbix:
+    outputs:
+      - output: discord
+        target: default
 
-    success: false
+      # - output: teams
+      #   target: default
 
-    skipped: true
-
-    failure: true
-
-    show_ids: false
+  generic:
+    outputs:
+      - output: discord
+        target: default
 ```
 
 ---

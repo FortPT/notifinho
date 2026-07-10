@@ -54,9 +54,15 @@ Notifinho is under active development. New parsers, notification platforms and i
 
 > **Xen Orchestra → Discord**
 
-![Xen Orchestra Backup Notification](docs/images/xo-discord.png)
+![Xen Orchestra Backup Notification - Discord](docs/images/xo-discord.png)
 
 *Example of a Xen Orchestra backup report transformed into a rich Discord notification by Notifinho.*
+
+> **Xen Orchestra → Microsoft Teams**
+
+![Xen Orchestra Backup Notification - Microsoft Teams](docs/images/xo-teams.png)
+
+*Example of the same Xen Orchestra backup report delivered as a Microsoft Teams Adaptive Card.*
 
 ---
 

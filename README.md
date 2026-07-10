@@ -378,7 +378,7 @@ Deploying Notifinho only takes a few minutes.
 - Docker Engine 24+
 - Docker Compose
 - SMTP-capable application (Xen Orchestra, Zabbix, etc.)
-- A Discord webhook (Microsoft Teams support is coming soon)
+- A Discord webhook and/or Microsoft Teams workflow webhook
 
 ---
 

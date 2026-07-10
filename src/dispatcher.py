@@ -14,10 +14,10 @@ from email.message import EmailMessage
 from logger import log
 
 from parsers.generic import Parser as GenericParser
+from parsers.proxmox import Parser as ProxmoxParser
+from parsers.truenas import Parser as TrueNASParser
 from parsers.xo import Parser as XOParser
 from parsers.zabbix import Parser as ZabbixParser
-from parsers.truenas import Parser as TrueNASParser
-from parsers.proxmox import Parser as ProxmoxParser
 
 
 class Dispatcher:
@@ -41,58 +41,96 @@ class Dispatcher:
         message: EmailMessage,
     ):
 
-        subject = message.get("Subject", "")
+        subject = str(
+            message.get(
+                "Subject",
+                "",
+            )
+        )
 
-        sender = message.get("From", "")
+        sender = str(
+            message.get(
+                "From",
+                "",
+            )
+        )
 
-        log.info("Subject : %s", subject)
+        sender_lower = sender.lower()
 
-        log.info("Sender  : %s", sender)
+        log.info(
+            "Subject : %s",
+            subject,
+        )
+
+        log.info(
+            "Sender  : %s",
+            sender,
+        )
 
         #
         # Xen Orchestra
         #
 
-        if "Xen Orchestra" in sender:
+        if "xen orchestra" in sender_lower:
 
-            log.info("Detected Xen Orchestra email")
+            log.info(
+                "Detected Xen Orchestra email"
+            )
 
-            return self.xo_parser.parse(message)
+            return self.xo_parser.parse(
+                message,
+            )
 
         #
         # Zabbix
         #
 
-        if "Zabbix" in sender:
+        if "zabbix" in sender_lower:
 
-            log.info("Detected Zabbix email")
+            log.info(
+                "Detected Zabbix email"
+            )
 
-            return self.zabbix_parser.parse(message)
+            return self.zabbix_parser.parse(
+                message,
+            )
 
         #
         # TrueNAS
         #
 
-        if "TrueNAS" in sender:
+        if "truenas" in sender_lower:
 
-            log.info("Detected TrueNAS email")
+            log.info(
+                "Detected TrueNAS email"
+            )
 
-            return self.truenas_parser.parse(message)
+            return self.truenas_parser.parse(
+                message,
+            )
 
         #
         # Proxmox
         #
 
-        if "Proxmox" in sender:
+        if "proxmox" in sender_lower:
 
-            log.info("Detected Proxmox email")
+            log.info(
+                "Detected Proxmox email"
+            )
 
-            return self.proxmox_parser.parse(message)
+            return self.proxmox_parser.parse(
+                message,
+            )
 
         #
         # Generic
         #
 
-        log.info("Using generic parser")
+        log.info(
+            "Using generic parser"
+        )
 
-        return self.generic_parser.parse(message)
+        return self.generic_parser.parse(
+            message,
+        )

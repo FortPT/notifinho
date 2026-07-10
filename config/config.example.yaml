@@ -1,43 +1,33 @@
-application:
-  debug: false
-
-logging:
-  level: INFO
-  file: /notifinho/logs/notifinho.log
-
 smtp:
   host: 0.0.0.0
   port: 8025
 
 outputs:
-
   discord:
-
     enabled: true
 
     default:
-
-      webhook: "https://discord.com/api/webhooks/CHANGE_ME"
+      webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
   teams:
-
     enabled: true
 
     default:
-
-      webhook: "https://outlook.office.com/webhook/CHANGE_ME"
+      webhook: "PASTE_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
-
-  # Multiple-output routing
   xo:
     outputs:
       - output: discord
         target: default
-      - output: teams
-        target: default
 
-  # Legacy single-output routing remains supported
+      # To also send Xen Orchestra notifications to Microsoft Teams:
+      # 1. Paste the Teams workflow webhook above.
+      # 2. Uncomment the following two lines.
+      #
+      # - output: teams
+      #   target: default
+
   zabbix:
     output: discord
     target: default
@@ -45,15 +35,3 @@ routing:
   generic:
     output: discord
     target: default
-
-notifications:
-
-  xo:
-
-    success: false
-
-    skipped: true
-
-    failure: true
-
-    show_ids: false

@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/version-1.1.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.1.1-blue" alt="Version">
 </a>
 
 <a href="https://www.python.org/">
@@ -42,7 +42,7 @@ Built for Homelabs • Ready for Enterprise
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
 | **Current Stable Release** | **v1.0.1** |
-| **Current Release** | **v1.1.0** |
+| **Current Release** | **v1.1.1** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
@@ -221,7 +221,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Platform | Status |
 |-----------|:------:|
 | Discord | ✅ Stable |
-| Microsoft Teams | ✅ v1.1.0 |
+| Microsoft Teams | ✅ v1.1.1 |
 | Slack | 📅 Planned |
 | Telegram | 📅 Planned |
 | Email | 📅 Planned |
@@ -675,7 +675,7 @@ The roadmap reflects the planned evolution of the project.
 
 ---
 
-## ✅ v1.1.0
+## ✅ v1.1.1
 
 - Microsoft Teams output
 - GitHub Actions

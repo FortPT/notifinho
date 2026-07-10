@@ -12,6 +12,7 @@ from datetime import datetime
 
 from config import config
 from models import Notification
+from version import VERSION
 from formatters.base import BaseFormatter
 
 class DiscordFormatter(BaseFormatter):
@@ -64,7 +65,7 @@ class DiscordFormatter(BaseFormatter):
             },
             "fields": [],
             "footer": {
-                "text": "FortPT Labs\nNotifinho v1.0.0",
+                "text": f"FortPT Labs\\nNotifinho v{VERSION}",
             },
         }
 

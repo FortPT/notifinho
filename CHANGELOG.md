@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1
+
+### Fixed
+
+- Fixed Discord footer version to use the application version dynamically instead of a hardcoded value.
+
+---
+
 ## 1.1.0
 
 ### Added

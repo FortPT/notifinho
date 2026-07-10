@@ -21,7 +21,7 @@ outputs:
 
   teams:
 
-    enabled: false
+    enabled: true
 
     default:
 
@@ -29,10 +29,15 @@ outputs:
 
 routing:
 
+  # Multiple-output routing
   xo:
-    output: discord
-    target: default
+    outputs:
+      - output: discord
+        target: default
+      - output: teams
+        target: default
 
+  # Legacy single-output routing remains supported
   zabbix:
     output: discord
     target: default

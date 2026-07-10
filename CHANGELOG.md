@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased (v1.2.0)
+
+### Planned
+
+- Zabbix parser.
+- Zabbix problem notifications.
+- Zabbix recovery notifications.
+- Discord and Microsoft Teams formatting for Zabbix events.
+- Configuration examples for Zabbix routing.
+
+---
+
 ## 1.1.1
 
 ### Fixed

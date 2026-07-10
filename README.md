@@ -28,6 +28,8 @@ Built for Homelabs • Ready for Enterprise
 
 <img src="https://img.shields.io/badge/Xen%20Orchestra-supported-orange" alt="Xen Orchestra">
 
+<img src="https://img.shields.io/badge/Zabbix-v1.2.0--dev-D40000?logo=zabbix&logoColor=white" alt="Zabbix">
+
 <img src="https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white" alt="Discord">
 
 <img src="https://img.shields.io/badge/Microsoft%20Teams-supported-6264A7?logo=microsoftteams&logoColor=white" alt="Microsoft Teams">
@@ -186,6 +188,27 @@ Current implementation includes:
 
 ---
 
+## 📊 Zabbix
+
+The v1.2.0 implementation includes:
+
+- Automatic Zabbix email detection
+- Problem notifications
+- Recovery notifications
+- Host name
+- Problem name
+- Severity
+- Event time
+- Recovery duration
+- Operational data
+- Optional problem ID
+- Severity-aware colors and icons
+- Discord embeds
+- Microsoft Teams Adaptive Cards
+- Conditional host-based routing
+- Secondary webhook destinations for selected hosts
+
+---
 ## ⚡ Designed for Fast Decision Making
 
 Every notification is designed around one principle:
@@ -210,7 +233,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Product | Status |
 |----------|:------:|
 | Xen Orchestra | ✅ Stable |
-| Zabbix | 📅 Planned |
+| Zabbix | 🚧 v1.2.0-dev |
 | TrueNAS | 📅 Planned |
 | UniFi | 📅 Planned |
 | Proxmox VE | 📅 Planned |
@@ -363,9 +386,9 @@ This separation keeps every component focused on a single responsibility.
 
 Notifinho was designed from the beginning to support additional infrastructure platforms and messaging services without requiring architectural changes.
 
-Today's implementation focuses on Xen Orchestra and Discord.
+The current implementation supports Xen Orchestra and Zabbix sources, with delivery to Discord and Microsoft Teams.
 
-Tomorrow it may include Zabbix, TrueNAS, UniFi, Microsoft Teams, Slack, Telegram and many others.
+Future versions may include TrueNAS, UniFi, Proxmox VE, Slack, Telegram and additional integrations.
 
 ---
 
@@ -520,22 +543,38 @@ smtp:
 
 outputs:
   discord:
-    # Set to false to disable Discord notifications.
+    # Set to false to disable all Discord notifications.
     enabled: true
 
+    # Primary Discord destination.
     default:
       webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
+    # Optional secondary Discord destination.
+    # Uncomment this block when forwarding selected hosts
+    # to another Discord server or channel.
+    #
+    # palworld:
+    #   webhook: "PASTE_SECONDARY_DISCORD_WEBHOOK_HERE"
+
   teams:
-    # Change to true after adding a valid webhook and enabling a Teams route.
+    # Change to true after adding a valid webhook
+    # and enabling at least one Teams route below.
     enabled: false
 
+    # Primary Microsoft Teams destination.
     default:
       webhook: "PASTE_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional separate Teams destination for Zabbix.
+    #
+    # zabbix:
+    #   webhook: "PASTE_ZABBIX_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
     outputs:
+      # Send Xen Orchestra notifications to Discord.
       - output: discord
         target: default
 
@@ -549,17 +588,71 @@ routing:
 
   zabbix:
     outputs:
+      # Send every Zabbix notification to the primary
+      # Discord destination.
       - output: discord
         target: default
 
+      # To also send every Zabbix notification to Teams:
+      # 1. Paste the Teams webhook above.
+      # 2. Change outputs.teams.enabled to true.
+      # 3. Uncomment the following route.
+      #
       # - output: teams
       #   target: default
 
+      # Optional conditional route.
+      #
+      # This sends notifications only when the Zabbix host
+      # exactly matches one of the names listed below.
+      #
+      # The primary destination above still receives every
+      # Zabbix notification.
+      #
+      # - output: discord
+      #   target: palworld
+      #   match:
+      #     hosts:
+      #       - "VM-07 | Palworld"
+
+      # Multiple hosts can use the same secondary destination:
+      #
+      # - output: discord
+      #   target: palworld
+      #   match:
+      #     hosts:
+      #       - "VM-07 | Palworld"
+      #       - "VM-12 | Palworld Test"
+      #       - "VM-18 | Game Server"
+
   generic:
     outputs:
+      # Fallback route for emails that do not match
+      # a supported source parser.
       - output: discord
         target: default
+
+notifications:
+  xo:
+    # Send successful backup notifications.
+    success: false
+
+    # Send skipped backup notifications.
+    skipped: true
+
+    # Send failed backup notifications.
+    failure: true
+
+    # Include Xen Orchestra Job ID and Run ID.
+    show_ids: false
+
+  zabbix:
+    # Include the Zabbix problem ID in notifications.
+    show_ids: false
 ```
+
+The complete documented configuration is available in
+[`config/config.example.yaml`](config/config.example.yaml).
 
 ---
 
@@ -567,22 +660,58 @@ routing:
 
 Routing determines where notifications are sent after they have been parsed.
 
-For example:
+Each source can deliver the same notification to one or more output targets:
 
 ```yaml
 routing:
-
-  xo:
-    output: discord
-    target: default
-
   zabbix:
-    output: teams
-    target: operations
+    outputs:
+      - output: discord
+        target: default
+
+      - output: teams
+        target: default
 ```
 
-This makes it possible to send notifications from different products to different collaboration platforms without modifying the monitored software.
+### Conditional host routing
 
+An optional `match.hosts` filter can restrict a destination to selected
+Zabbix hosts:
+
+```yaml
+outputs:
+  discord:
+    enabled: true
+
+    default:
+      webhook: "MAIN_ZABBIX_CHANNEL_WEBHOOK"
+
+    palworld:
+      webhook: "SECONDARY_PALWORLD_CHANNEL_WEBHOOK"
+
+routing:
+  zabbix:
+    outputs:
+      # Receives every Zabbix event.
+      - output: discord
+        target: default
+
+      # Receives only events for the listed host.
+      - output: discord
+        target: palworld
+        match:
+          hosts:
+            - "VM-07 | Palworld"
+```
+
+The primary destination receives all Zabbix notifications. The secondary
+destination receives only notifications from `VM-07 | Palworld`.
+
+Multiple hosts can be listed under `match.hosts`. Routes without a `match`
+section remain unconditional and continue to receive every notification.
+
+This allows selected infrastructure hosts to be forwarded to different
+Discord servers, Teams channels, or other configured destinations.
 ---
 
 ## Logging
@@ -690,12 +819,16 @@ The roadmap reflects the planned evolution of the project.
 
 ---
 
-## 📅 v1.2.0
+## 🚧 v1.2.0
 
-- Zabbix parser
-- Rich Zabbix notifications
-- Trigger-aware formatting
-- Host-aware layouts
+- Zabbix problem and recovery parser
+- Zabbix Discord embed formatter
+- Zabbix Microsoft Teams Adaptive Card formatter
+- Severity-aware colors and icons
+- Source-specific formatter selection
+- Conditional host-based routing
+- Secondary webhook destinations for selected hosts
+- Zabbix routing configuration examples
 
 ---
 

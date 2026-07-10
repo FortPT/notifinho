@@ -4,22 +4,38 @@ smtp:
 
 outputs:
   discord:
-    # Set to false to disable Discord notifications.
+    # Set to false to disable all Discord notifications.
     enabled: true
 
+    # Primary Discord destination.
     default:
       webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
+    # Optional secondary Discord destination.
+    # Uncomment this block when forwarding selected hosts
+    # to another Discord server or channel.
+    #
+    # palworld:
+    #   webhook: "PASTE_SECONDARY_DISCORD_WEBHOOK_HERE"
+
   teams:
-    # Change to true after adding a valid webhook and enabling a Teams route.
+    # Change to true after adding a valid webhook
+    # and enabling at least one Teams route below.
     enabled: false
 
+    # Primary Microsoft Teams destination.
     default:
       webhook: "PASTE_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional separate Teams destination for Zabbix.
+    #
+    # zabbix:
+    #   webhook: "PASTE_ZABBIX_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
     outputs:
+      # Send Xen Orchestra notifications to Discord.
       - output: discord
         target: default
 
@@ -33,13 +49,64 @@ routing:
 
   zabbix:
     outputs:
+      # Send every Zabbix notification to the primary
+      # Discord destination.
       - output: discord
         target: default
 
+      # To also send every Zabbix notification to Teams:
+      # 1. Paste the Teams webhook above.
+      # 2. Change outputs.teams.enabled to true.
+      # 3. Uncomment the following route.
+      #
       # - output: teams
       #   target: default
 
+      # Optional conditional route.
+      #
+      # This sends notifications only when the Zabbix host
+      # exactly matches one of the names listed below.
+      #
+      # The primary destination above still receives every
+      # Zabbix notification.
+      #
+      # - output: discord
+      #   target: palworld
+      #   match:
+      #     hosts:
+      #       - "VM-07 | Palworld"
+
+      # Multiple hosts can use the same secondary destination:
+      #
+      # - output: discord
+      #   target: palworld
+      #   match:
+      #     hosts:
+      #       - "VM-07 | Palworld"
+      #       - "VM-12 | Palworld Test"
+      #       - "VM-18 | Game Server"
+
   generic:
     outputs:
+      # Fallback route for emails that do not match
+      # a supported source parser.
       - output: discord
         target: default
+
+notifications:
+  xo:
+    # Send successful backup notifications.
+    success: false
+
+    # Send skipped backup notifications.
+    skipped: true
+
+    # Send failed backup notifications.
+    failure: true
+
+    # Include Xen Orchestra Job ID and Run ID.
+    show_ids: false
+
+  zabbix:
+    # Include the Zabbix problem ID in notifications.
+    show_ids: false

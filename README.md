@@ -675,7 +675,7 @@ The roadmap reflects the planned evolution of the project.
 
 ---
 
-## 🚧 v1.1.0
+## ✅ v1.1.0
 
 - Microsoft Teams output
 - GitHub Actions

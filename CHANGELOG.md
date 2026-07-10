@@ -2,13 +2,28 @@
 
 ## Unreleased (v1.2.0)
 
-### Planned
+### Added
 
-- Zabbix parser.
+- Zabbix email detection and parser.
 - Zabbix problem notifications.
 - Zabbix recovery notifications.
-- Discord and Microsoft Teams formatting for Zabbix events.
+- Zabbix-specific Discord embed formatter.
+- Zabbix-specific Microsoft Teams Adaptive Card formatter.
+- Severity-aware Zabbix notification icons and colors.
+- Optional Zabbix problem ID display.
+- Conditional host-based output routing.
+- Support for sending selected Zabbix hosts to secondary webhook targets.
 - Configuration examples for Zabbix routing.
+- Configuration examples for filtered secondary destinations.
+
+### Improved
+
+- Microsoft Teams Zabbix card layout.
+- Zabbix problem and recovery date formatting.
+- Source-specific formatter selection for Discord and Microsoft Teams.
+- Case-insensitive email sender detection.
+- Router logging for matched and skipped conditional destinations.
+- Configuration documentation for multiple output targets.
 
 ---
 
@@ -49,12 +64,12 @@ Initial public release.
 
 ### Added
 
-- SMTP Gateway
-- XO Parser
-- Discord Formatter
-- Docker support
-- Routing
-- VM details
-- Repository
-- Speed
-- Rich embeds
+- SMTP Gateway.
+- Xen Orchestra parser.
+- Discord formatter.
+- Docker support.
+- Routing.
+- VM details.
+- Repository information.
+- Transfer speed.
+- Rich embeds.

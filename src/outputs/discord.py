@@ -11,17 +11,21 @@ from __future__ import annotations
 import requests
 
 from config import config
+from formatters.discord import DiscordFormatter
+from formatters.discord_zabbix import ZabbixDiscordFormatter
 from logger import log
 from models import Notification
-
-from formatters.discord import DiscordFormatter
 
 
 class DiscordOutput:
 
     def __init__(self):
 
-        self.formatter = DiscordFormatter()
+        self.default_formatter = DiscordFormatter()
+
+        self.source_formatters = {
+            "zabbix": ZabbixDiscordFormatter(),
+        }
 
     def send(
         self,
@@ -45,13 +49,38 @@ class DiscordOutput:
 
             return False
 
-        payload = self.formatter.format(
-            notification,
+        source = (
+            notification.source
+            or ""
+        ).lower()
+
+        formatter = self.source_formatters.get(
+            source,
+            self.default_formatter,
         )
+
+        try:
+
+            payload = formatter.format(
+                notification,
+            )
+
+        except Exception:
+
+            log.exception(
+                "Failed to format Discord notification."
+            )
+
+            return False
 
         log.info(
             "Sending notification to Discord (%s)...",
             target,
+        )
+
+        log.info(
+            "Discord formatter: %s",
+            formatter.__class__.__name__,
         )
 
         log.info(

@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/version-1.2.0--dev-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.2.0-blue" alt="Version">
 </a>
 
 <a href="https://www.python.org/">
@@ -28,7 +28,7 @@ Built for Homelabs • Ready for Enterprise
 
 <img src="https://img.shields.io/badge/Xen%20Orchestra-supported-orange" alt="Xen Orchestra">
 
-<img src="https://img.shields.io/badge/Zabbix-v1.2.0--dev-D40000?logo=zabbix&logoColor=white" alt="Zabbix">
+<img src="https://img.shields.io/badge/Zabbix-v1.2.0-D40000?logo=zabbix&logoColor=white" alt="Zabbix">
 
 <img src="https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white" alt="Discord">
 
@@ -43,8 +43,8 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.1.1** |
-| **Development Version** | **v1.2.0-dev** |
+| **Current Stable Release** | **v1.2.0** |
+| **Development Version** | — |
 | **License** | MIT |
 | **Python** | 3.13 |
 
@@ -233,7 +233,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Product | Status |
 |----------|:------:|
 | Xen Orchestra | ✅ Stable |
-| Zabbix | 🚧 v1.2.0-dev |
+| Zabbix | ✅ v1.2.0 |
 | TrueNAS | 📅 Planned |
 | UniFi | 📅 Planned |
 | Proxmox VE | 📅 Planned |
@@ -819,7 +819,7 @@ The roadmap reflects the planned evolution of the project.
 
 ---
 
-## 🚧 v1.2.0
+## ✅ v1.2.0
 
 - Zabbix problem and recovery parser
 - Zabbix Discord embed formatter

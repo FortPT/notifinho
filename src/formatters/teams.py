@@ -14,6 +14,7 @@ from typing import Any
 from config import config
 from formatters.base import BaseFormatter
 from models import Notification
+from version import VERSION
 
 
 class TeamsFormatter(BaseFormatter):
@@ -77,7 +78,7 @@ class TeamsFormatter(BaseFormatter):
 
         self._add_fact(
             facts,
-            "Transfer",
+            "Transfer Size",
             notification.transfer_size,
         )
 
@@ -177,6 +178,10 @@ class TeamsFormatter(BaseFormatter):
             notification=notification,
             include_error=False,
             separator=True,
+        )
+
+        self._add_footer(
+            body,
         )
 
         card = {
@@ -390,6 +395,23 @@ class TeamsFormatter(BaseFormatter):
             lines.append(f"...and {remaining} more.")
 
         return "\n".join(lines) if lines else "-"
+
+    def _add_footer(
+        self,
+        body: list[dict[str, Any]],
+    ) -> None:
+
+        body.append(
+            {
+                "type": "TextBlock",
+                "text": f"FortPT Labs • Notifinho v{VERSION}",
+                "isSubtle": True,
+                "size": "Small",
+                "spacing": "Medium",
+                "separator": True,
+                "wrap": True,
+            }
+        )
 
     def _short_duration(
         self,

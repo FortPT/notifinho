@@ -4,13 +4,15 @@ smtp:
 
 outputs:
   discord:
+    # Set to false to disable Discord notifications.
     enabled: true
 
     default:
       webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
   teams:
-    enabled: true
+    # Change to true after adding a valid webhook and enabling a Teams route.
+    enabled: false
 
     default:
       webhook: "PASTE_TEAMS_WORKFLOW_WEBHOOK_HERE"
@@ -23,15 +25,21 @@ routing:
 
       # To also send Xen Orchestra notifications to Microsoft Teams:
       # 1. Paste the Teams workflow webhook above.
-      # 2. Uncomment the following two lines.
+      # 2. Change outputs.teams.enabled to true.
+      # 3. Uncomment the following route.
       #
       # - output: teams
       #   target: default
 
   zabbix:
-    output: discord
-    target: default
+    outputs:
+      - output: discord
+        target: default
+
+      # - output: teams
+      #   target: default
 
   generic:
-    output: discord
-    target: default
+    outputs:
+      - output: discord
+        target: default

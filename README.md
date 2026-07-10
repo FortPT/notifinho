@@ -41,7 +41,6 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.0.1** |
 | **Current Stable Release** | **v1.1.1** |
 | **Development Version** | **v1.2.0-dev** |
 | **License** | MIT |

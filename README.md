@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/version-1.1.0--dev-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.1.0-blue" alt="Version">
 </a>
 
 <a href="https://www.python.org/">
@@ -42,7 +42,7 @@ Built for Homelabs • Ready for Enterprise
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
 | **Current Stable Release** | **v1.0.1** |
-| **Development Version** | **v1.1.0-dev** |
+| **Current Release** | **v1.1.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 

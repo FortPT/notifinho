@@ -65,7 +65,7 @@ class DiscordFormatter(BaseFormatter):
             },
             "fields": [],
             "footer": {
-                "text": f"FortPT Labs\\nNotifinho v{VERSION}",
+                "text": f"FortPT Labs\nNotifinho v{VERSION}",
             },
         }
 

@@ -4,7 +4,7 @@ Notifinho
 router.py
 
 Routes parsed notifications to one or more configured
-outputs.
+outputs, with optional per-destination filters.
 """
 
 from __future__ import annotations
@@ -55,6 +55,8 @@ class Router:
 
         if routes is None:
 
+            # Backwards compatibility with the original
+            # single-output routing format.
             routes = [route]
 
         if not isinstance(routes, list):
@@ -79,12 +81,28 @@ class Router:
 
                 continue
 
-            output_name = destination.get("output")
+            output_name = destination.get(
+                "output",
+            )
 
             target = destination.get(
                 "target",
                 "default",
             )
+
+            if not self._destination_matches(
+                notification,
+                destination,
+            ):
+
+                log.info(
+                    "Route filter skipped '%s' -> %s (%s)",
+                    notification.source,
+                    output_name,
+                    target,
+                )
+
+                continue
 
             log.info(
                 "Routing '%s' -> %s (%s)",
@@ -138,3 +156,98 @@ class Router:
                 )
 
         return success
+
+    def _destination_matches(
+        self,
+        notification: Notification,
+        destination: dict,
+    ) -> bool:
+        """
+        Check optional filters configured for an output route.
+
+        Routes without a match block remain unconditional.
+
+        Currently supported:
+
+        match:
+          hosts:
+            - "VM-07 | Palworld"
+        """
+
+        match = destination.get(
+            "match",
+        )
+
+        if match is None:
+
+            return True
+
+        if not isinstance(match, dict):
+
+            log.error(
+                "Invalid route match configuration for '%s'",
+                notification.source,
+            )
+
+            return False
+
+        hosts = match.get(
+            "hosts",
+        )
+
+        if hosts is not None:
+
+            if isinstance(hosts, str):
+
+                hosts = [
+                    hosts,
+                ]
+
+            if not isinstance(hosts, list):
+
+                log.error(
+                    "Route host filter for '%s' must be a list.",
+                    notification.source,
+                )
+
+                return False
+
+            metadata = notification.metadata or {}
+
+            notification_host = str(
+                metadata.get(
+                    "host",
+                    "",
+                )
+            ).strip()
+
+            if not notification_host:
+
+                log.warning(
+                    "Route requires a host match, but notification "
+                    "source '%s' has no host metadata.",
+                    notification.source,
+                )
+
+                return False
+
+            allowed_hosts = {
+                str(host).strip().casefold()
+                for host in hosts
+                if str(host).strip()
+            }
+
+            if notification_host.casefold() not in allowed_hosts:
+
+                log.info(
+                    "Host '%s' did not match allowed route hosts: %s",
+                    notification_host,
+                    ", ".join(
+                        str(host)
+                        for host in hosts
+                    ),
+                )
+
+                return False
+
+        return True

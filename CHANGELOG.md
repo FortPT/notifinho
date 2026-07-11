@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased (v1.3.0)
+
+### Planned
+
+- QNAP QTS and QuTS hero notification support.
+- QNAP Discord and Microsoft Teams formatting.
+- QNAP parser fixtures and regression tests.
+- Automated GitHub Release creation.
+
+---
+
 ## 1.2.0 - 2026-07-10
 
 ### Added

@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/version-1.2.0-blue" alt="Version">
+  <img src="https://img.shields.io/badge/version-1.3.0--dev-blue" alt="Version">
 </a>
 
 <a href="https://www.python.org/">
@@ -44,7 +44,7 @@ Built for Homelabs • Ready for Enterprise
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
 | **Current Stable Release** | **v1.2.0** |
-| **Development Version** | — |
+| **Development Version** | **v1.3.0-dev** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
@@ -234,10 +234,11 @@ This separation allows new infrastructure products and new messaging platforms t
 |----------|:------:|
 | Xen Orchestra | ✅ Stable |
 | Zabbix | ✅ v1.2.0 |
-| TrueNAS | 📅 Planned |
-| UniFi | 📅 Planned |
-| Proxmox VE | 📅 Planned |
-| Generic SMTP | 📅 Planned |
+| QNAP QTS / QuTS hero | 🚧 v1.3.0-dev |
+| TrueNAS | 📅 v1.4.0 |
+| UniFi | 📅 v1.5.0 |
+| Proxmox VE | 📅 v1.6.0 |
+| Generic SMTP | 📅 Future |
 
 ## 📤 Destinations
 
@@ -796,7 +797,10 @@ This architecture allows Notifinho to grow without increasing complexity.
 
 # 🗺️ Roadmap
 
-The roadmap reflects the planned evolution of the project.
+The roadmap reflects the planned evolution of Notifinho Community.
+
+Detailed progress is tracked in the
+[Notifinho Roadmap](https://github.com/orgs/FortPT/projects).
 
 ## ✅ v1.0.0
 
@@ -814,8 +818,10 @@ The roadmap reflects the planned evolution of the project.
 ## ✅ v1.1.1
 
 - Microsoft Teams output
+- Microsoft Teams Adaptive Cards
+- Multiple output routing
 - GitHub Actions
-- Automatic image publishing
+- Automatic container image publishing
 
 ---
 
@@ -832,36 +838,85 @@ The roadmap reflects the planned evolution of the project.
 
 ---
 
-## 📅 v1.3.0
+## 🚧 v1.3.0 — QNAP
 
-- TrueNAS parser
-- Storage alerts
-- Pool status
-- Replication reports
-
----
-
-## 📅 v1.4.0
-
-- UniFi parser
-- Network notifications
-- Device alerts
+- QTS and QuTS hero email sample collection
+- QNAP email detection and parser
+- Storage, RAID, disk and SMART events
+- Backup, UPS, security and update events
+- QNAP Discord embeds
+- QNAP Microsoft Teams Adaptive Cards
+- Parser fixtures and regression tests
+- QNAP configuration documentation
+- Automated GitHub Release creation
 
 ---
 
-## 🔮 v2.0.0
+## 📅 v1.4.0 — TrueNAS
 
-A major milestone focused on turning Notifinho into a complete notification platform.
+- TrueNAS email sample collection
+- Pool and disk health alerts
+- SMART and scrub events
+- Replication and backup failures
+- UPS and system alerts
+- Discord and Microsoft Teams cards
+- Tests and documentation
 
-Planned features include:
+---
 
-- Web administration interface
-- Notification history
-- Multi-user support
-- Multiple routing profiles
-- Notification templates
-- Additional collaboration platforms
-- REST API
+## 📅 v1.5.0 — UniFi
+
+- UniFi notification parser
+- Gateway, switch and access point events
+- Device and connectivity alerts
+- Security notifications
+- Discord and Microsoft Teams cards
+- Tests and documentation
+
+---
+
+## 📅 v1.6.0 — Proxmox VE
+
+- Proxmox VE notification parser
+- Backup and replication events
+- Node and cluster alerts
+- Storage and availability events
+- Discord and Microsoft Teams cards
+- Tests and documentation
+
+---
+
+## 📅 v1.7.0 — Configuration API
+
+- Formal configuration schema
+- Configuration validation API
+- Atomic configuration updates and backups
+- Health, logs, preview and test-send endpoints
+- Local authentication
+- Secure webhook and secret handling
+- Security and audit foundations
+
+---
+
+## 📅 v1.8.0 — Community WebUI
+
+- Browser-based configuration management
+- Output and webhook editor
+- Visual routing and host-filter editor
+- Discord and Microsoft Teams card preview
+- Test notification delivery
+- Configuration backup and restore
+- Basic log viewer
+- Single-instance local administration
+
+---
+
+The Community edition will continue to provide the complete notification
+engine, parsers, formatters, configuration management, card preview and
+test-delivery features.
+
+Advanced commercial functionality may be developed separately without
+duplicating or replacing the open-source notification engine.
 
 ---
 

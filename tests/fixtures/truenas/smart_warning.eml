@@ -1,0 +1,13 @@
+From: TrueNAS <alerts@synthetic-truenas.example.invalid>
+To: notifinho@example.invalid
+Subject: Alerts
+Date: Sun, 12 Jul 2026 10:10:00 +0000
+Message-ID: <synthetic-truenas-smart@example.invalid>
+X-Synthetic-Fixture: true
+Content-Type: text/plain; charset="utf-8"
+
+TrueNAS @ SYNTHETIC-TRUENAS
+New alert:
+* Device SYNTHETIC-DISK-01 reported a SMART warning at 2026-07-12 10:09:00.
+Current alerts:
+* Device SYNTHETIC-DISK-01 reported a SMART warning at 2026-07-12 10:09:00.

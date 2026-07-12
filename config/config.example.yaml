@@ -15,6 +15,10 @@ outputs:
     grafana:
       webhook: "PASTE_GRAFANA_DISCORD_WEBHOOK_HERE"
 
+    # Dedicated TrueNAS alert destination.
+    truenas:
+      webhook: "PASTE_TRUENAS_DISCORD_WEBHOOK_HERE"
+
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
     # to another Discord server or channel.
@@ -40,6 +44,11 @@ outputs:
     #
     # grafana:
     #   webhook: "PASTE_GRAFANA_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Teams destination for TrueNAS.
+    #
+    # truenas:
+    #   webhook: "PASTE_TRUENAS_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -122,6 +131,20 @@ routing:
       #
       # - output: teams
       #   target: grafana
+
+  truenas:
+    outputs:
+      # Send TrueNAS alerts to the dedicated Discord destination.
+      - output: discord
+        target: truenas
+
+      # To also send TrueNAS alerts to a dedicated Teams destination:
+      # 1. Paste the TrueNAS Teams workflow webhook above.
+      # 2. Change outputs.teams.enabled to true.
+      # 3. Uncomment the following route.
+      #
+      # - output: teams
+      #   target: truenas
 
   generic:
     outputs:

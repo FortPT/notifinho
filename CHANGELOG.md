@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased (v1.4.0)
+
+### Added
+
+- Provisional TrueNAS 26 alert-service email detection and parsing.
+- Plain-text, HTML, multipart, test, new, cleared, current, and grouped alert
+  handling using the shared `Notification` model.
+- TrueNAS classification for storage, disk/SMART, scrub, replication, backup,
+  UPS/power, system, network, security, and application/service events.
+- TrueNAS-specific Discord embeds and Microsoft Teams Adaptive Cards with
+  bounded grouped-alert payloads.
+- Nine anonymized synthetic `.eml` fixtures and offline regression coverage.
+- Dedicated TrueNAS Discord/Teams targets, routing examples, and integration
+  documentation.
+
+### Validation
+
+- 169 automated tests passed.
+- 54 Python files passed cache-free syntax validation.
+- All nine synthetic TrueNAS fixtures were replayed successfully through SMTP.
+- Private TrueNAS 26 test-email and test-alert samples were replayed on VM-04.
+- A fresh TrueNAS 26 Send Test Alert was detected, parsed, routed, formatted,
+  and delivered successfully.
+- The Docker release-candidate image passed startup, SMTP, parsing, routing,
+  formatting, and delivery smoke tests.
+
+### Notes
+
+- TrueNAS support remains provisional for broader real-world alert variants,
+  localized wording, customized templates, and Enterprise HA layouts.
+- The stable base release remains v1.3.0; the development version is
+  `1.4.0-dev`.
+
+---
+
 ## 1.3.0 - 2026-07-12
 
 ### Added

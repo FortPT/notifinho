@@ -1,0 +1,36 @@
+From: TrueNAS Alerts <alerts@synthetic-truenas.example.invalid>
+To: notifinho@example.invalid
+Subject: Alerts
+Date: Sun, 12 Jul 2026 10:35:00 +0000
+Message-ID: <synthetic-truenas-grouped@example.invalid>
+X-Synthetic-Fixture: true
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="SYNTHETIC-TRUENAS-GROUPED"
+
+--SYNTHETIC-TRUENAS-GROUPED
+Content-Type: text/plain; charset="utf-8"
+
+TrueNAS @ SYNTHETIC-TRUENAS
+New alerts:
+* Pool SYNTHETIC-POOL state is DEGRADED.
+* Replication task SYNTHETIC-REPLICATION failed.
+
+The following alert has been cleared:
+* UPS SYNTHETIC-UPS is on battery.
+
+Current alerts:
+* Pool SYNTHETIC-POOL state is DEGRADED.
+* Device SYNTHETIC-DISK-01 reported a SMART warning.
+
+--SYNTHETIC-TRUENAS-GROUPED
+Content-Type: text/html; charset="utf-8"
+
+<html><body><h1>TrueNAS @ SYNTHETIC-TRUENAS</h1>
+New alerts:
+<ul><li>Pool SYNTHETIC-POOL state is DEGRADED.</li><li>Replication task SYNTHETIC-REPLICATION failed.</li></ul>
+The following alert has been cleared:
+<ul><li>UPS SYNTHETIC-UPS is on battery.</li></ul>
+Current alerts:
+<ul><li>Pool SYNTHETIC-POOL state is DEGRADED.</li><li>Device SYNTHETIC-DISK-01 reported a SMART warning.</li></ul>
+</body></html>
+--SYNTHETIC-TRUENAS-GROUPED--

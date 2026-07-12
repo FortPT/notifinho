@@ -14,6 +14,7 @@ from config import config
 from formatters.discord import DiscordFormatter
 from formatters.discord_grafana import GrafanaDiscordFormatter
 from formatters.discord_qnap import QNAPDiscordFormatter
+from formatters.discord_truenas import TrueNASDiscordFormatter
 from formatters.discord_zabbix import ZabbixDiscordFormatter
 from logger import log
 from models import Notification
@@ -28,6 +29,7 @@ class DiscordOutput:
         self.source_formatters = {
             "grafana": GrafanaDiscordFormatter(),
             "qnap": QNAPDiscordFormatter(),
+            "truenas": TrueNASDiscordFormatter(),
             "zabbix": ZabbixDiscordFormatter(),
         }
 

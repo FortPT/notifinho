@@ -1,0 +1,23 @@
+From: TrueNAS Alerts <alerts@synthetic-truenas.example.invalid>
+To: notifinho@example.invalid
+Subject: Alerts
+Date: Sun, 12 Jul 2026 10:20:00 +0000
+Message-ID: <synthetic-truenas-replication@example.invalid>
+X-Synthetic-Fixture: true
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="SYNTHETIC-TRUENAS-REPLICATION"
+
+--SYNTHETIC-TRUENAS-REPLICATION
+Content-Type: text/plain; charset="utf-8"
+
+TrueNAS @ SYNTHETIC-TRUENAS
+New alert:
+* Replication task SYNTHETIC-REPLICATION failed: destination example.invalid is unavailable.
+
+--SYNTHETIC-TRUENAS-REPLICATION
+Content-Type: text/html; charset="utf-8"
+
+<html><body>TrueNAS @ SYNTHETIC-TRUENAS
+New alert:<ul><li>Replication task SYNTHETIC-REPLICATION failed: destination example.invalid is unavailable.</li></ul>
+</body></html>
+--SYNTHETIC-TRUENAS-REPLICATION--

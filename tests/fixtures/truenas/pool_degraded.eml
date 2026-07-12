@@ -1,0 +1,16 @@
+From: Storage Alerts <alerts@example.invalid>
+To: notifinho@example.invalid
+Subject: Alerts
+Date: Sun, 12 Jul 2026 10:05:00 +0000
+Message-ID: <synthetic-truenas-pool@example.invalid>
+X-Synthetic-Fixture: true
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<html><body>
+TrueNAS @ SYNTHETIC-TRUENAS
+New alert:
+<ul><li>Pool SYNTHETIC-POOL state is DEGRADED: one synthetic device is unavailable.</li></ul>
+Current alerts:
+<ul><li>Pool SYNTHETIC-POOL state is DEGRADED: one synthetic device is unavailable.</li></ul>
+</body></html>

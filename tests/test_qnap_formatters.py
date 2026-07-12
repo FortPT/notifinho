@@ -78,6 +78,15 @@ def test_discord_payload_generation():
     assert "Storage & Snapshots" in serialized
     assert "12/07/26 08:30" in serialized
 
+    assert not any(
+        "2026/07/12 08" in field["name"]
+        for field in embed["fields"]
+    )
+    assert not any(
+        field["value"] == "30:00"
+        for field in embed["fields"]
+    )
+
 
 def test_teams_payload_generation():
 

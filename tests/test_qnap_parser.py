@@ -65,6 +65,14 @@ def test_html_fixture_parsing():
     )
     assert notification.metadata["fixture_format"] == "html"
 
+    source_fields = notification.metadata["source_fields"]
+
+    assert notification.metadata["event_time"] == (
+        "2026-07-12 08:30:00"
+    )
+    assert "2026/07/12 08" not in source_fields
+    assert "30:00" not in source_fields.values()
+
 
 @pytest.mark.parametrize(
     (

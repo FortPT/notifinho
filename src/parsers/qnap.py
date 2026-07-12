@@ -789,6 +789,21 @@ class Parser:
 
             return False
 
+        # Complete date/time values can be split at their first
+        # colon by generic "Label: Value" extraction. A value such as
+        # "2026/07/12 08:30:00" must not become the fake field
+        # "2026/07/12 08": "30:00".
+        if re.fullmatch(
+            (
+                r"(?:\\d{4}[/-]\\d{1,2}[/-]\\d{1,2}|"
+                r"\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})"
+                r"[ T]\\d{1,2}"
+            ),
+            label,
+        ):
+
+            return False
+
         if label in {
             "http",
             "https",
@@ -844,6 +859,10 @@ class Parser:
         source_fields: dict[str, str],
         fixture_format: str,
     ) -> None:
+
+        source_fields = self._drop_split_datetime_fields(
+            source_fields,
+        )
 
         nas_name = self._field(
             source_fields,
@@ -977,6 +996,51 @@ class Parser:
             ),
             "fixture_format": fixture_format,
         }
+
+    @staticmethod
+    def _drop_split_datetime_fields(
+        fields: dict[str, str],
+    ) -> dict[str, str]:
+
+        cleaned: dict[str, str] = {}
+
+        for raw_label, raw_value in fields.items():
+
+            label = str(
+                raw_label or ""
+            ).strip()
+
+            value = str(
+                raw_value or ""
+            ).strip()
+
+            split_datetime_label = re.fullmatch(
+                (
+                    r"(?:"
+                    r"\d{4}[/-]\d{1,2}[/-]\d{1,2}"
+                    r"|"
+                    r"\d{1,2}[/-]\d{1,2}[/-]\d{2,4}"
+                    r")"
+                    r"\s+\d{1,2}"
+                ),
+                label,
+            )
+
+            split_datetime_value = re.fullmatch(
+                r"\d{2}:\d{2}",
+                value,
+            )
+
+            if (
+                split_datetime_label
+                and split_datetime_value
+            ):
+
+                continue
+
+            cleaned[raw_label] = raw_value
+
+        return cleaned
 
     def _field(
         self,

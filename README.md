@@ -240,6 +240,25 @@ limitations, and safe sample-submission guidance.
 
 ---
 
+## 📈 Grafana Alerting
+
+The provisional `v1.3.0-dev` integration includes:
+
+- Strong, case-insensitive Grafana email detection
+- Test, firing, resolved, pending, No Data, and evaluation-error events
+- Grouped notification support with alert counts
+- Rule, folder, dashboard, panel, datasource, labels, values, and event times
+- Grafana-specific Discord embeds and Microsoft Teams Adaptive Cards
+- Dedicated Grafana webhook routing
+- Synthetic plain-text, HTML, and multipart fixtures
+
+Grafana support was developed without production email samples. The fixtures
+are synthetic and do not prove compatibility with every Grafana release or
+custom alert template. See the [Grafana integration guide](docs/grafana.md)
+for SMTP/contact-point concepts, replay commands, and known limitations.
+
+---
+
 ## ⚡ Designed for Fast Decision Making
 
 Every notification is designed around one principle:
@@ -266,6 +285,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Xen Orchestra | ✅ Stable |
 | Zabbix | ✅ v1.2.0 |
 | QNAP QTS / QuTS hero | 🚧 v1.3.0-dev |
+| Grafana Alerting | 🚧 v1.3.0-dev |
 | TrueNAS | 📅 v1.4.0 |
 | UniFi | 📅 v1.5.0 |
 | Proxmox VE | 📅 v1.6.0 |
@@ -347,12 +367,12 @@ Because these components are independent, adding a new parser does not require c
               │  Parser Dispatcher    │
               └───────────┬───────────┘
                           │
-       ┌────────────┬─────┴──────┬────────────┐
-       ▼            ▼            ▼            ▼
- Xen Orchestra   Zabbix        QNAP      Generic SMTP
-     Parser       Parser       Parser         Parser
-       │            │            │             │
-       └────────────┴─────┬──────┴─────────────┘
+    ┌──────────┬──────────┼──────────┬──────────┐
+    ▼          ▼          ▼          ▼          ▼
+ Xen Orch.   Zabbix     QNAP      Grafana    Generic
+   Parser    Parser     Parser     Parser      Parser
+    │          │          │          │          │
+    └──────────┴──────────┴────┬─────┴──────────┘
                           ▼
                Notification Model
                           │
@@ -419,8 +439,8 @@ This separation keeps every component focused on a single responsibility.
 Notifinho was designed from the beginning to support additional infrastructure platforms and messaging services without requiring architectural changes.
 
 The current implementation supports Xen Orchestra and Zabbix sources, plus
-provisional QNAP QTS and QuTS hero support in `v1.3.0-dev`, with delivery to
-Discord and Microsoft Teams.
+provisional QNAP QTS, QuTS hero, and Grafana Alerting support in
+`v1.3.0-dev`, with delivery to Discord and Microsoft Teams.
 
 Future versions may include TrueNAS, UniFi, Proxmox VE, Slack, Telegram and additional integrations.
 
@@ -584,6 +604,10 @@ outputs:
     default:
       webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
+    # Dedicated Grafana alert destination.
+    grafana:
+      webhook: "PASTE_GRAFANA_DISCORD_WEBHOOK_HERE"
+
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
     # to another Discord server or channel.
@@ -604,6 +628,10 @@ outputs:
     #
     # zabbix:
     #   webhook: "PASTE_ZABBIX_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Teams destination for Grafana.
+    # grafana:
+    #   webhook: "PASTE_GRAFANA_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -669,6 +697,14 @@ routing:
       # - output: teams
       #   target: default
 
+  grafana:
+    outputs:
+      - output: discord
+        target: grafana
+
+      # - output: teams
+      #   target: grafana
+
   generic:
     outputs:
       # Fallback route for emails that do not match
@@ -728,6 +764,25 @@ routing:
 
       # - output: teams
       #   target: default
+```
+
+Grafana can use a dedicated webhook target so alert traffic remains separate
+from other infrastructure notifications:
+
+```yaml
+outputs:
+  discord:
+    grafana:
+      webhook: "PASTE_GRAFANA_DISCORD_WEBHOOK_HERE"
+
+routing:
+  grafana:
+    outputs:
+      - output: discord
+        target: grafana
+
+      # - output: teams
+      #   target: grafana
 ```
 
 ### Conditional host routing
@@ -835,6 +890,23 @@ selection, and `routing.qnap` delivery. The fixtures are synthetic and do not
 guarantee compatibility with every QTS or QuTS hero release. More detail is
 available in the [QNAP integration guide](docs/qnap.md).
 
+## Replaying synthetic Grafana mail in development
+
+Reuse the same development SMTP listener and replay utility:
+
+```bash
+python3 scripts/replay_email.py \
+  tests/fixtures/grafana/alert_firing.eml \
+  --host 127.0.0.1 \
+  --port 8026
+```
+
+Watch the logs for Grafana detection, the structured parse summary,
+`routing.grafana`, and the `GrafanaDiscordFormatter` selection. The dedicated
+`outputs.discord.grafana.webhook` target keeps Grafana alerts separate from
+the default Discord destination. These synthetic messages do not guarantee
+compatibility with every Grafana template; see [docs/grafana.md](docs/grafana.md).
+
 ---
 
 # 🔄 Example Flow
@@ -920,7 +992,7 @@ Detailed progress is tracked in the
 
 ---
 
-## 🚧 v1.3.0 — QNAP
+## 🚧 v1.3.0 — QNAP and Grafana
 
 - Synthetic QTS and QuTS hero fixture corpus
 - Provisional QNAP email detection and parser
@@ -931,6 +1003,11 @@ Detailed progress is tracked in the
 - Parser fixtures and regression tests
 - QNAP configuration documentation
 - Verification with anonymized real QNAP email samples
+- Synthetic Grafana Alerting fixture corpus
+- Provisional Grafana detection, parser, Discord, and Teams formatting
+- Firing, resolved, pending, No Data, datasource error, and grouped alerts
+- Dedicated Grafana webhook routing and replay documentation
+- Verification with anonymized real Grafana email samples
 - Automated GitHub Release creation
 
 ---

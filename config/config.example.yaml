@@ -11,6 +11,10 @@ outputs:
     default:
       webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
+    # Dedicated Grafana alert destination.
+    grafana:
+      webhook: "PASTE_GRAFANA_DISCORD_WEBHOOK_HERE"
+
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
     # to another Discord server or channel.
@@ -31,6 +35,11 @@ outputs:
     #
     # zabbix:
     #   webhook: "PASTE_ZABBIX_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Teams destination for Grafana.
+    #
+    # grafana:
+    #   webhook: "PASTE_GRAFANA_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -99,6 +108,20 @@ routing:
       #
       # - output: teams
       #   target: default
+
+  grafana:
+    outputs:
+      # Send Grafana alerts to the dedicated Discord destination.
+      - output: discord
+        target: grafana
+
+      # To also send Grafana alerts to a dedicated Teams destination:
+      # 1. Paste the Grafana Teams workflow webhook above.
+      # 2. Change outputs.teams.enabled to true.
+      # 3. Uncomment the following route.
+      #
+      # - output: teams
+      #   target: grafana
 
   generic:
     outputs:

@@ -15,12 +15,25 @@
 - QNAP routing examples and integration documentation.
 - Pytest coverage for QNAP detection, parsing, formatting, and existing-source
   selection regressions.
+- Initial Grafana Alerting email detection and parser.
+- Grafana event handling for test, firing, resolved, pending, No Data,
+  datasource/evaluation error, and grouped alert notifications.
+- Grafana-specific Discord embed and Microsoft Teams Adaptive Card formatters.
+- Seven synthetic Grafana `.eml` fixtures covering plain-text, HTML, and
+  multipart alert layouts.
+- Dedicated Grafana Discord/Teams target and routing examples.
+- Grafana parser, formatter, output-selection, payload-budget, and source
+  precedence regression tests.
+- Grafana integration and synthetic fixture replay documentation.
 
 ### Notes
 
 - QNAP support is provisional. Synthetic fixtures do not guarantee
   compatibility with every QTS or QuTS hero version; anonymized real email
   samples are still needed for verification.
+- Grafana support is provisional. Synthetic fixtures do not guarantee
+  compatibility with every Grafana version or custom alert template;
+  anonymized real email samples are still needed for verification.
 
 ---
 

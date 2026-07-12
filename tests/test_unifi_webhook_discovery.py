@@ -218,6 +218,29 @@ def test_capture_server_rejects_get_when_disabled():
         thread.join(timeout=2)
 
 
+def test_raw_save_failure_still_returns_discovery_success(monkeypatch, tmp_path, capsys):
+    def fail_save(*_args, **_kwargs):
+        raise OSError("private path detail must not be printed")
+
+    monkeypatch.setattr(capture_unifi_webhook, "save_raw_request", fail_save)
+    server = capture_unifi_webhook.CaptureServer(("127.0.0.1", 0), False, tmp_path)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    try:
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_port, timeout=2)
+        connection.request("POST", "/events/network", b"synthetic")
+        assert connection.getresponse().status == 204
+        connection.close()
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=2)
+
+    output = capsys.readouterr()
+    assert "Raw save failed (OSError)" in output.err
+    assert "private path detail" not in output.err
+
+
 def test_raw_saving_does_not_overwrite_existing_capture(tmp_path):
     first = capture_unifi_webhook.save_raw_request(
         tmp_path, 1, "POST", "/events", {}, b"first"

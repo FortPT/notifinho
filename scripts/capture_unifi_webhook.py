@@ -231,14 +231,21 @@ class CaptureHandler(BaseHTTPRequestHandler):
         sys.stdout.flush()
 
         if self.server.output_dir is not None:
-            save_raw_request(
-                self.server.output_dir,
-                self.server.next_sequence(),
-                self.command,
-                self.path,
-                headers,
-                body,
-            )
+            try:
+                save_raw_request(
+                    self.server.output_dir,
+                    self.server.next_sequence(),
+                    self.command,
+                    self.path,
+                    headers,
+                    body,
+                )
+            except (OSError, ValueError) as error:
+                print(
+                    f"Raw save failed ({type(error).__name__}); request was not retained",
+                    file=sys.stderr,
+                    flush=True,
+                )
 
         self.send_response(204)
         self.end_headers()

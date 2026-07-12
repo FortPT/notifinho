@@ -166,3 +166,15 @@ def test_email_cli_writes_only_explicit_sanitized_output(tmp_path, capsys):
     assert analyze_unifi_email.main([str(source), "--output", str(output)]) == 0
     assert output.read_text(encoding="utf-8") in capsys.readouterr().out
     assert source.read_bytes() == before
+
+
+def test_email_cli_refuses_to_replace_original(tmp_path, capsys):
+    message = _message("UniFi test")
+    message.set_content("Synthetic test")
+    source = tmp_path / "private.eml"
+    source.write_bytes(message.as_bytes())
+    before = source.read_bytes()
+
+    assert analyze_unifi_email.main([str(source), "--output", str(source)]) == 1
+    assert source.read_bytes() == before
+    assert "unable to read or write requested path" in capsys.readouterr().err

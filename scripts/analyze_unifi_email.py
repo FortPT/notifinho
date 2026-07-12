@@ -202,6 +202,8 @@ def render_summary(summary: dict[str, object]) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     try:
+        if args.output is not None and args.eml.resolve() == args.output.resolve():
+            raise ValueError("output must not replace the original message")
         data = args.eml.read_bytes()
         rendered = render_summary(analyze_bytes(data))
         sys.stdout.write(rendered)

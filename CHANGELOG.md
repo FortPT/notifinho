@@ -13,6 +13,7 @@
   events.
 - Local SMTP fixture replay utility with development defaults for port `8026`.
 - QNAP routing examples and integration documentation.
+- Dedicated QNAP source routing for Discord and Microsoft Teams targets.
 - Pytest coverage for QNAP detection, parsing, formatting, and existing-source
   selection regressions.
 - Initial Grafana Alerting email detection and parser.
@@ -25,6 +26,12 @@
 - Grafana parser, formatter, output-selection, payload-budget, and source
   precedence regression tests.
 - Grafana integration and synthetic fixture replay documentation.
+- Source-detection regression protection for multipart bodies, competing
+  vendor messages, attachment-only markers, and existing integrations.
+- Aggregate Discord embed-budget enforcement while preserving essential event
+  fields.
+- Updated source-aware architecture documentation covering dispatch, parsing,
+  the shared model, routing, formatter selection, and webhook delivery.
 
 ### Notes
 
@@ -34,6 +41,15 @@
 - Grafana support is provisional. Synthetic fixtures do not guarantee
   compatibility with every Grafana version or custom alert template;
   anonymized real email samples are still needed for verification.
+
+### Remaining before release
+
+- Complete automated GitHub Release creation tracked in
+  [issue #9](https://github.com/FortPT/notifinho/issues/9).
+- Change the development version to the stable v1.3.0 version only after final
+  validation.
+- Complete final validation, tag and image publication, and
+  [GitHub Release](https://github.com/FortPT/notifinho/releases) publication.
 
 ---
 

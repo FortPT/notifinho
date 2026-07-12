@@ -1,0 +1,61 @@
+From: QNAP Notification Center <notification-center@synthetic-qnap.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 09:00:00 +0000
+Subject: [Error][Hybrid Backup Sync] Backup job Synthetic Nightly Backup failed
+Message-ID: <hbs-backup-failure@synthetic-qnap.invalid>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="notifinho-qnap-hbs-boundary"
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: hbs-multipart
+
+--notifinho-qnap-hbs-boundary
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS]
+
+QNAP Notification Center
+
+NAS Name: SYNTHETIC-QNAP-LAB
+Severity: Error
+Category: Backup
+App Name: Hybrid Backup Sync
+Event Type: Backup Job Failed
+Date/Time: 2026/07/12 09:00:00
+Job Name: Synthetic Nightly Backup
+Job Type: One-way sync
+Source Folder: Synthetic Source
+Destination: Synthetic Remote Storage
+Job Status: Failed
+Message: The synthetic backup job stopped because the test destination was unavailable.
+
+No real storage location, account, or endpoint is represented.
+
+--notifinho-qnap-hbs-boundary
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<!doctype html>
+<html lang="en">
+  <body>
+    <p><strong>SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS</strong></p>
+    <h2>QNAP Notification Center</h2>
+    <table>
+      <tr><th>NAS Name</th><td>SYNTHETIC-QNAP-LAB</td></tr>
+      <tr><th>Severity</th><td>Error</td></tr>
+      <tr><th>Category</th><td>Backup</td></tr>
+      <tr><th>App Name</th><td>Hybrid Backup Sync</td></tr>
+      <tr><th>Event Type</th><td>Backup Job Failed</td></tr>
+      <tr><th>Date/Time</th><td>2026/07/12 09:00:00</td></tr>
+      <tr><th>Job Name</th><td>Synthetic Nightly Backup</td></tr>
+      <tr><th>Job Type</th><td>One-way sync</td></tr>
+      <tr><th>Source Folder</th><td>Synthetic Source</td></tr>
+      <tr><th>Destination</th><td>Synthetic Remote Storage</td></tr>
+      <tr><th>Job Status</th><td>Failed</td></tr>
+      <tr><th>Message</th><td>The synthetic backup job stopped because the test destination was unavailable.</td></tr>
+    </table>
+    <p>No real storage location, account, or endpoint is represented.</p>
+  </body>
+</html>
+
+--notifinho-qnap-hbs-boundary--

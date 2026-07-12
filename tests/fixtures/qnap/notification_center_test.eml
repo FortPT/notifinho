@@ -1,0 +1,24 @@
+From: QNAP Notification Center <notification-center@synthetic-qnap.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 08:00:00 +0000
+Subject: [Notification Center] Test notification from SYNTHETIC-QNAP-LAB
+Message-ID: <notification-center-test@synthetic-qnap.invalid>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: qts-plain
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS]
+
+QNAP Notification Center
+
+NAS Name: SYNTHETIC-QNAP-LAB
+Severity: Information
+Category: System
+App Name: Notification Center
+Event Type: Test Message
+Date/Time: 2026/07/12 08:00:00
+Message: This is a synthetic test notification generated for Notifinho parser development.
+
+This message contains no data from a physical QNAP device.

@@ -1,0 +1,27 @@
+From: QNAP Notification Center <notification-center@synthetic-qnap.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 09:30:00 +0000
+Subject: [Warning][External Device] UPS entered battery mode
+Message-ID: <ups-power-event@synthetic-qnap.invalid>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: qts-plain
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS]
+
+QNAP Notification Center
+
+NAS Name: SYNTHETIC-QNAP-LAB
+Severity: Warning
+Category: Power
+App Name: External Device
+Event Type: UPS On Battery
+Date/Time: 2026/07/12 09:30:00
+UPS Status: On battery
+Power Event: Utility power unavailable
+Estimated Runtime: Synthetic value
+Message: The synthetic UPS entered battery mode after a simulated utility power event.
+
+No real UPS model, identifier, or power reading is present.

@@ -12,6 +12,7 @@ import requests
 
 from config import config
 from formatters.discord import DiscordFormatter
+from formatters.discord_qnap import QNAPDiscordFormatter
 from formatters.discord_zabbix import ZabbixDiscordFormatter
 from logger import log
 from models import Notification
@@ -24,6 +25,7 @@ class DiscordOutput:
         self.default_formatter = DiscordFormatter()
 
         self.source_formatters = {
+            "qnap": QNAPDiscordFormatter(),
             "zabbix": ZabbixDiscordFormatter(),
         }
 

@@ -12,6 +12,7 @@ import requests
 
 from config import config
 from formatters.teams import TeamsFormatter
+from formatters.teams_qnap import QNAPTeamsFormatter
 from formatters.teams_zabbix import ZabbixTeamsFormatter
 from logger import log
 from models import Notification
@@ -24,6 +25,7 @@ class TeamsOutput:
         self.default_formatter = TeamsFormatter()
 
         self.source_formatters = {
+            "qnap": QNAPTeamsFormatter(),
             "zabbix": ZabbixTeamsFormatter(),
         }
 

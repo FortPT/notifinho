@@ -12,6 +12,7 @@ import requests
 
 from config import config
 from formatters.discord import DiscordFormatter
+from formatters.discord_grafana import GrafanaDiscordFormatter
 from formatters.discord_qnap import QNAPDiscordFormatter
 from formatters.discord_zabbix import ZabbixDiscordFormatter
 from logger import log
@@ -25,6 +26,7 @@ class DiscordOutput:
         self.default_formatter = DiscordFormatter()
 
         self.source_formatters = {
+            "grafana": GrafanaDiscordFormatter(),
             "qnap": QNAPDiscordFormatter(),
             "zabbix": ZabbixDiscordFormatter(),
         }

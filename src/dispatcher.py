@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 
 from logger import log
 
+from parsers.grafana import Parser as GrafanaParser
 from parsers.generic import Parser as GenericParser
 from parsers.proxmox import Parser as ProxmoxParser
 from parsers.qnap import Parser as QnapParser
@@ -40,6 +41,8 @@ class Dispatcher:
         self.proxmox_parser = ProxmoxParser()
 
         self.qnap_parser = QnapParser()
+
+        self.grafana_parser = GrafanaParser()
 
         log.info("Dispatcher initialized")
 
@@ -148,6 +151,24 @@ class Dispatcher:
             )
 
             return self.qnap_parser.parse(
+                message,
+            )
+
+        #
+        # Grafana
+        #
+
+        if self._is_grafana_email(
+            message,
+            sender,
+            subject,
+        ):
+
+            log.info(
+                "Detected Grafana email"
+            )
+
+            return self.grafana_parser.parse(
                 message,
             )
 
@@ -293,6 +314,136 @@ class Dispatcher:
         return bool(
             (subject_product or body_product)
             and structured_fields >= 4
+        )
+
+    def _is_grafana_email(
+        self,
+        message: EmailMessage,
+        sender: str,
+        subject: str,
+    ) -> bool:
+        """Detect Grafana Alerting mail using strong vendor signals."""
+
+        sender_text = str(
+            sender
+            or ""
+        ).casefold()
+
+        subject_text = str(
+            subject
+            or ""
+        ).casefold()
+
+        body_text = self._detection_body(
+            message,
+        ).casefold()
+
+        strong_brand_markers = (
+            "grafana",
+            "grafana alerting",
+        )
+
+        weak_markers = (
+            "alert",
+            "dashboard",
+            "firing",
+            "no data",
+            "notification",
+            "resolved",
+        )
+
+        structured_markers = (
+            "alert name",
+            "alert rule",
+            "dashboard",
+            "endsat",
+            "grafana folder",
+            "labels",
+            "panel",
+            "startsat",
+            "values",
+        )
+
+        url_markers = (
+            "dashboardurl",
+            "grafana_url",
+            "panelurl",
+            "ruleurl",
+            "silenceurl",
+            "/alerting/grafana/",
+        )
+
+        sender_brand = self._contains_any(
+            sender_text,
+            strong_brand_markers,
+        )
+
+        subject_brand = self._contains_any(
+            subject_text,
+            strong_brand_markers,
+        )
+
+        body_brand = self._contains_any(
+            body_text,
+            strong_brand_markers,
+        )
+
+        subject_weak = self._contains_any(
+            subject_text,
+            weak_markers,
+        )
+
+        body_weak = self._contains_any(
+            body_text,
+            weak_markers,
+        )
+
+        structured_count = sum(
+            marker in body_text
+            for marker in structured_markers
+        )
+
+        url_count = sum(
+            marker in body_text
+            for marker in url_markers
+        )
+
+        # Explicit Grafana sender identity is trusted even when a contact
+        # point uses a sparse custom body.
+        if sender_brand:
+
+            return True
+
+        if subject_brand and (
+            body_brand
+            or body_weak
+            or structured_count >= 1
+            or url_count >= 1
+        ):
+
+            return True
+
+        if body_brand and (
+            subject_weak
+            or structured_count >= 2
+            or url_count >= 1
+        ):
+
+            return True
+
+        # Grafana-specific fields and link names may remain after branding
+        # is removed by a custom template. Weak alert words still do not
+        # contribute enough evidence on their own.
+        if (
+            "grafana folder" in body_text
+            and structured_count >= 3
+        ):
+
+            return True
+
+        return bool(
+            url_count >= 1
+            and structured_count >= 2
         )
 
     def _detection_body(

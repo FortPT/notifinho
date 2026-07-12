@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.3.0-blue" alt="Stable release v1.3.0">
+  <img src="https://img.shields.io/badge/stable-v1.4.0-blue" alt="Stable release v1.4.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -34,7 +34,7 @@ Built for Homelabs • Ready for Enterprise
 
 <img src="https://img.shields.io/badge/Grafana-v1.3.0-F46800?logo=grafana&logoColor=white" alt="Grafana v1.3.0">
 
-<img src="https://img.shields.io/badge/TrueNAS-v1.4.0--dev-0095D5" alt="TrueNAS v1.4.0-dev">
+<img src="https://img.shields.io/badge/TrueNAS-v1.4.0-0095D5" alt="TrueNAS v1.4.0">
 
 <img src="https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white" alt="Discord">
 
@@ -49,8 +49,8 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.3.0** |
-| **Development Version** | **v1.4.0-dev** |
+| **Current Stable Release** | **v1.4.0** |
+| **Next Planned Release** | **v1.5.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
@@ -96,7 +96,7 @@ currently available; see the [Grafana integration guide](docs/grafana.md).
 
 TrueNAS 26 test, active, cleared, current, and grouped alerts receive
 source-specific Discord and Teams layouts. Support is provisional in
-`v1.4.0-dev`; see the [TrueNAS integration guide](docs/truenas.md).
+`v1.4.0`; see the [TrueNAS integration guide](docs/truenas.md).
 
 ---
 
@@ -295,7 +295,7 @@ for SMTP/contact-point concepts, replay commands, and known limitations.
 
 ## TrueNAS 26
 
-The provisional `v1.4.0-dev` integration includes:
+The provisional `v1.4.0` integration includes:
 
 - Strong detection using sender/header identity, the `TrueNAS @ hostname`
   marker, and the upstream alert list structure
@@ -341,7 +341,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | QNAP QTS / QuTS hero | 🚧 v1.3.0 |
 | Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
-| TrueNAS 26 | 🚧 v1.4.0-dev |
+| TrueNAS 26 | 🚧 v1.4.0 |
 | UniFi | 📅 v1.5.0 |
 | Proxmox VE | 📅 v1.6.0 |
 
@@ -518,7 +518,7 @@ Notifinho was designed from the beginning to support additional infrastructure p
 
 The current implementation supports Xen Orchestra and Zabbix sources, plus
 provisional QNAP QTS, QuTS hero, and Grafana Alerting support in v1.3.0 and
-provisional TrueNAS 26 support in `v1.4.0-dev`, with delivery to Discord and
+provisional TrueNAS 26 support in `v1.4.0`, with delivery to Discord and
 Microsoft Teams.
 
 Future versions may include UniFi, Proxmox VE, Slack, Telegram and additional integrations.
@@ -1108,7 +1108,8 @@ Detailed progress is tracked in the
 
 ## ✅ v1.3.0 — QNAP and Grafana
 
-Notifinho v1.3.0 is the current stable release. See the
+Notifinho v1.3.0 introduced provisional QNAP QTS, QuTS hero, and
+Grafana Alerting support. See the
 [v1.3.0 release notes](docs/releases/v1.3.0.md) for highlights, upgrade
 guidance, validation results, and current compatibility limitations.
 
@@ -1143,7 +1144,11 @@ v1.3.0 feature set.
 
 ---
 
-## 🚧 v1.4.0 — TrueNAS
+## ✅ v1.4.0 — TrueNAS
+
+Notifinho v1.4.0 is the current stable release. See the
+[v1.4.0 release notes](docs/releases/v1.4.0.md) for highlights, upgrade
+guidance, validation results, and current compatibility limitations.
 
 - Provisional TrueNAS 26 detection and parser
 - Pool, disk/SMART, scrub, replication, backup, UPS, system, network,

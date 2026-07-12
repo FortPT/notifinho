@@ -1,6 +1,6 @@
 # TrueNAS 26 integration
 
-TrueNAS support is provisional in Notifinho `1.4.0-dev`. It follows the public
+TrueNAS support is provisional in Notifinho `1.4.0`. It follows the public
 TrueNAS 26 middleware alert-service layout. Private test-email and test-alert
 samples, plus a fresh live Send Test Alert, have been validated on VM-04.
 Broader real-world alert variants and customized layouts remain provisional.

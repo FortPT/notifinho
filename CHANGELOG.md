@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (v1.4.0)
+## 1.4.0 - 2026-07-12
 
 ### Added
 
@@ -30,8 +30,6 @@
 
 - TrueNAS support remains provisional for broader real-world alert variants,
   localized wording, customized templates, and Enterprise HA layouts.
-- The stable base release remains v1.3.0; the development version is
-  `1.4.0-dev`.
 
 ---
 

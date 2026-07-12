@@ -1,8 +1,9 @@
 # TrueNAS 26 integration
 
 TrueNAS support is provisional in Notifinho `1.4.0-dev`. It follows the public
-TrueNAS 26 middleware alert-service layout and must still be validated against
-private real TrueNAS 26 mail on VM-04.
+TrueNAS 26 middleware alert-service layout. Private test-email and test-alert
+samples, plus a fresh live Send Test Alert, have been validated on VM-04.
+Broader real-world alert variants and customized layouts remain provisional.
 
 ## How TrueNAS mail reaches Notifinho
 
@@ -143,6 +144,23 @@ categories:
 The shared status values remain `information`, `warning`, `failure`, and
 `success`. Cleared alerts are recoveries with `success`; grouped messages keep
 individual new, cleared, and current items in notification metadata.
+
+## VM-04 validation
+
+The following validation was completed against TrueNAS 26:
+
+- all nine synthetic fixtures were replayed through the development listener;
+- the private global SMTP test email reached Notifinho and safely used the
+  generic fallback;
+- the private Email alert-service test message was detected as TrueNAS;
+- a fresh live **Send Test Alert** was detected with the correct hostname;
+- TrueNAS Discord formatting and webhook delivery succeeded; and
+- the Docker release-candidate image passed startup, SMTP, parsing, routing,
+  formatting, and delivery smoke tests.
+
+Support remains provisional because a test alert does not represent every
+pool, disk, SMART, scrub, replication, UPS, localization, HA, or customized
+template variation.
 
 ## Provisional format assumptions
 

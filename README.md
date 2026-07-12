@@ -306,8 +306,9 @@ The provisional `v1.4.0-dev` integration includes:
 - Dedicated TrueNAS targets and source routing
 - Synthetic plain-text, HTML, and multipart fixtures
 
-Compatibility remains provisional until all fixtures and private real TrueNAS
-26 samples are replayed on VM-04. See the
+Compatibility remains provisional for broader real-world alert variants and
+customized templates. Synthetic fixtures, private test-email/test-alert
+replay, and a live Send Test Alert have been validated on VM-04. See the
 [TrueNAS integration guide](docs/truenas.md).
 
 ---
@@ -1107,10 +1108,11 @@ Detailed progress is tracked in the
 
 ## ✅ v1.3.0 — QNAP and Grafana
 
-v1.3.0 is the current stable release. QNAP and Grafana compatibility remains
-provisional while additional anonymized real-world samples are collected.
+Notifinho v1.3.0 is the current stable release. See the
+[v1.3.0 release notes](docs/releases/v1.3.0.md) for highlights, upgrade
+guidance, validation results, and current compatibility limitations.
 
-### Completed
+### Included in v1.3.0
 
 - QNAP detection and parser
 - QNAP Discord and Microsoft Teams formatters
@@ -1120,6 +1122,16 @@ provisional while additional anonymized real-world samples are collected.
 - Grafana synthetic fixtures, tests, and documentation
 - Dedicated QNAP and Grafana routing examples
 - SMTP fixture replay tooling
+- Automated GitHub Release creation for stable version tags
+- Rerun-safe release updates and manual publication of an existing tag
+
+### Release validation
+
+- 123 automated tests passed.
+- 49 Python files passed cache-free syntax validation.
+- The GitHub Actions workflow passed `actionlint` and release invariant checks.
+- Representative QNAP and Grafana fixtures were parsed, routed, and delivered.
+- The production image passed startup, version, and SMTP smoke tests.
 
 ### Compatibility hardening
 
@@ -1127,6 +1139,7 @@ QNAP and Grafana support is intentionally provisional. Validation against
 anonymized real QTS, QuTS hero, and Grafana `.eml` samples remains valuable
 compatibility-hardening work, but is not a hard blocker for the provisional
 v1.3.0 feature set.
+
 
 ---
 
@@ -1138,7 +1151,7 @@ v1.3.0 feature set.
 - New, cleared, current, test, and grouped alert handling
 - Discord and Microsoft Teams cards
 - Synthetic fixtures, tests, routing examples, and documentation
-- Real TrueNAS 26 fixture validation on VM-04 still required
+- Real TrueNAS 26 test email, test alert, and live Send Test Alert validated on VM-04
 
 ---
 

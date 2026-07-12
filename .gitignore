@@ -3,6 +3,7 @@ logs/
 *.log
 *.eml
 !tests/fixtures/qnap/*.eml
+!tests/fixtures/grafana/*.eml
 
 # Local config with secrets
 config/config.yaml

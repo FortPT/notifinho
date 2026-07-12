@@ -1,0 +1,29 @@
+From: Grafana Alerting <alerting@grafana.synthetic.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 11:00:00 +0000
+Subject: [NO DATA] Synthetic host telemetry alert
+Message-ID: <grafana-no-data@grafana.synthetic.invalid>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: grafana-html
+
+<!doctype html>
+<html lang="en"><body>
+<p><strong>SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE</strong></p>
+<h2>Grafana Alerting</h2>
+<table>
+<tr><th>State</th><td>No Data</td></tr>
+<tr><th>Alert name</th><td>Synthetic Host Telemetry</td></tr>
+<tr><th>Alert rule</th><td>Synthetic Telemetry Rule</td></tr>
+<tr><th>Grafana folder</th><td>Synthetic Infrastructure</td></tr>
+<tr><th>Dashboard</th><td>Synthetic Host Overview</td></tr>
+<tr><th>Panel</th><td>Synthetic Telemetry Panel</td></tr>
+<tr><th>Datasource</th><td>Synthetic Metrics Source</td></tr>
+<tr><th>Severity</th><td>Warning</td></tr>
+<tr><th>StartsAt</th><td>2026-07-12 11:00:00</td></tr>
+<tr><th>Summary</th><td>No synthetic telemetry data was returned.</td></tr>
+<tr><th>Message</th><td>The alert evaluation produced a synthetic No Data state.</td></tr>
+</table>
+</body></html>

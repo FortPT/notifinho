@@ -1,0 +1,32 @@
+From: Grafana Alerting <alerting@grafana.synthetic.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 11:30:00 +0000
+Subject: [FIRING:2] Synthetic grouped alerts
+Message-ID: <grafana-multiple@grafana.synthetic.invalid>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: grafana-grouped-plain
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE]
+
+Grafana Alerting
+State: Firing
+Alert name: Synthetic Grouped Alerts
+Alert rule: Synthetic Grouped Rule
+Grafana folder: Synthetic Shared Services
+Dashboard: Synthetic Shared Dashboard
+Severity: Critical
+Alert count: 2
+Labels: group=synthetic-shared
+Values: firing=2
+StartsAt: 2026-07-12 11:30:00
+Summary: Two synthetic alerts are firing in this notification.
+Message: Synthetic grouped alert notification for parser testing.
+Alert 1: Synthetic Cache Saturation
+Alert 1 State: Firing
+Alert 1 Values: A=95
+Alert 2: Synthetic Worker Failure
+Alert 2 State: Firing
+Alert 2 Values: B=1

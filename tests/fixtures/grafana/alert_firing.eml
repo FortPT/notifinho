@@ -1,0 +1,65 @@
+From: Grafana Alerting <alerting@grafana.synthetic.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 10:15:00 +0000
+Subject: [FIRING:1] Synthetic API latency alert
+Message-ID: <grafana-firing@grafana.synthetic.invalid>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="notifinho-grafana-firing"
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: grafana-multipart
+
+--notifinho-grafana-firing
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE]
+
+Grafana Alerting
+State: Firing
+Alert name: Synthetic API Latency
+Alert rule: Synthetic API Latency Rule
+Grafana folder: Synthetic Platform
+Dashboard: Synthetic Service Overview
+Panel: Synthetic Latency Panel
+Organization: SYNTHETIC-ORG
+Datasource: Synthetic Metrics Source
+Severity: Critical
+Labels: service=synthetic-api, environment=synthetic-lab
+Values: A=2.75, threshold=1.50
+StartsAt: 2026-07-12 10:15:00
+Summary: Synthetic API latency exceeded the test threshold.
+Description: The invented service remained above the synthetic threshold.
+Message: Synthetic API latency is firing for parser development.
+DashboardURL: https://grafana.synthetic.invalid/d/synthetic-service
+PanelURL: https://grafana.synthetic.invalid/d/synthetic-service?viewPanel=7
+SilenceURL: https://grafana.synthetic.invalid/alerting/silence/new?synthetic=1
+RuleURL: https://grafana.synthetic.invalid/alerting/grafana/synthetic-rule/view
+Alert count: 1
+
+--notifinho-grafana-firing
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<!doctype html>
+<html lang="en"><body>
+<p><strong>SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE</strong></p>
+<h2>Grafana Alerting</h2>
+<table>
+<tr><th>State</th><td>Firing</td></tr>
+<tr><th>Alert name</th><td>Synthetic API Latency</td></tr>
+<tr><th>Alert rule</th><td>Synthetic API Latency Rule</td></tr>
+<tr><th>Grafana folder</th><td>Synthetic Platform</td></tr>
+<tr><th>Dashboard</th><td>Synthetic Service Overview</td></tr>
+<tr><th>Panel</th><td>Synthetic Latency Panel</td></tr>
+<tr><th>Organization</th><td>SYNTHETIC-ORG</td></tr>
+<tr><th>Datasource</th><td>Synthetic Metrics Source</td></tr>
+<tr><th>Severity</th><td>Critical</td></tr>
+<tr><th>Labels</th><td>service=synthetic-api, environment=synthetic-lab</td></tr>
+<tr><th>Values</th><td>A=2.75, threshold=1.50</td></tr>
+<tr><th>StartsAt</th><td>2026-07-12 10:15:00</td></tr>
+<tr><th>Summary</th><td>Synthetic API latency exceeded the test threshold.</td></tr>
+<tr><th>Message</th><td>Synthetic API latency is firing for parser development.</td></tr>
+</table>
+</body></html>
+
+--notifinho-grafana-firing--

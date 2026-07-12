@@ -6,4 +6,3 @@ middleware alert-service layout; they are not copied from a private appliance.
 
 Names, domains, pool labels, and other identifiers use synthetic or reserved
 values. A real TrueNAS 26 replay remains the compatibility authority.
-

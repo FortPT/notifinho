@@ -34,6 +34,8 @@ Built for Homelabs • Ready for Enterprise
 
 <img src="https://img.shields.io/badge/Grafana-v1.3.0-F46800?logo=grafana&logoColor=white" alt="Grafana v1.3.0">
 
+<img src="https://img.shields.io/badge/TrueNAS-v1.4.0--dev-0095D5" alt="TrueNAS v1.4.0-dev">
+
 <img src="https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white" alt="Discord">
 
 <img src="https://img.shields.io/badge/Microsoft%20Teams-supported-6264A7?logo=microsoftteams&logoColor=white" alt="Microsoft Teams">
@@ -48,7 +50,7 @@ Built for Homelabs • Ready for Enterprise
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
 | **Current Stable Release** | **v1.3.0** |
-| **Next Planned Release** | **v1.4.0** |
+| **Development Version** | **v1.4.0-dev** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
@@ -89,6 +91,12 @@ available; see the [QNAP integration guide](docs/qnap.md).
 Grafana firing, resolved, pending, No Data, evaluation-error, and grouped
 alerts receive source-specific Discord and Teams layouts. Screenshots are not
 currently available; see the [Grafana integration guide](docs/grafana.md).
+
+## TrueNAS
+
+TrueNAS 26 test, active, cleared, current, and grouped alerts receive
+source-specific Discord and Teams layouts. Support is provisional in
+`v1.4.0-dev`; see the [TrueNAS integration guide](docs/truenas.md).
 
 ---
 
@@ -238,7 +246,7 @@ The v1.2.0 implementation includes:
 
 ## 💽 QNAP QTS / QuTS hero
 
-The provisional `v1.3.0` integration includes:
+The provisional v1.3.0 integration includes:
 
 - Case-insensitive QNAP Notification Center detection
 - Notification Center test messages
@@ -268,7 +276,7 @@ limitations, and safe sample-submission guidance.
 
 ## 📈 Grafana Alerting
 
-The provisional `v1.3.0` integration includes:
+The provisional v1.3.0 integration includes:
 
 - Strong, case-insensitive Grafana email detection
 - Test, firing, resolved, pending, No Data, and evaluation-error events
@@ -282,6 +290,25 @@ Grafana support was developed without production email samples. The fixtures
 are synthetic and do not prove compatibility with every Grafana release or
 custom alert template. See the [Grafana integration guide](docs/grafana.md)
 for SMTP/contact-point concepts, replay commands, and known limitations.
+
+---
+
+## TrueNAS 26
+
+The provisional `v1.4.0-dev` integration includes:
+
+- Strong detection using sender/header identity, the `TrueNAS @ hostname`
+  marker, and the upstream alert list structure
+- Test, new, cleared, current, and grouped alerts
+- Storage, SMART, scrub, replication, backup, UPS/power, system, network,
+  security, and application/service classification
+- TrueNAS-specific Discord embeds and Microsoft Teams Adaptive Cards
+- Dedicated TrueNAS targets and source routing
+- Synthetic plain-text, HTML, and multipart fixtures
+
+Compatibility remains provisional until all fixtures and private real TrueNAS
+26 samples are replayed on VM-04. See the
+[TrueNAS integration guide](docs/truenas.md).
 
 ---
 
@@ -310,10 +337,10 @@ This separation allows new infrastructure products and new messaging platforms t
 |----------|:------:|
 | Xen Orchestra | ✅ Stable |
 | Zabbix | ✅ v1.2.0 |
-| QNAP QTS / QuTS hero | ⚠️ v1.3.0 provisional |
-| Grafana Alerting | ⚠️ v1.3.0 provisional |
+| QNAP QTS / QuTS hero | 🚧 v1.3.0 |
+| Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
-| TrueNAS | 📅 v1.4.0 |
+| TrueNAS 26 | 🚧 v1.4.0-dev |
 | UniFi | 📅 v1.5.0 |
 | Proxmox VE | 📅 v1.6.0 |
 
@@ -398,6 +425,7 @@ Source-specific parser
     |- Zabbix
     |- QNAP
     |- Grafana
+    |- TrueNAS
     `- Generic fallback
     |
     v
@@ -488,10 +516,11 @@ single responsibility.
 Notifinho was designed from the beginning to support additional infrastructure platforms and messaging services without requiring architectural changes.
 
 The current implementation supports Xen Orchestra and Zabbix sources, plus
-provisional QNAP QTS, QuTS hero, and Grafana Alerting support in
-`v1.3.0`, with delivery to Discord and Microsoft Teams.
+provisional QNAP QTS, QuTS hero, and Grafana Alerting support in v1.3.0 and
+provisional TrueNAS 26 support in `v1.4.0-dev`, with delivery to Discord and
+Microsoft Teams.
 
-Future versions may include TrueNAS, UniFi, Proxmox VE, Slack, Telegram and additional integrations.
+Future versions may include UniFi, Proxmox VE, Slack, Telegram and additional integrations.
 
 ---
 
@@ -657,6 +686,10 @@ outputs:
     grafana:
       webhook: "PASTE_GRAFANA_DISCORD_WEBHOOK_HERE"
 
+    # Dedicated TrueNAS alert destination.
+    truenas:
+      webhook: "PASTE_TRUENAS_DISCORD_WEBHOOK_HERE"
+
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
     # to another Discord server or channel.
@@ -681,6 +714,10 @@ outputs:
     # Optional dedicated Teams destination for Grafana.
     # grafana:
     #   webhook: "PASTE_GRAFANA_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Teams destination for TrueNAS.
+    # truenas:
+    #   webhook: "PASTE_TRUENAS_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -753,6 +790,14 @@ routing:
 
       # - output: teams
       #   target: grafana
+
+  truenas:
+    outputs:
+      - output: discord
+        target: truenas
+
+      # - output: teams
+      #   target: truenas
 
   generic:
     outputs:
@@ -956,6 +1001,22 @@ Watch the logs for Grafana detection, the structured parse summary,
 the default Discord destination. These synthetic messages do not guarantee
 compatibility with every Grafana template; see [docs/grafana.md](docs/grafana.md).
 
+## Replaying synthetic TrueNAS mail in development
+
+Replay any synthetic TrueNAS fixture through the development listener:
+
+```bash
+python3 scripts/replay_email.py \
+  tests/fixtures/truenas/grouped_alerts.eml \
+  --host 127.0.0.1 \
+  --port 8026
+```
+
+Watch the logs for TrueNAS detection, the `TRUENAS PARSED` summary,
+`routing.truenas`, and the TrueNAS Discord or Teams formatter selection. The
+fixtures are synthetic approximations; see [docs/truenas.md](docs/truenas.md)
+for all replay commands and real-sample limitations.
+
 ---
 
 # 🔄 Example Flow
@@ -1046,12 +1107,10 @@ Detailed progress is tracked in the
 
 ## ✅ v1.3.0 — QNAP and Grafana
 
-Notifinho v1.3.0 adds provisional QNAP QTS, QuTS hero, and Grafana Alerting
-support. See the [v1.3.0 release notes](docs/releases/v1.3.0.md) for
-highlights, upgrade guidance, validation results, and current compatibility
-limitations.
+v1.3.0 is the current stable release. QNAP and Grafana compatibility remains
+provisional while additional anonymized real-world samples are collected.
 
-### Included in v1.3.0
+### Completed
 
 - QNAP detection and parser
 - QNAP Discord and Microsoft Teams formatters
@@ -1061,16 +1120,6 @@ limitations.
 - Grafana synthetic fixtures, tests, and documentation
 - Dedicated QNAP and Grafana routing examples
 - SMTP fixture replay tooling
-- Automated GitHub Release creation for stable version tags
-- Rerun-safe release updates and manual publication of an existing tag
-
-### Release validation
-
-- 123 automated tests passed.
-- 49 Python files passed cache-free syntax validation.
-- The GitHub Actions workflow passed `actionlint` and release invariant checks.
-- Representative QNAP and Grafana fixtures were parsed, routed, and delivered.
-- The production image passed startup, version, and SMTP smoke tests.
 
 ### Compatibility hardening
 
@@ -1081,15 +1130,15 @@ v1.3.0 feature set.
 
 ---
 
-## 📅 v1.4.0 — TrueNAS
+## 🚧 v1.4.0 — TrueNAS
 
-- TrueNAS email sample collection
-- Pool and disk health alerts
-- SMART and scrub events
-- Replication and backup failures
-- UPS and system alerts
+- Provisional TrueNAS 26 detection and parser
+- Pool, disk/SMART, scrub, replication, backup, UPS, system, network,
+  security, and application/service classification
+- New, cleared, current, test, and grouped alert handling
 - Discord and Microsoft Teams cards
-- Tests and documentation
+- Synthetic fixtures, tests, routing examples, and documentation
+- Real TrueNAS 26 fixture validation on VM-04 still required
 
 ---
 

@@ -1,6 +1,31 @@
 # Changelog
 
-## 1.3.0 - 2026-07-12
+## Unreleased (v1.4.0)
+
+### Added
+
+- Provisional TrueNAS 26 alert-service email detection and parsing.
+- Plain-text, HTML, multipart, test, new, cleared, current, and grouped alert
+  handling using the shared `Notification` model.
+- TrueNAS classification for storage, disk/SMART, scrub, replication, backup,
+  UPS/power, system, network, security, and application/service events.
+- TrueNAS-specific Discord embeds and Microsoft Teams Adaptive Cards with
+  bounded grouped-alert payloads.
+- Nine anonymized synthetic `.eml` fixtures and offline regression coverage.
+- Dedicated TrueNAS Discord/Teams targets, routing examples, and integration
+  documentation.
+
+### Notes
+
+- TrueNAS support is provisional. The public TrueNAS 26 middleware source
+  defines the implemented list layout, but private real-message replay on
+  VM-04 remains the final runtime authority.
+- The stable base release remains v1.3.0; the development version is
+  `1.4.0-dev`.
+
+---
+
+## Unreleased (v1.3.0)
 
 ### Added
 
@@ -32,20 +57,6 @@
   fields.
 - Updated source-aware architecture documentation covering dispatch, parsing,
   the shared model, routing, formatter selection, and webhook delivery.
-- Automated GitHub Release creation for stable `vMAJOR.MINOR.PATCH` tags.
-- Release validation that the tag, checked-out commit, and `src/version.py`
-  contain the same stable version.
-- Rerun-safe updates of existing GitHub Releases and manual publication of
-  existing stable tags.
-
-### Validation
-
-- 123 automated tests passed.
-- 49 Python files passed cache-free syntax validation.
-- The GitHub Actions release workflow passed `actionlint` and invariant checks.
-- Representative QNAP and Grafana fixture replays confirmed source detection,
-  parsing, dedicated Discord routing, and successful delivery.
-- The production image passed version, startup, and SMTP listener smoke tests.
 
 ### Notes
 
@@ -55,6 +66,15 @@
 - Grafana support is provisional. Synthetic fixtures do not guarantee
   compatibility with every Grafana version or custom alert template;
   anonymized real email samples are still needed for verification.
+
+### Remaining before release
+
+- Complete automated GitHub Release creation tracked in
+  [issue #9](https://github.com/FortPT/notifinho/issues/9).
+- Change the development version to the stable v1.3.0 version only after final
+  validation.
+- Complete final validation, tag and image publication, and
+  [GitHub Release](https://github.com/FortPT/notifinho/releases) publication.
 
 ---
 

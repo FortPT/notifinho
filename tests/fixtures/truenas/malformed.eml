@@ -6,4 +6,3 @@ X-Synthetic-Fixture: true
 Content-Type: text/plain; charset="utf-8"
 
 TrueNAS alert service produced incomplete synthetic content without a host or list.
-

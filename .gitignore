@@ -2,12 +2,14 @@
 logs/
 *.log
 *.eml
+!tests/fixtures/qnap/*.eml
 
 # Local config with secrets
 config/config.yaml
 
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *.pyo
 *.pyd
@@ -15,6 +17,9 @@ __pycache__/
 .venv/
 venv/
 env/
+
+# Test and integration artifacts
+tests/tmp/
 
 # OS/editor
 .DS_Store

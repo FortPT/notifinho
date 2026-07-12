@@ -209,6 +209,37 @@ The v1.2.0 implementation includes:
 - Secondary webhook destinations for selected hosts
 
 ---
+
+## 💽 QNAP QTS / QuTS hero
+
+The provisional `v1.3.0-dev` integration includes:
+
+- Case-insensitive QNAP Notification Center detection
+- Notification Center test messages
+- Failed login and security warnings
+- Storage pool, volume, RAID, disk, and SMART warnings
+- HBS and other backup failures
+- Firmware and application update notices
+- UPS and power events
+- Plain-text, HTML, and multipart email parsing
+- QNAP-specific Discord embeds and Microsoft Teams Adaptive Cards
+- Synthetic fixtures and a local SMTP replay utility
+
+Run the regression suite with:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+python3 -m pytest -q
+```
+
+QNAP support was developed without access to a physical NAS. The included
+fixtures are synthetic, and compatibility remains provisional until the
+parser is verified with anonymized real QTS and QuTS hero emails. See the
+[QNAP integration guide](docs/qnap.md) for testing instructions, current
+limitations, and safe sample-submission guidance.
+
+---
+
 ## ⚡ Designed for Fast Decision Making
 
 Every notification is designed around one principle:
@@ -316,12 +347,12 @@ Because these components are independent, adding a new parser does not require c
               │  Parser Dispatcher    │
               └───────────┬───────────┘
                           │
-        ┌─────────────────┼─────────────────┐
-        ▼                 ▼                 ▼
- Xen Orchestra        Zabbix         Generic SMTP
-     Parser            Parser            Parser
-        │                 │                 │
-        └─────────────────┼─────────────────┘
+       ┌────────────┬─────┴──────┬────────────┐
+       ▼            ▼            ▼            ▼
+ Xen Orchestra   Zabbix        QNAP      Generic SMTP
+     Parser       Parser       Parser         Parser
+       │            │            │             │
+       └────────────┴─────┬──────┴─────────────┘
                           ▼
                Notification Model
                           │
@@ -387,7 +418,9 @@ This separation keeps every component focused on a single responsibility.
 
 Notifinho was designed from the beginning to support additional infrastructure platforms and messaging services without requiring architectural changes.
 
-The current implementation supports Xen Orchestra and Zabbix sources, with delivery to Discord and Microsoft Teams.
+The current implementation supports Xen Orchestra and Zabbix sources, plus
+provisional QNAP QTS and QuTS hero support in `v1.3.0-dev`, with delivery to
+Discord and Microsoft Teams.
 
 Future versions may include TrueNAS, UniFi, Proxmox VE, Slack, Telegram and additional integrations.
 
@@ -626,6 +659,16 @@ routing:
       #       - "VM-12 | Palworld Test"
       #       - "VM-18 | Game Server"
 
+  qnap:
+    outputs:
+      # Send QNAP QTS and QuTS hero notifications to Discord.
+      - output: discord
+        target: default
+
+      # To also send QNAP notifications to Teams:
+      # - output: teams
+      #   target: default
+
   generic:
     outputs:
       # Fallback route for emails that do not match
@@ -672,6 +715,19 @@ routing:
 
       - output: teams
         target: default
+```
+
+QNAP uses the same source-based routing model:
+
+```yaml
+routing:
+  qnap:
+    outputs:
+      - output: discord
+        target: default
+
+      # - output: teams
+      #   target: default
 ```
 
 ### Conditional host routing
@@ -752,6 +808,32 @@ Most infrastructure products only require four SMTP settings:
 | TLS | Disabled |
 
 Notifinho identifies the notification type using the email content rather than the recipient address, allowing existing SMTP configurations to be reused without modification.
+
+## Replaying synthetic QNAP mail in development
+
+Production uses SMTP port `8025`. The development Docker Compose mapping
+publishes the same container listener on host port `8026`, so fixtures can be
+tested without a QNAP device:
+
+```bash
+python3 scripts/replay_email.py \
+  tests/fixtures/qnap/storage_warning.eml \
+  --host 127.0.0.1 \
+  --port 8026
+```
+
+The host and port shown above are the replay utility defaults, so this shorter
+form is equivalent:
+
+```bash
+python3 scripts/replay_email.py tests/fixtures/qnap/storage_warning.eml
+```
+
+The development SMTP listener does not require authentication. Watch the
+Notifinho logs for QNAP detection, parsing, source-specific formatter
+selection, and `routing.qnap` delivery. The fixtures are synthetic and do not
+guarantee compatibility with every QTS or QuTS hero release. More detail is
+available in the [QNAP integration guide](docs/qnap.md).
 
 ---
 
@@ -840,14 +922,15 @@ Detailed progress is tracked in the
 
 ## 🚧 v1.3.0 — QNAP
 
-- QTS and QuTS hero email sample collection
-- QNAP email detection and parser
+- Synthetic QTS and QuTS hero fixture corpus
+- Provisional QNAP email detection and parser
 - Storage, RAID, disk and SMART events
 - Backup, UPS, security and update events
 - QNAP Discord embeds
 - QNAP Microsoft Teams Adaptive Cards
 - Parser fixtures and regression tests
 - QNAP configuration documentation
+- Verification with anonymized real QNAP email samples
 - Automated GitHub Release creation
 
 ---

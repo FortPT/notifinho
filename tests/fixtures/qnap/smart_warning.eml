@@ -1,0 +1,28 @@
+From: QNAP Notification Center <notification-center@synthetic-qnap.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 08:45:00 +0000
+Subject: [Warning][Storage & Snapshots] Disk 3 S.M.A.R.T. warning
+Message-ID: <smart-warning@synthetic-qnap.invalid>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: qts-plain
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS]
+
+QNAP Notification Center
+
+NAS Name: SYNTHETIC-QNAP-LAB
+Severity: Warning
+Category: Storage
+App Name: Storage & Snapshots
+Event Type: Disk SMART Warning
+Date/Time: 2026/07/12 08:45:00
+Disk: Disk 3
+Disk Health: Warning
+SMART Test: Rapid Test
+SMART Result: Warning
+Message: Disk 3 reported a synthetic S.M.A.R.T. health warning. Review the disk health information.
+
+No manufacturer, model, serial number, or real device data is present.

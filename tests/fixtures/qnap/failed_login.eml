@@ -1,0 +1,57 @@
+From: QNAP Notification Center <notification-center@synthetic-qnap.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 08:15:00 +0000
+Subject: [Warning][Security] Failed login attempt on SYNTHETIC-QNAP-LAB
+Message-ID: <failed-login@synthetic-qnap.invalid>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="notifinho-qnap-security-boundary"
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: qts-multipart
+
+--notifinho-qnap-security-boundary
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS]
+
+QNAP Notification Center
+
+NAS Name: SYNTHETIC-QNAP-LAB
+Severity: Warning
+Category: Security
+App Name: QuLog Center
+Event Type: Failed Login
+Date/Time: 2026/07/12 08:15:00
+Account: synthetic-operator
+Connection Type: HTTPS
+Login Result: Failed
+Message: A failed login attempt was recorded for the synthetic test account.
+
+No source network address is included because this is a synthetic fixture.
+
+--notifinho-qnap-security-boundary
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<!doctype html>
+<html lang="en">
+  <body>
+    <p><strong>SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS</strong></p>
+    <h2>QNAP Notification Center</h2>
+    <table>
+      <tr><th>NAS Name</th><td>SYNTHETIC-QNAP-LAB</td></tr>
+      <tr><th>Severity</th><td>Warning</td></tr>
+      <tr><th>Category</th><td>Security</td></tr>
+      <tr><th>App Name</th><td>QuLog Center</td></tr>
+      <tr><th>Event Type</th><td>Failed Login</td></tr>
+      <tr><th>Date/Time</th><td>2026/07/12 08:15:00</td></tr>
+      <tr><th>Account</th><td>synthetic-operator</td></tr>
+      <tr><th>Connection Type</th><td>HTTPS</td></tr>
+      <tr><th>Login Result</th><td>Failed</td></tr>
+      <tr><th>Message</th><td>A failed login attempt was recorded for the synthetic test account.</td></tr>
+    </table>
+    <p>No source network address is included because this is a synthetic fixture.</p>
+  </body>
+</html>
+
+--notifinho-qnap-security-boundary--

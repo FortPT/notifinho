@@ -1,0 +1,34 @@
+From: QNAP Notification Center <notification-center@synthetic-qnap.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 08:30:00 +0000
+Subject: [Warning][Storage & Snapshots] Storage Pool 1 is in warning state
+Message-ID: <storage-warning@synthetic-qnap.invalid>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: quts-hero-html
+
+<!doctype html>
+<html lang="en">
+  <body>
+    <div style="border: 2px solid #b45309; padding: 12px;">
+      <strong>SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS</strong>
+    </div>
+    <h2>QNAP Notification Center</h2>
+    <table>
+      <tr><th>NAS Name</th><td>SYNTHETIC-QNAP-HERO</td></tr>
+      <tr><th>Severity</th><td>Warning</td></tr>
+      <tr><th>Category</th><td>Storage</td></tr>
+      <tr><th>App Name</th><td>Storage &amp; Snapshots</td></tr>
+      <tr><th>Event Type</th><td>Storage Pool Warning</td></tr>
+      <tr><th>Date/Time</th><td>2026/07/12 08:30:00</td></tr>
+      <tr><th>Storage Pool</th><td>Storage Pool 1</td></tr>
+      <tr><th>RAID Group</th><td>RAID Group 1</td></tr>
+      <tr><th>RAID Type</th><td>RAID 5</td></tr>
+      <tr><th>Pool Status</th><td>Warning</td></tr>
+      <tr><th>Message</th><td>Storage Pool 1 entered a warning state because RAID Group 1 is degraded.</td></tr>
+    </table>
+    <p>This storage layout and event are entirely synthetic.</p>
+  </body>
+</html>

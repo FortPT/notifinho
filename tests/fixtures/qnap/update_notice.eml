@@ -1,0 +1,31 @@
+From: QNAP Notification Center <notification-center@synthetic-qnap.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 09:15:00 +0000
+Subject: [Information][Firmware Update] A synthetic system update is available
+Message-ID: <update-notice@synthetic-qnap.invalid>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: quts-hero-html
+
+<!doctype html>
+<html lang="en">
+  <body>
+    <p><strong>SYNTHETIC FIXTURE - NOT FROM A REAL QNAP NAS</strong></p>
+    <h2>QNAP Notification Center</h2>
+    <table>
+      <tr><th>NAS Name</th><td>SYNTHETIC-QNAP-HERO</td></tr>
+      <tr><th>Severity</th><td>Information</td></tr>
+      <tr><th>Category</th><td>System</td></tr>
+      <tr><th>App Name</th><td>Firmware Update</td></tr>
+      <tr><th>Event Type</th><td>Update Available</td></tr>
+      <tr><th>Date/Time</th><td>2026/07/12 09:15:00</td></tr>
+      <tr><th>Update Type</th><td>System firmware</td></tr>
+      <tr><th>Current Version</th><td>SYNTHETIC-CURRENT</td></tr>
+      <tr><th>Available Version</th><td>SYNTHETIC-UPDATE</td></tr>
+      <tr><th>Message</th><td>A synthetic firmware update is available for parser testing.</td></tr>
+    </table>
+    <p>The version labels are placeholders and do not identify real QNAP software.</p>
+  </body>
+</html>

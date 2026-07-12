@@ -86,6 +86,20 @@ routing:
       #       - "VM-12 | Palworld Test"
       #       - "VM-18 | Game Server"
 
+  qnap:
+    outputs:
+      # Send QNAP QTS and QuTS hero notifications to Discord.
+      - output: discord
+        target: default
+
+      # To also send QNAP notifications to Microsoft Teams:
+      # 1. Paste the Teams workflow webhook above.
+      # 2. Change outputs.teams.enabled to true.
+      # 3. Uncomment the following route.
+      #
+      # - output: teams
+      #   target: default
+
   generic:
     outputs:
       # Fallback route for emails that do not match

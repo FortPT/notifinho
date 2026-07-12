@@ -2,12 +2,25 @@
 
 ## Unreleased (v1.3.0)
 
-### Planned
+### Added
 
-- QNAP QTS and QuTS hero notification support.
-- QNAP Discord and Microsoft Teams formatting.
-- QNAP parser fixtures and regression tests.
-- Automated GitHub Release creation.
+- Initial QNAP QTS and QuTS hero email detection and parser.
+- QNAP event classification for storage, security, backup, system, power,
+  and generic notifications.
+- QNAP-specific Discord embed and Microsoft Teams Adaptive Card formatters.
+- Seven synthetic QNAP `.eml` fixtures covering Notification Center tests,
+  login security, storage/RAID, disk/SMART, HBS backup, updates, and UPS power
+  events.
+- Local SMTP fixture replay utility with development defaults for port `8026`.
+- QNAP routing examples and integration documentation.
+- Pytest coverage for QNAP detection, parsing, formatting, and existing-source
+  selection regressions.
+
+### Notes
+
+- QNAP support is provisional. Synthetic fixtures do not guarantee
+  compatibility with every QTS or QuTS hero version; anonymized real email
+  samples are still needed for verification.
 
 ---
 

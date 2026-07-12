@@ -4,25 +4,91 @@ on:
   push:
     tags:
       - "v*.*.*"
+
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing stable tag to publish, for example v1.3.0"
+        required: true
+        type: string
 
 permissions:
-  contents: read
+  contents: write
   packages: write
+
+concurrency:
+  group: docker-release-${{ github.event_name }}-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   docker-release:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set version
+      - name: Resolve release tag
         id: version
+        shell: bash
+        env:
+          DISPATCH_TAG: ${{ github.event.inputs.tag }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          set -euo pipefail
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG="${DISPATCH_TAG}"
+          else
+            TAG="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ ! "${TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Release tag must match vMAJOR.MINOR.PATCH; received '${TAG}'."
+            exit 1
+          fi
+
+          VERSION="${TAG#v}"
+
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          echo "Release tag: ${TAG}"
+          echo "Image version: ${VERSION}"
+
+      - name: Checkout release tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.version.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify tag and application version
+        shell: bash
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          TAG_SHA="$(git rev-list -n 1 "${TAG}")"
+          HEAD_SHA="$(git rev-parse HEAD)"
+
+          if [[ "${TAG_SHA}" != "${HEAD_SHA}" ]]; then
+            echo "::error::Checked-out commit ${HEAD_SHA} does not match tag ${TAG} at ${TAG_SHA}."
+            exit 1
+          fi
+
+          APP_VERSION="$(
+            sed -n 's/^VERSION = "\(.*\)"/\1/p' src/version.py
+          )"
+
+          if [[ -z "${APP_VERSION}" ]]; then
+            echo "::error::Could not read VERSION from src/version.py."
+            exit 1
+          fi
+
+          if [[ "${APP_VERSION}" != "${VERSION}" ]]; then
+            echo "::error::src/version.py contains '${APP_VERSION}', but tag ${TAG} requires '${VERSION}'."
+            exit 1
+          fi
+
+          echo "Application version ${APP_VERSION} matches ${TAG}."
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -50,3 +116,57 @@ jobs:
             fortpt/notifinho:latest
             ghcr.io/fortpt/notifinho:${{ steps.version.outputs.version }}
             ghcr.io/fortpt/notifinho:latest
+
+      - name: Create or update GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          RELEASE_TITLE="Notifinho ${TAG}"
+          NOTES_FILE="docs/releases/${TAG}.md"
+
+          if gh release view "${TAG}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            >/dev/null 2>&1; then
+
+            echo "Release ${TAG} already exists; updating it."
+
+            RELEASE_ARGS=(
+              release edit "${TAG}"
+              --repo "${GITHUB_REPOSITORY}"
+              --title "${RELEASE_TITLE}"
+              --verify-tag
+              --draft=false
+              --latest
+            )
+
+            if [[ -f "${NOTES_FILE}" ]]; then
+              RELEASE_ARGS+=(--notes-file "${NOTES_FILE}")
+            else
+              echo "No ${NOTES_FILE} found; preserving existing release notes."
+            fi
+
+            gh "${RELEASE_ARGS[@]}"
+          else
+            echo "Creating GitHub Release ${TAG}."
+
+            RELEASE_ARGS=(
+              release create "${TAG}"
+              --repo "${GITHUB_REPOSITORY}"
+              --title "${RELEASE_TITLE}"
+              --verify-tag
+              --latest
+            )
+
+            if [[ -f "${NOTES_FILE}" ]]; then
+              RELEASE_ARGS+=(--notes-file "${NOTES_FILE}")
+            else
+              echo "No ${NOTES_FILE} found; generating release notes."
+              RELEASE_ARGS+=(--generate-notes)
+            fi
+
+            gh "${RELEASE_ARGS[@]}"
+          fi

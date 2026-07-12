@@ -33,6 +33,12 @@
 - Updated source-aware architecture documentation covering dispatch, parsing,
   the shared model, routing, formatter selection, and webhook delivery.
 
+- Automated GitHub Release creation for stable `vMAJOR.MINOR.PATCH` tags.
+- Release validation that the tag, checked-out commit, and `src/version.py`
+  contain the same stable version.
+- Rerun-safe updates of existing GitHub Releases and manual publication of
+  existing stable tags.
+
 ### Notes
 
 - QNAP support is provisional. Synthetic fixtures do not guarantee
@@ -44,8 +50,6 @@
 
 ### Remaining before release
 
-- Complete automated GitHub Release creation tracked in
-  [issue #9](https://github.com/FortPT/notifinho/issues/9).
 - Change the development version to the stable v1.3.0 version only after final
   validation.
 - Complete final validation, tag and image publication, and

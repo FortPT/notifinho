@@ -1060,14 +1060,15 @@ validation details.
 - Grafana synthetic fixtures, tests, and documentation
 - Dedicated QNAP and Grafana routing examples
 - SMTP fixture replay tooling
+- Automated GitHub Release creation for stable version tags
+- Rerun-safe release updates and manual publication of an existing tag
 
 ### Remaining before release
 
-- Automated GitHub Release creation ([issue #9](https://github.com/FortPT/notifinho/issues/9))
 - Final v1.3.0 stable version bump
 - Final release validation
 - Tag and container image publication
-- [GitHub Release](https://github.com/FortPT/notifinho/releases) publication
+- Automated [GitHub Release](https://github.com/FortPT/notifinho/releases) publication
 
 ### Compatibility hardening
 

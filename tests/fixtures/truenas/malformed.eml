@@ -1,0 +1,9 @@
+From: TrueNAS Alert Service <alerts@synthetic-truenas.example.invalid>
+To: notifinho@example.invalid
+Subject: Alerts
+Message-ID: <synthetic-truenas-malformed@example.invalid>
+X-Synthetic-Fixture: true
+Content-Type: text/plain; charset="utf-8"
+
+TrueNAS alert service produced incomplete synthetic content without a host or list.
+

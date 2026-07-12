@@ -14,6 +14,7 @@ from config import config
 from formatters.teams import TeamsFormatter
 from formatters.teams_grafana import GrafanaTeamsFormatter
 from formatters.teams_qnap import QNAPTeamsFormatter
+from formatters.teams_truenas import TrueNASTeamsFormatter
 from formatters.teams_zabbix import ZabbixTeamsFormatter
 from logger import log
 from models import Notification
@@ -28,6 +29,7 @@ class TeamsOutput:
         self.source_formatters = {
             "grafana": GrafanaTeamsFormatter(),
             "qnap": QNAPTeamsFormatter(),
+            "truenas": TrueNASTeamsFormatter(),
             "zabbix": ZabbixTeamsFormatter(),
         }
 

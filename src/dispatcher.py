@@ -106,20 +106,6 @@ class Dispatcher:
             )
 
         #
-        # TrueNAS
-        #
-
-        if "truenas" in sender_lower:
-
-            log.info(
-                "Detected TrueNAS email"
-            )
-
-            return self.truenas_parser.parse(
-                message,
-            )
-
-        #
         # Proxmox
         #
 
@@ -169,6 +155,28 @@ class Dispatcher:
             )
 
             return self.grafana_parser.parse(
+                message,
+            )
+
+        #
+        # TrueNAS
+        #
+        # Run content-based TrueNAS detection after the established
+        # integration detectors. This prevents vendor content in quoted
+        # mail from stealing QNAP or Grafana messages.
+        #
+
+        if self._is_truenas_email(
+            message,
+            sender,
+            subject,
+        ):
+
+            log.info(
+                "Detected TrueNAS email"
+            )
+
+            return self.truenas_parser.parse(
                 message,
             )
 
@@ -445,6 +453,150 @@ class Dispatcher:
             url_count >= 1
             and structured_count >= 2
         )
+
+    def _is_truenas_email(
+        self,
+        message: EmailMessage,
+        sender: str,
+        subject: str,
+    ) -> bool:
+        """Detect TrueNAS alert-service mail using corroborating signals."""
+
+        sender_text = str(sender or "").casefold()
+        subject_text = str(subject or "").casefold().strip()
+        body_text = self._truenas_detection_body(message).casefold()
+
+        header_text = " ".join(
+            f"{name} {value}"
+            for name, value in message.items()
+            if str(name).casefold() in {
+                "reply-to",
+                "return-path",
+                "sender",
+                "user-agent",
+                "x-mailer",
+                "x-truenas",
+                "x-truenas-alert",
+            }
+        ).casefold()
+
+        sender_brand = "truenas" in sender_text
+        header_brand = "truenas" in header_text
+        subject_brand = "truenas" in subject_text
+        alerts_subject = subject_text == "alerts"
+
+        body_lines = [
+            line.strip()
+            for line in body_text.splitlines()
+            if line.strip()
+        ]
+        opening_lines = "\n".join(body_lines[:8])
+        product_header = bool(
+            re.search(
+                r"(?im)^\s*truenas\s*@\s*[^\s<]{1,255}\s*$",
+                opening_lines,
+            )
+        )
+        test_alert = "this is a test alert" in body_text
+        structure_markers = (
+            "new alert:",
+            "new alerts:",
+            "the following alert has been cleared:",
+            "these alerts have been cleared:",
+            "current alerts:",
+        )
+        structure_count = sum(
+            marker in body_text
+            for marker in structure_markers
+        )
+
+        # A branded sender or dedicated header is useful, but requires an
+        # alert-oriented corroborating signal. The generic subject "Alerts"
+        # is never sufficient on its own.
+        if (sender_brand or header_brand) and (
+            alerts_subject
+            or product_header
+            or test_alert
+            or structure_count >= 1
+        ):
+            return True
+
+        if product_header and (
+            alerts_subject
+            or subject_brand
+            or test_alert
+            or structure_count >= 1
+        ):
+            return True
+
+        return bool(
+            subject_brand
+            and product_header
+            and (test_alert or structure_count >= 1)
+        )
+
+    def _truenas_detection_body(
+        self,
+        message: EmailMessage,
+    ) -> str:
+        """Return visible, non-attachment, non-quoted text for detection."""
+
+        try:
+            parts = list(message.walk()) if message.is_multipart() else [message]
+        except Exception:
+            parts = [message]
+
+        contents = []
+
+        for part in parts:
+            try:
+                content_type = str(part.get_content_type() or "").casefold()
+                disposition = str(part.get_content_disposition() or "").casefold()
+            except Exception:
+                continue
+
+            if disposition == "attachment" or content_type not in {
+                "text/plain",
+                "text/html",
+            }:
+                continue
+
+            content = self._detection_part_text(part)
+
+            if content_type == "text/html":
+                try:
+                    soup = BeautifulSoup(content, "lxml")
+                    for element in soup.find_all(["script", "style", "blockquote"]):
+                        element.decompose()
+                    for element in soup.find_all(True):
+                        marker = " ".join(
+                            [
+                                str(element.get("id", "")),
+                                " ".join(element.get("class", [])),
+                            ]
+                        ).casefold()
+                        if "quote" in marker or "forward" in marker:
+                            element.decompose()
+                    content = soup.get_text("\n", strip=True)
+                except Exception:
+                    content = self._searchable_html(content)
+
+            kept_lines = []
+            for line in str(content or "").splitlines():
+                clean = line.strip()
+                if re.search(
+                    r"(?:original message|begin forwarded message|forwarded message)",
+                    clean,
+                    flags=re.IGNORECASE,
+                ):
+                    break
+                if clean.startswith(">"):
+                    continue
+                kept_lines.append(line)
+
+            contents.append("\n".join(kept_lines))
+
+        return "\n".join(contents)
 
     def _detection_body(
         self,

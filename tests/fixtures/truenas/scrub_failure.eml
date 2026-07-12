@@ -1,0 +1,14 @@
+From: TrueNAS Alerts <alerts@synthetic-truenas.example.invalid>
+To: notifinho@example.invalid
+Subject: Alerts
+Date: Sun, 12 Jul 2026 10:15:00 +0000
+Message-ID: <synthetic-truenas-scrub@example.invalid>
+X-Synthetic-Fixture: true
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+
+<html><body><div>TrueNAS @ SYNTHETIC-TRUENAS</div>
+<div>New alert:</div>
+<ul><li>Scrub of pool SYNTHETIC-POOL failed with a synthetic checksum error.</li></ul>
+</body></html>
+

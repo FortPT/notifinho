@@ -1,0 +1,44 @@
+From: Grafana Alerting <alerting@grafana.synthetic.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 11:15:00 +0000
+Subject: [ERROR] Synthetic datasource evaluation failed
+Message-ID: <grafana-datasource-error@grafana.synthetic.invalid>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="notifinho-grafana-error"
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: grafana-multipart
+
+--notifinho-grafana-error
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE]
+
+Grafana Alerting
+State: Error
+Alert name: Synthetic Datasource Evaluation
+Alert rule: Synthetic Datasource Health Rule
+Grafana folder: Synthetic Observability
+Datasource: Synthetic Query Source
+Severity: Error
+StartsAt: 2026-07-12 11:15:00
+Evaluation Error: Synthetic datasource query could not be evaluated.
+Summary: Grafana alert evaluation returned a synthetic error.
+Message: The invented datasource is unavailable for this fixture.
+RuleURL: https://grafana.synthetic.invalid/alerting/grafana/synthetic-datasource-rule/view
+
+--notifinho-grafana-error
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+<!doctype html><html lang="en"><body>
+<h2>Grafana Alerting</h2>
+<p><strong>SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE</strong></p>
+<p><b>State:</b> Error</p>
+<p><b>Alert rule:</b> Synthetic Datasource Health Rule</p>
+<p><b>Datasource:</b> Synthetic Query Source</p>
+<p><b>Evaluation Error:</b> Synthetic datasource query could not be evaluated.</p>
+<p><b>Message:</b> The invented datasource is unavailable for this fixture.</p>
+</body></html>
+
+--notifinho-grafana-error--

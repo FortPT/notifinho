@@ -1,0 +1,26 @@
+From: Grafana Alerting <alerting@grafana.synthetic.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 10:45:00 +0000
+Subject: [PENDING] Synthetic queue depth warning
+Message-ID: <grafana-pending@grafana.synthetic.invalid>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: grafana-plain
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE]
+
+Grafana Alerting
+State: Pending
+Alert name: Synthetic Queue Depth
+Alert rule: Synthetic Queue Warning Rule
+Grafana folder: Synthetic Messaging
+Dashboard: Synthetic Queue Dashboard
+Panel: Synthetic Queue Depth Panel
+Severity: Warning
+Labels: queue=synthetic-jobs
+Values: A=82, threshold=80
+StartsAt: 2026-07-12 10:45:00
+Summary: The synthetic queue is pending evaluation.
+Message: Synthetic warning remains pending for the configured period.

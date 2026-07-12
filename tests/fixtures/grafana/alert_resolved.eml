@@ -1,0 +1,29 @@
+From: Grafana Alerting <alerting@grafana.synthetic.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 10:30:00 +0000
+Subject: [RESOLVED] Synthetic API latency alert
+Message-ID: <grafana-resolved@grafana.synthetic.invalid>
+MIME-Version: 1.0
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: grafana-html
+
+<!doctype html>
+<html lang="en"><body>
+<p><strong>SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE</strong></p>
+<h2>Grafana Alerting</h2>
+<dl>
+<dt>State</dt><dd>Resolved</dd>
+<dt>Alert name</dt><dd>Synthetic API Latency</dd>
+<dt>Alert rule</dt><dd>Synthetic API Latency Rule</dd>
+<dt>Grafana folder</dt><dd>Synthetic Platform</dd>
+<dt>Dashboard</dt><dd>Synthetic Service Overview</dd>
+<dt>Panel</dt><dd>Synthetic Latency Panel</dd>
+<dt>Severity</dt><dd>Normal</dd>
+<dt>EndsAt</dt><dd>2026-07-12 10:30:00</dd>
+<dt>Summary</dt><dd>Synthetic API latency returned to normal.</dd>
+<dt>Message</dt><dd>The synthetic alert is resolved.</dd>
+<dt>DashboardURL</dt><dd>https://grafana.synthetic.invalid/d/synthetic-service</dd>
+</dl>
+</body></html>

@@ -1,0 +1,23 @@
+From: Grafana Alerting <alerting@grafana.synthetic.invalid>
+To: Notifinho Fixture <notifinho@receiver.invalid>
+Date: Sun, 12 Jul 2026 10:00:00 +0000
+Subject: [Grafana] Test notification for SYNTHETIC-ORG
+Message-ID: <grafana-test@grafana.synthetic.invalid>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+X-Notifinho-Synthetic-Fixture: true
+X-Notifinho-Fixture-Format: grafana-plain
+
+[SYNTHETIC FIXTURE - NOT FROM A REAL GRAFANA INSTANCE]
+
+Grafana Alerting
+State: Test
+Alert name: Synthetic Contact Point Test
+Alert rule: Synthetic Test Rule
+Grafana folder: Synthetic Operations
+Organization: SYNTHETIC-ORG
+Severity: Information
+Event Time: 2026-07-12 10:00:00
+Summary: Grafana contact point test for Notifinho development.
+Message: This synthetic notification verifies the Grafana email route.

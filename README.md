@@ -48,13 +48,18 @@ Built for Homelabs • Ready for Enterprise
 
 | Property | Value |
 |----------|-------|
-| **Status** | 🚀 Stable – Production Ready |
+| **Status** | 🚧 v1.5.0 UniFi discovery in development |
 | **Current Stable Release** | **v1.4.0** |
-| **Next Planned Release** | **v1.5.0** |
+| **Active Development Version** | **v1.5.0-dev** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
 Notifinho is under active development. New parsers, notification platforms and integrations are planned while maintaining backwards compatibility whenever possible.
+
+The v1.5.0 discovery phase is collecting and sanitizing representative
+notifications from UniFi Network, UniFi Protect, and UniFi Drive. It does not
+yet add production parsing, formatting, routing, or HTTP listening. See the
+[UniFi discovery guide](docs/unifi-discovery.md).
 
 ---
 
@@ -342,7 +347,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
-| UniFi | 📅 v1.5.0 |
+| UniFi Network / Protect / Drive | 🔬 v1.5.0 discovery |
 | Proxmox VE | 📅 v1.6.0 |
 
 ## 📤 Destinations
@@ -521,7 +526,9 @@ provisional QNAP QTS, QuTS hero, and Grafana Alerting support in v1.3.0 and
 provisional TrueNAS 26 support in `v1.4.0`, with delivery to Discord and
 Microsoft Teams.
 
-Future versions may include UniFi, Proxmox VE, Slack, Telegram and additional integrations.
+The active v1.5.0 discovery work is evaluating UniFi Network, Protect, and
+Drive notifications. Future versions may include production UniFi support,
+Proxmox VE, Slack, Telegram, and additional integrations.
 
 ---
 
@@ -1160,14 +1167,25 @@ guidance, validation results, and current compatibility limitations.
 
 ---
 
-## 📅 v1.5.0 — UniFi
+## 🚧 v1.5.0 — UniFi discovery
 
-- UniFi notification parser
-- Gateway, switch and access point events
-- Device and connectivity alerts
-- Security notifications
-- Discord and Microsoft Teams cards
-- Tests and documentation
+v1.5.0 is the active development version. Its current scope is discovery and
+tooling only; production behavior remains unchanged while representative
+samples are collected and reviewed for:
+
+- UniFi Network gateway, switch, access point, connectivity, and device-health
+  notifications
+- UniFi Protect camera, security, device-health, storage, and test
+  notifications
+- UniFi Drive storage, disk-health, backup, connectivity, and test
+  notifications
+- Sanitized RFC822 analysis and temporary, opt-in HTTP webhook capture
+- Synthetic sanitization, malformed-input, and application-marker tests
+- A documented private-sample review workflow tracked in issue #32
+
+The final parser, source-specific formatters, routes, and production HTTP
+listener will be designed only after real Network, Protect, and Drive samples
+have been inspected.
 
 ---
 

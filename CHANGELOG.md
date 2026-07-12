@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.5.0 - Unreleased
+
+### Added
+
+- Discovery-only tooling for sanitized structural analysis of private UniFi
+  RFC822 email samples.
+- A temporary, standard-library HTTP capture server with sanitized summaries
+  and explicitly opt-in private raw-request storage.
+- A private-sample collection and review workflow for UniFi Network, Protect,
+  and Drive.
+- Synthetic regression coverage for discovery sanitization and application
+  marker classification.
+
+### Notes
+
+- v1.4.0 remains the current stable release.
+- No UniFi parser, formatter, routing, production listener, or production
+  configuration is included in this discovery phase. Those decisions remain
+  blocked on reviewed real-world samples.
+- Development tracking continues in issue #32.
+
+---
+
 ## 1.4.0 - 2026-07-12
 
 ### Added

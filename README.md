@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.2.0-blue" alt="Stable release v1.2.0">
+  <img src="https://img.shields.io/badge/stable-v1.3.0-blue" alt="Stable release v1.3.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -30,9 +30,9 @@ Built for Homelabs • Ready for Enterprise
 
 <img src="https://img.shields.io/badge/Zabbix-v1.2.0-D40000?logo=zabbix&logoColor=white" alt="Zabbix">
 
-<img src="https://img.shields.io/badge/QNAP-v1.3.0--dev-008C95" alt="QNAP v1.3.0-dev">
+<img src="https://img.shields.io/badge/QNAP-v1.3.0-008C95" alt="QNAP v1.3.0">
 
-<img src="https://img.shields.io/badge/Grafana-v1.3.0--dev-F46800?logo=grafana&logoColor=white" alt="Grafana v1.3.0-dev">
+<img src="https://img.shields.io/badge/Grafana-v1.3.0-F46800?logo=grafana&logoColor=white" alt="Grafana v1.3.0">
 
 <img src="https://img.shields.io/badge/Discord-supported-5865F2?logo=discord&logoColor=white" alt="Discord">
 
@@ -47,8 +47,8 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.2.0** |
-| **Development Version** | **v1.3.0-dev** |
+| **Current Stable Release** | **v1.3.0** |
+| **Next Planned Release** | **v1.4.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
@@ -238,7 +238,7 @@ The v1.2.0 implementation includes:
 
 ## 💽 QNAP QTS / QuTS hero
 
-The provisional `v1.3.0-dev` integration includes:
+The provisional `v1.3.0` integration includes:
 
 - Case-insensitive QNAP Notification Center detection
 - Notification Center test messages
@@ -268,7 +268,7 @@ limitations, and safe sample-submission guidance.
 
 ## 📈 Grafana Alerting
 
-The provisional `v1.3.0-dev` integration includes:
+The provisional `v1.3.0` integration includes:
 
 - Strong, case-insensitive Grafana email detection
 - Test, firing, resolved, pending, No Data, and evaluation-error events
@@ -310,8 +310,8 @@ This separation allows new infrastructure products and new messaging platforms t
 |----------|:------:|
 | Xen Orchestra | ✅ Stable |
 | Zabbix | ✅ v1.2.0 |
-| QNAP QTS / QuTS hero | 🚧 v1.3.0-dev |
-| Grafana Alerting | 🚧 v1.3.0-dev |
+| QNAP QTS / QuTS hero | ⚠️ v1.3.0 provisional |
+| Grafana Alerting | ⚠️ v1.3.0 provisional |
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS | 📅 v1.4.0 |
 | UniFi | 📅 v1.5.0 |
@@ -489,7 +489,7 @@ Notifinho was designed from the beginning to support additional infrastructure p
 
 The current implementation supports Xen Orchestra and Zabbix sources, plus
 provisional QNAP QTS, QuTS hero, and Grafana Alerting support in
-`v1.3.0-dev`, with delivery to Discord and Microsoft Teams.
+`v1.3.0`, with delivery to Discord and Microsoft Teams.
 
 Future versions may include TrueNAS, UniFi, Proxmox VE, Slack, Telegram and additional integrations.
 
@@ -1044,13 +1044,14 @@ Detailed progress is tracked in the
 
 ---
 
-## 🚧 v1.3.0 — QNAP and Grafana
+## ✅ v1.3.0 — QNAP and Grafana
 
-The implementation remains `v1.3.0-dev`; v1.3.0 has not been released. See
-the [draft v1.3.0 release notes](docs/releases/v1.3.0.md) for upgrade and
-validation details.
+Notifinho v1.3.0 adds provisional QNAP QTS, QuTS hero, and Grafana Alerting
+support. See the [v1.3.0 release notes](docs/releases/v1.3.0.md) for
+highlights, upgrade guidance, validation results, and current compatibility
+limitations.
 
-### Completed
+### Included in v1.3.0
 
 - QNAP detection and parser
 - QNAP Discord and Microsoft Teams formatters
@@ -1063,12 +1064,13 @@ validation details.
 - Automated GitHub Release creation for stable version tags
 - Rerun-safe release updates and manual publication of an existing tag
 
-### Remaining before release
+### Release validation
 
-- Final v1.3.0 stable version bump
-- Final release validation
-- Tag and container image publication
-- Automated [GitHub Release](https://github.com/FortPT/notifinho/releases) publication
+- 123 automated tests passed.
+- 49 Python files passed cache-free syntax validation.
+- The GitHub Actions workflow passed `actionlint` and release invariant checks.
+- Representative QNAP and Grafana fixtures were parsed, routed, and delivered.
+- The production image passed startup, version, and SMTP smoke tests.
 
 ### Compatibility hardening
 

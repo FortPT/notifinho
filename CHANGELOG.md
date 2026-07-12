@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (v1.3.0)
+## 1.3.0 - 2026-07-12
 
 ### Added
 
@@ -32,12 +32,20 @@
   fields.
 - Updated source-aware architecture documentation covering dispatch, parsing,
   the shared model, routing, formatter selection, and webhook delivery.
-
 - Automated GitHub Release creation for stable `vMAJOR.MINOR.PATCH` tags.
 - Release validation that the tag, checked-out commit, and `src/version.py`
   contain the same stable version.
 - Rerun-safe updates of existing GitHub Releases and manual publication of
   existing stable tags.
+
+### Validation
+
+- 123 automated tests passed.
+- 49 Python files passed cache-free syntax validation.
+- The GitHub Actions release workflow passed `actionlint` and invariant checks.
+- Representative QNAP and Grafana fixture replays confirmed source detection,
+  parsing, dedicated Discord routing, and successful delivery.
+- The production image passed version, startup, and SMTP listener smoke tests.
 
 ### Notes
 
@@ -47,13 +55,6 @@
 - Grafana support is provisional. Synthetic fixtures do not guarantee
   compatibility with every Grafana version or custom alert template;
   anonymized real email samples are still needed for verification.
-
-### Remaining before release
-
-- Change the development version to the stable v1.3.0 version only after final
-  validation.
-- Complete final validation, tag and image publication, and
-  [GitHub Release](https://github.com/FortPT/notifinho/releases) publication.
 
 ---
 

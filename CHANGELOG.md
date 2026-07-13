@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.5.1 - 2026-07-13
+
+### Changed
+
+- Polished QNAP Microsoft Teams Adaptive Cards with a NAS identity icon,
+  status-aware severity icons, category-specific icons, event-specific
+  headings, and icon-prefixed operational details.
+- Humanized QNAP event-type values such as `test_message` to `Test Message`.
+- Removed redundant test-message metadata from visible Teams cards while
+  preserving useful parsed operational information.
+- Updated the QNAP integration documentation for real-device validation.
+
+### Validation
+
+- 295 automated tests passed.
+- 20 focused QNAP formatter tests passed.
+- Python syntax validation passed for the changed formatter and regression test.
+- Real QNAP Notification Center delivery will be verified immediately after
+  publication using the production SMTP listener.
+
+---
+
 ## 1.5.0 - 2026-07-13
 
 ### Added

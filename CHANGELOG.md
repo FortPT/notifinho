@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.5.0 - Unreleased
+## 1.5.0 - 2026-07-13
 
 ### Added
 
@@ -28,13 +28,10 @@
 
 ### Notes
 
-- v1.4.0 remains the current stable release.
-- UniFi support remains under development as `1.5.0-dev`; this is not a final
-  v1.5.0 release.
+- v1.5.0 is the current stable release.
 - Network and Protect accept direct HTTP webhooks. Drive supports parsing
   delivered RFC822 email but does not poll IMAP, Microsoft Graph, Gmail, or any
   mailbox provider.
-- Development tracking continues in issue #32.
 
 ---
 

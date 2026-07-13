@@ -22,13 +22,20 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
+The current stable release is **v1.5.0**.
+
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
 Current features include:
 
 - Xen Orchestra parser
+- Zabbix, QNAP, Grafana Alerting, and TrueNAS notification support
+- UniFi Network and Protect native HTTP webhooks
+- UniFi Drive delivered-email parsing
 - Rich Discord notifications
+- Microsoft Teams Adaptive Cards
 - SMTP gateway input
+- Disabled-by-default native HTTP webhook input
 - Docker deployment
 - Parser-driven architecture
 - Repository and transfer statistics
@@ -62,6 +69,51 @@ services:
       - ./logs:/notifinho/logs
 ```
 
+The container exposes two independent ports:
+
+- `8025/tcp` for the existing SMTP listener;
+- `8080/tcp` for the native HTTP webhook listener.
+
+Publishing port `8080` does not enable HTTP input. It remains disabled by
+default and must be explicitly enabled in `config/config.yaml`:
+
+```yaml
+http:
+  enabled: false
+  host: "0.0.0.0"
+  port: 8080
+  max_body_bytes: 1048576
+  shared_secret: ""
+```
+
+UniFi Network and Protect send JSON to `/unifi/network` and `/unifi/protect`.
+UniFi Drive delivers RFC822 email through the existing SMTP listener; Notifinho
+does not poll IMAP, Microsoft Graph, Gmail, or other mailbox providers.
+
+A shared Discord target can receive all three normalized UniFi sources:
+
+```yaml
+outputs:
+  discord:
+    enabled: true
+    unifi:
+      webhook: "PASTE_UNIFI_DISCORD_WEBHOOK_HERE"
+
+routing:
+  unifi_network:
+    outputs:
+      - output: discord
+        target: unifi
+  unifi_protect:
+    outputs:
+      - output: discord
+        target: unifi
+  unifi_drive:
+    outputs:
+      - output: discord
+        target: unifi
+```
+
 ---
 
 ## Documentation
@@ -78,7 +130,7 @@ https://github.com/FortPT/notifinho
 - Zabbix
 - TrueNAS
 - Proxmox VE
-- UniFi Network, Protect, and Drive (`v1.5.0-dev`)
+- Additional UniFi event variants
 - Slack
 - Telegram
 

@@ -1,6 +1,6 @@
 # UniFi integration
 
-Notifinho `1.5.0-dev` provides three independent normalized sources:
+Notifinho `1.5.0` provides three independent normalized sources:
 
 - `unifi_network` receives UniFi Network Alarm Manager JSON webhooks;
 - `unifi_protect` receives UniFi Protect Alarm Manager JSON webhooks; and
@@ -8,8 +8,8 @@ Notifinho `1.5.0-dev` provides three independent normalized sources:
   existing SMTP input.
 
 All three sources use the shared `Notification` model, router, Discord output,
-and Microsoft Teams output. The v1.4.0 release remains the current stable
-release while this integration is under development in issue #32.
+and Microsoft Teams output. Native UniFi support is included in the stable
+v1.5.0 release.
 
 ## Native HTTP input
 

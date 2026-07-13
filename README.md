@@ -48,7 +48,7 @@ Built for Homelabs • Ready for Enterprise
 
 | Property | Value |
 |----------|-------|
-| **Status** | 🚧 v1.5.0 UniFi discovery in development |
+| **Status** | 🚧 v1.5.0 native UniFi support in development |
 | **Current Stable Release** | **v1.4.0** |
 | **Active Development Version** | **v1.5.0-dev** |
 | **License** | MIT |
@@ -56,10 +56,10 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is under active development. New parsers, notification platforms and integrations are planned while maintaining backwards compatibility whenever possible.
 
-The v1.5.0 discovery phase is collecting and sanitizing representative
-notifications from UniFi Network, UniFi Protect, and UniFi Drive. It does not
-yet add production parsing, formatting, routing, or HTTP listening. See the
-[UniFi discovery guide](docs/unifi-discovery.md).
+The v1.5.0 development branch adds native, disabled-by-default HTTP webhook
+input for UniFi Network and Protect plus delivered-email parsing for UniFi
+Drive. Drive does not include mailbox polling; an external forwarding or SMTP
+delivery mechanism is still required. See the [UniFi integration guide](docs/unifi.md).
 
 ---
 
@@ -347,7 +347,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
-| UniFi Network / Protect / Drive | 🔬 v1.5.0 discovery |
+| UniFi Network / Protect / Drive | 🚧 v1.5.0-dev |
 | Proxmox VE | 📅 v1.6.0 |
 
 ## 📤 Destinations
@@ -526,9 +526,9 @@ provisional QNAP QTS, QuTS hero, and Grafana Alerting support in v1.3.0 and
 provisional TrueNAS 26 support in `v1.4.0`, with delivery to Discord and
 Microsoft Teams.
 
-The active v1.5.0 discovery work is evaluating UniFi Network, Protect, and
-Drive notifications. Future versions may include production UniFi support,
-Proxmox VE, Slack, Telegram, and additional integrations.
+The active v1.5.0 development work includes native UniFi Network and Protect
+webhooks plus delivered-email parsing for UniFi Drive. Future versions may
+include Proxmox VE, Slack, Telegram, and additional integrations.
 
 ---
 
@@ -624,6 +624,7 @@ services:
 
     ports:
       - "8025:8025"
+      - "18080:8080"
 
     volumes:
       - ./config:/notifinho/config
@@ -1167,25 +1168,27 @@ guidance, validation results, and current compatibility limitations.
 
 ---
 
-## 🚧 v1.5.0 — UniFi discovery
+## 🚧 v1.5.0 — Native UniFi support
 
-v1.5.0 is the active development version. Its current scope is discovery and
-tooling only; production behavior remains unchanged while representative
-samples are collected and reviewed for:
+v1.5.0 is the active development version. The discovery findings now support:
 
-- UniFi Network gateway, switch, access point, connectivity, and device-health
-  notifications
-- UniFi Protect camera, security, device-health, storage, and test
-  notifications
-- UniFi Drive storage, disk-health, backup, connectivity, and test
-  notifications
+- Native HTTP input for UniFi Network and Protect Alarm Manager webhooks
+- Strong-envelope Network client, gateway, switch, access point, connectivity,
+  and device-health normalization
+- Protect motion, person, vehicle, doorbell, trigger-device, and event-link
+  normalization
+- Delivered-email parsing for UniFi Drive backup, storage, disk-health, and
+  administrative events
+- Dedicated Discord and Microsoft Teams formatting
+- Independent routing with shared or separate output targets
 - Sanitized RFC822 analysis and temporary, opt-in HTTP webhook capture
-- Synthetic sanitization, malformed-input, and application-marker tests
+- Synthetic parsing, listener, authentication, formatting, routing, replay,
+  malformed-input, and regression tests
 - A documented private-sample review workflow tracked in issue #32
 
-The final parser, source-specific formatters, routes, and production HTTP
-listener will be designed only after real Network, Protect, and Drive samples
-have been inspected.
+The listener remains disabled until configured. UniFi Drive does not poll a
+mailbox; mail must be forwarded or delivered to Notifinho's existing SMTP
+input. See [docs/unifi.md](docs/unifi.md) for configuration and security.
 
 ---
 

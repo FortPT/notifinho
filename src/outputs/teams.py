@@ -15,6 +15,11 @@ from formatters.teams import TeamsFormatter
 from formatters.teams_grafana import GrafanaTeamsFormatter
 from formatters.teams_qnap import QNAPTeamsFormatter
 from formatters.teams_truenas import TrueNASTeamsFormatter
+from formatters.teams_unifi import (
+    UniFiDriveTeamsFormatter,
+    UniFiNetworkTeamsFormatter,
+    UniFiProtectTeamsFormatter,
+)
 from formatters.teams_zabbix import ZabbixTeamsFormatter
 from logger import log
 from models import Notification
@@ -30,6 +35,9 @@ class TeamsOutput:
             "grafana": GrafanaTeamsFormatter(),
             "qnap": QNAPTeamsFormatter(),
             "truenas": TrueNASTeamsFormatter(),
+            "unifi_drive": UniFiDriveTeamsFormatter(),
+            "unifi_network": UniFiNetworkTeamsFormatter(),
+            "unifi_protect": UniFiProtectTeamsFormatter(),
             "zabbix": ZabbixTeamsFormatter(),
         }
 
@@ -88,6 +96,13 @@ class TeamsOutput:
             "Teams formatter: %s",
             formatter.__class__.__name__,
         )
+
+        if source.startswith("unifi_"):
+
+            log.info(
+                "%s formatter selected",
+                formatter.label,
+            )
 
         try:
 

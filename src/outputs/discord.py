@@ -15,6 +15,11 @@ from formatters.discord import DiscordFormatter
 from formatters.discord_grafana import GrafanaDiscordFormatter
 from formatters.discord_qnap import QNAPDiscordFormatter
 from formatters.discord_truenas import TrueNASDiscordFormatter
+from formatters.discord_unifi import (
+    UniFiDriveDiscordFormatter,
+    UniFiNetworkDiscordFormatter,
+    UniFiProtectDiscordFormatter,
+)
 from formatters.discord_zabbix import ZabbixDiscordFormatter
 from logger import log
 from models import Notification
@@ -30,6 +35,9 @@ class DiscordOutput:
             "grafana": GrafanaDiscordFormatter(),
             "qnap": QNAPDiscordFormatter(),
             "truenas": TrueNASDiscordFormatter(),
+            "unifi_drive": UniFiDriveDiscordFormatter(),
+            "unifi_network": UniFiNetworkDiscordFormatter(),
+            "unifi_protect": UniFiProtectDiscordFormatter(),
             "zabbix": ZabbixDiscordFormatter(),
         }
 
@@ -88,6 +96,13 @@ class DiscordOutput:
             "Discord formatter: %s",
             formatter.__class__.__name__,
         )
+
+        if source.startswith("unifi_"):
+
+            log.info(
+                "%s formatter selected",
+                formatter.label,
+            )
 
         log.info(
             "Webhook ID: %s",

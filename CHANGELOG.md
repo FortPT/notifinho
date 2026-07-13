@@ -4,6 +4,19 @@
 
 ### Added
 
+- Native, disabled-by-default HTTP input for UniFi Network and Protect Alarm
+  Manager webhooks, with bounded JSON bodies, optional shared-secret
+  authentication, and graceful lifecycle integration alongside SMTP.
+- Strong-envelope Network and Protect parsers using the shared `Notification`
+  model, dispatcher, router, and existing delivery pipeline.
+- Provisional UniFi Drive email detection and parsing with plain-text
+  preference and sanitized HTML fallback.
+- Dedicated Discord embeds and Microsoft Teams Adaptive Cards for UniFi
+  Network, Protect, and Drive.
+- Independent `unifi_network`, `unifi_protect`, and `unifi_drive` routing keys
+  with a practical shared `unifi` output target example.
+- Private-safe loopback webhook replay tooling and synthetic Network, Protect,
+  Drive, HTTP, formatting, routing, and regression coverage.
 - Discovery-only tooling for sanitized structural analysis of private UniFi
   RFC822 email samples.
 - A temporary, standard-library HTTP capture server with sanitized summaries
@@ -16,9 +29,11 @@
 ### Notes
 
 - v1.4.0 remains the current stable release.
-- No UniFi parser, formatter, routing, production listener, or production
-  configuration is included in this discovery phase. Those decisions remain
-  blocked on reviewed real-world samples.
+- UniFi support remains under development as `1.5.0-dev`; this is not a final
+  v1.5.0 release.
+- Network and Protect accept direct HTTP webhooks. Drive supports parsing
+  delivered RFC822 email but does not poll IMAP, Microsoft Graph, Gmail, or any
+  mailbox provider.
 - Development tracking continues in issue #32.
 
 ---

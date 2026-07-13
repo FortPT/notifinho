@@ -1,9 +1,9 @@
 # UniFi discovery for v1.5.0
 
-Notifinho v1.5.0 is in a discovery and tooling phase. This guide is for safely
-collecting enough structural information to design support without committing
-private samples. It does not describe a production integration, parser,
-formatter, route, or HTTP listener.
+The initial v1.5.0 discovery phase is complete. The tools in this guide remain
+available for safely inspecting future variants without committing private
+samples. Production configuration and security guidance now lives in the
+[UniFi integration guide](unifi.md).
 
 ## Application boundaries
 
@@ -22,6 +22,9 @@ models must not be assumed to match:
 
 Classification produced by the discovery scripts is a heuristic marker, not a
 source-detection contract.
+
+The production listener is implemented separately in `src/inputs/http.py` and
+does not invoke either discovery utility.
 
 ## Private sample layout
 
@@ -101,6 +104,32 @@ method, redacted path shape, media type, safe header names, body size, JSON
 shape, top-level keys, parse status, and likely application markers. When raw
 saving is explicitly enabled, the private raw file includes sensitive request
 data and must remain excluded from Git.
+
+## Private-safe local replay
+
+The replay utility reads only the captured JSON body and content type. It does
+not resend Host, Authorization, Cookie, shared-secret, or other captured
+headers, and it accepts loopback destinations only.
+
+Network example:
+
+```bash
+python scripts/replay_unifi_webhook.py private-samples/unifi/network/http/network-client-disconnected-01.raw http://127.0.0.1:18080/unifi/network
+```
+
+Protect example:
+
+```bash
+python scripts/replay_unifi_webhook.py private-samples/unifi/protect/http/protect-motion-01.raw http://127.0.0.1:18080/unifi/protect
+```
+
+For Drive, use the existing saved-email replay mechanism:
+
+```bash
+python scripts/replay_email.py private-samples/unifi/drive/drive-backup-task-partially-completed-01.eml --host 127.0.0.1 --port 8026
+```
+
+These paths are documentation examples only and are never required by tests.
 
 ## Sanitization and review workflow
 

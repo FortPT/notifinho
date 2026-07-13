@@ -55,6 +55,7 @@ services:
 
     ports:
       - "8025:8025"
+      - "18080:8080"
 
     volumes:
       - ./config:/notifinho/config
@@ -77,7 +78,7 @@ https://github.com/FortPT/notifinho
 - Zabbix
 - TrueNAS
 - Proxmox VE
-- UniFi
+- UniFi Network, Protect, and Drive (`v1.5.0-dev`)
 - Slack
 - Telegram
 

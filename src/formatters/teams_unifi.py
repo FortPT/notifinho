@@ -5,7 +5,9 @@ from __future__ import annotations
 from formatters.base import BaseFormatter
 from formatters.unifi import (
     format_protect_event_time,
+    humanize_unifi_identifier,
     notification_status_icon,
+    protect_condition_display,
     protect_device_display,
 )
 from models import Notification
@@ -139,16 +141,19 @@ class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
-        condition = " ".join(
-            value
-            for value in (
-                self._text(metadata.get("condition_source")),
-                self._text(metadata.get("condition_operator")),
-            )
-            if value
+        alarm_rule = self._text(metadata.get("alarm_name"))
+        trigger_key = self._text(metadata.get("trigger_key"))
+        trigger_label = self._text(
+            metadata.get("trigger_label")
+        ) or humanize_unifi_identifier(trigger_key)
+        condition = protect_condition_display(
+            metadata.get("condition_source"),
+            metadata.get("condition_operator"),
+            trigger_key,
+            omit_redundant=bool(alarm_rule),
         )
         facts = [
-            self._fact("🎯 Trigger type", metadata.get("trigger_key")),
+            self._fact("🎯 Trigger type", trigger_label),
             self._fact(
                 "📷 Trigger device",
                 protect_device_display(metadata.get("trigger_device")),
@@ -157,6 +162,7 @@ class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
                 "🕒 Event time",
                 format_protect_event_time(metadata.get("event_time")),
             ),
+            self._fact("🚨 Alarm rule", alarm_rule),
             self._fact("🔎 Condition", condition),
         ]
         return self._payload(notification, facts, self._text(metadata.get("event_link")))

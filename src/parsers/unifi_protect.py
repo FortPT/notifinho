@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
-from formatters.unifi import protect_device_display
+from formatters.unifi import (
+    humanize_unifi_identifier,
+    protect_device_display,
+)
 from models import Notification
 
 
@@ -43,7 +46,9 @@ class Parser:
         normalized_triggers = [item for item in normalized_triggers if item]
         primary = normalized_triggers[0] if normalized_triggers else {}
         trigger_key = self._text(primary.get("key") or condition.get("source"))
+        trigger_label = humanize_unifi_identifier(trigger_key)
         alarm_name = self._text(alarm.get("name")) or "UniFi Protect event"
+        visible_title = trigger_label or alarm_name
         outer_time = self._timestamp(payload.get("timestamp"))
         event_time = self._timestamp(primary.get("timestamp")) or outer_time
         event_link = self._valid_url(alarm.get("eventLocalLink"))
@@ -52,9 +57,9 @@ class Parser:
             source="unifi_protect",
             category="security",
             status="information",
-            title=alarm_name,
-            subject=alarm_name,
-            body=self._body(trigger_key, primary.get("device")),
+            title=visible_title,
+            subject=visible_title,
+            body=self._body(trigger_label or trigger_key, primary.get("device")),
             start_time=event_time,
         )
         notification.items = normalized_triggers
@@ -64,6 +69,7 @@ class Parser:
             "condition_source": self._text(condition.get("source")),
             "condition_operator": self._text(condition.get("type")),
             "trigger_key": trigger_key,
+            "trigger_label": trigger_label,
             "trigger_device": self._text(primary.get("device")),
             "trigger_timestamp": self._timestamp(primary.get("timestamp")),
             "outer_timestamp": outer_time,
@@ -120,9 +126,9 @@ class Parser:
         return text if parsed.scheme in {"http", "https"} and parsed.netloc else ""
 
     def _body(self, key, device) -> str:
-        event = self._text(key) or "event"
+        event = humanize_unifi_identifier(key) or "Event"
         target = protect_device_display(device)
-        return f"{event.title()} detected" + (f" by {target}" if target else "")
+        return f"{event} detected" + (f" by {target}" if target else "")
 
     def _text(self, value) -> str:
         return "" if value is None else str(value).strip()

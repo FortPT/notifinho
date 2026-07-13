@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.5.2 - 2026-07-13
+
+### Fixed
+
+- Humanized UniFi Protect trigger identifiers such as `admin_access` to
+  `Admin Access`.
+- Changed Protect notification titles to use the actual trigger event instead
+  of the configured Alarm Manager rule name.
+- Preserved the configured Protect rule name in a dedicated `Alarm rule` field.
+- Removed incomplete and redundant Protect condition text such as
+  `admin_access is`.
+- Normalized known Protect device labels such as `nvr` to `NVR`.
+- Applied the presentation correction consistently to Discord and Microsoft
+  Teams notifications.
+
+### Validation
+
+- 297 automated tests passed.
+- 72 focused UniFi parser, formatter, and presentation tests passed.
+- Python syntax validation passed.
+- Existing privacy filtering for MAC addresses, UUIDs, and opaque device
+  identifiers remained enabled.
+- Real UniFi Protect delivery will be verified after publication.
+
+---
+
 ## 1.5.1 - 2026-07-13
 
 ### Changed

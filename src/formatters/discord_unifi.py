@@ -3,17 +3,33 @@
 from __future__ import annotations
 
 from formatters.base import BaseFormatter
-from formatters.unifi import format_protect_event_time, protect_device_display
+from formatters.unifi import (
+    format_protect_event_time,
+    notification_status_icon,
+    protect_device_display,
+)
 from models import Notification
 from version import VERSION
 
 
 class _UniFiDiscordFormatter(BaseFormatter):
     label = "UniFi"
+    application_icon = "ℹ️"
 
     def _embed(self, notification: Notification, fields: list[dict], url: str = "") -> dict:
+        metadata = notification.metadata or {}
+        title = " ".join(
+            (
+                self.application_icon,
+                notification_status_icon(
+                    notification.status,
+                    metadata.get("severity"),
+                ),
+                notification.title or f"{self.label} notification",
+            )
+        )
         embed = {
-            "title": self._truncate(notification.title or f"{self.label} notification", 256),
+            "title": self._truncate(title, 256),
             "description": self._truncate(notification.body or notification.title, 2048),
             "color": self._color(notification.status),
             "fields": [field for field in fields if field.get("value")][:25],
@@ -48,6 +64,7 @@ class _UniFiDiscordFormatter(BaseFormatter):
 
 class UniFiNetworkDiscordFormatter(_UniFiDiscordFormatter):
     label = "UniFi Network"
+    application_icon = "📡"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -71,20 +88,21 @@ class UniFiNetworkDiscordFormatter(_UniFiDiscordFormatter):
             if value
         )
         fields = [
-            self._field("Controller", metadata.get("controller")),
-            self._field("Category", notification.category),
-            self._field("Severity", str(metadata.get("severity", "")).title()),
-            self._field("Client", client),
-            self._field("Network / Wi-Fi", network),
-            self._field("Last connected device", last_device),
-            self._field("Duration", metadata.get("duration")),
-            self._field("Wireless", wifi_detail, False),
+            self._field("🎛️ Controller", metadata.get("controller")),
+            self._field("🗂️ Category", notification.category),
+            self._field("⚠️ Severity", str(metadata.get("severity", "")).title()),
+            self._field("💻 Client", client),
+            self._field("📶 Network / Wi-Fi", network),
+            self._field("📍 Last connected device", last_device),
+            self._field("⏱️ Duration", metadata.get("duration")),
+            self._field("📡 Wireless", wifi_detail, False),
         ]
         return self._embed(notification, fields)
 
 
 class UniFiProtectDiscordFormatter(_UniFiDiscordFormatter):
     label = "UniFi Protect"
+    application_icon = "📹"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -97,29 +115,30 @@ class UniFiProtectDiscordFormatter(_UniFiDiscordFormatter):
             if value
         )
         fields = [
-            self._field("Trigger type", metadata.get("trigger_key")),
+            self._field("🎯 Trigger type", metadata.get("trigger_key")),
             self._field(
-                "Trigger device",
+                "📷 Trigger device",
                 protect_device_display(metadata.get("trigger_device")),
             ),
             self._field(
-                "Event time",
+                "🕒 Event time",
                 format_protect_event_time(metadata.get("event_time")),
             ),
-            self._field("Condition", condition),
+            self._field("🔎 Condition", condition),
         ]
         return self._embed(notification, fields, self._text(metadata.get("event_link")))
 
 
 class UniFiDriveDiscordFormatter(_UniFiDiscordFormatter):
     label = "UniFi Drive"
+    application_icon = "💾"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
         fields = [
-            self._field("System", metadata.get("system")),
-            self._field("Backup task", metadata.get("backup_task")),
-            self._field("State", metadata.get("event_state")),
-            self._field("Category", notification.category),
+            self._field("🖥️ System", metadata.get("system")),
+            self._field("💾 Backup task", metadata.get("backup_task")),
+            self._field("📌 State", metadata.get("event_state")),
+            self._field("🗂️ Category", notification.category),
         ]
         return self._embed(notification, fields, self._text(metadata.get("action_link")))

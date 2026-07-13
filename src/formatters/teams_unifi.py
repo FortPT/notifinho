@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from formatters.base import BaseFormatter
-from formatters.unifi import format_protect_event_time, protect_device_display
+from formatters.unifi import (
+    format_protect_event_time,
+    notification_status_icon,
+    protect_device_display,
+)
 from models import Notification
 from version import VERSION
 
 
 class _UniFiTeamsFormatter(BaseFormatter):
     label = "UniFi"
+    application_icon = "ℹ️"
 
     def _payload(
         self,
@@ -18,10 +23,21 @@ class _UniFiTeamsFormatter(BaseFormatter):
         url: str = "",
         action_title: str = "Open event",
     ) -> dict:
+        metadata = notification.metadata or {}
+        title = " ".join(
+            (
+                self.application_icon,
+                notification_status_icon(
+                    notification.status,
+                    metadata.get("severity"),
+                ),
+                notification.title or f"{self.label} notification",
+            )
+        )
         body = [
             {
                 "type": "TextBlock",
-                "text": self._truncate(notification.title or f"{self.label} notification", 512),
+                "text": self._truncate(title, 512),
                 "weight": "Bolder",
                 "size": "Large",
                 "color": self._color(notification.status),
@@ -92,6 +108,7 @@ class _UniFiTeamsFormatter(BaseFormatter):
 
 class UniFiNetworkTeamsFormatter(_UniFiTeamsFormatter):
     label = "UniFi Network"
+    application_icon = "📡"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -104,20 +121,21 @@ class UniFiNetworkTeamsFormatter(_UniFiTeamsFormatter):
             if value
         )
         facts = [
-            self._fact("Controller", metadata.get("controller")),
-            self._fact("Category", notification.category),
-            self._fact("Severity", str(metadata.get("severity", "")).title()),
-            self._fact("Client", metadata.get("client_display_name")),
-            self._fact("Network / Wi-Fi", metadata.get("wifi_name") or metadata.get("network_name")),
-            self._fact("Last connected device", last_device),
-            self._fact("Duration", metadata.get("duration")),
-            self._fact("RSSI", metadata.get("wifi_rssi")),
+            self._fact("🎛️ Controller", metadata.get("controller")),
+            self._fact("🗂️ Category", notification.category),
+            self._fact("⚠️ Severity", str(metadata.get("severity", "")).title()),
+            self._fact("💻 Client", metadata.get("client_display_name")),
+            self._fact("📶 Network / Wi-Fi", metadata.get("wifi_name") or metadata.get("network_name")),
+            self._fact("📍 Last connected device", last_device),
+            self._fact("⏱️ Duration", metadata.get("duration")),
+            self._fact("📡 Wireless", metadata.get("wifi_rssi")),
         ]
         return self._payload(notification, facts)
 
 
 class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
     label = "UniFi Protect"
+    application_icon = "📹"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -130,30 +148,31 @@ class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
             if value
         )
         facts = [
-            self._fact("Trigger type", metadata.get("trigger_key")),
+            self._fact("🎯 Trigger type", metadata.get("trigger_key")),
             self._fact(
-                "Trigger device",
+                "📷 Trigger device",
                 protect_device_display(metadata.get("trigger_device")),
             ),
             self._fact(
-                "Event time",
+                "🕒 Event time",
                 format_protect_event_time(metadata.get("event_time")),
             ),
-            self._fact("Condition", condition),
+            self._fact("🔎 Condition", condition),
         ]
         return self._payload(notification, facts, self._text(metadata.get("event_link")))
 
 
 class UniFiDriveTeamsFormatter(_UniFiTeamsFormatter):
     label = "UniFi Drive"
+    application_icon = "💾"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
         facts = [
-            self._fact("System", metadata.get("system")),
-            self._fact("Backup task", metadata.get("backup_task")),
-            self._fact("State", metadata.get("event_state")),
-            self._fact("Category", notification.category),
+            self._fact("🖥️ System", metadata.get("system")),
+            self._fact("💾 Backup task", metadata.get("backup_task")),
+            self._fact("📌 State", metadata.get("event_state")),
+            self._fact("🗂️ Category", notification.category),
         ]
         return self._payload(
             notification,

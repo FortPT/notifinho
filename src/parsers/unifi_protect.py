@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
+from formatters.unifi import protect_device_display
 from models import Notification
 
 
@@ -120,7 +121,7 @@ class Parser:
 
     def _body(self, key, device) -> str:
         event = self._text(key) or "event"
-        target = self._text(device)
+        target = protect_device_display(device)
         return f"{event.title()} detected" + (f" by {target}" if target else "")
 
     def _text(self, value) -> str:

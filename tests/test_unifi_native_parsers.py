@@ -13,8 +13,14 @@ from pathlib import Path
 import pytest
 
 from dispatcher import Dispatcher
-from formatters.discord_unifi import UniFiDriveDiscordFormatter
-from formatters.teams_unifi import UniFiDriveTeamsFormatter
+from formatters.discord_unifi import (
+    UniFiDriveDiscordFormatter,
+    UniFiProtectDiscordFormatter,
+)
+from formatters.teams_unifi import (
+    UniFiDriveTeamsFormatter,
+    UniFiProtectTeamsFormatter,
+)
 from parsers.unifi_drive import Parser as DriveParser
 from parsers.unifi_network import Parser as NetworkParser
 from parsers.unifi_protect import Parser as ProtectParser
@@ -269,6 +275,48 @@ def _visible_card_text(value) -> list[str]:
         for nested in value:
             visible.extend(_visible_card_text(nested))
     return visible
+
+
+def test_protect_readable_trigger_device_remains_in_body_and_visible_cards():
+    payload = protect_payload()
+    payload["alarm"]["triggers"][0]["device"] = "Front Entrance Camera"
+
+    notification = ProtectParser().parse(payload)
+    discord = UniFiProtectDiscordFormatter().format(notification)
+    teams = UniFiProtectTeamsFormatter().format(notification)
+
+    assert notification.body == "Motion detected by Front Entrance Camera"
+    assert "Front Entrance Camera" in "\n".join(_visible_card_text(discord))
+    assert "Front Entrance Camera" in "\n".join(_visible_card_text(teams))
+
+
+@pytest.mark.parametrize(
+    "device_value",
+    [
+        "FAKE_MAC",
+        "00:00:5e:00:53:43",
+        "123e4567-e89b-42d3-a456-426614174000",
+        "A1B2C3D4E5F60708",
+    ],
+)
+def test_protect_private_trigger_device_is_absent_from_body_and_visible_cards(
+    device_value,
+):
+    payload = protect_payload()
+    payload["alarm"]["triggers"][0]["device"] = device_value
+
+    notification = ProtectParser().parse(payload)
+    discord = UniFiProtectDiscordFormatter().format(notification)
+    teams = UniFiProtectTeamsFormatter().format(notification)
+    visible = "\n".join(
+        _visible_card_text(discord) + _visible_card_text(teams)
+    )
+
+    assert notification.body == "Motion detected"
+    assert not notification.body.endswith(" by")
+    assert device_value not in notification.body
+    assert device_value not in visible
+    assert notification.metadata["trigger_device"] == device_value
 
 
 def test_drive_body_removes_action_url_signature_and_footer_but_keeps_operations():

@@ -68,3 +68,16 @@ def format_protect_event_time(value) -> str:
     except (TypeError, ValueError, OSError, OverflowError):
         return text
     return parsed.strftime("%d/%m/%Y %H:%M:%S UTC")
+
+
+def notification_status_icon(status, severity="") -> str:
+    """Return one accessible Unicode status label for a UniFi title."""
+
+    state = f"{status or ''} {severity or ''}".casefold()
+    if "failure" in state or "critical" in state:
+        return "🚨"
+    if "warning" in state or "degraded" in state:
+        return "⚠️"
+    if "success" in state or "resolved" in state:
+        return "✅"
+    return "ℹ️"

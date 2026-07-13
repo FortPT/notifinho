@@ -119,10 +119,11 @@ def test_network_card_omits_mac_and_duplicate_hostname():
 
 def test_protect_card_does_not_list_configured_sources():
     item = notification("unifi_protect")
-    serialized = json.dumps(UniFiProtectDiscordFormatter().format(item))
+    payload = UniFiProtectDiscordFormatter().format(item)
+    serialized = json.dumps(payload)
     assert "SYNTHETIC-CAMERA" in serialized
     assert "configured_source_count" not in serialized
-    assert "8" not in serialized
+    assert len(payload["embeds"][0]["fields"]) == 4
 
 
 def _protect_field_names(item):
@@ -165,8 +166,8 @@ def test_protect_private_or_opaque_device_is_omitted_without_empty_field(device_
     assert protect_device_display(device_value) == ""
     assert device_value not in json.dumps(discord)
     assert device_value not in json.dumps(teams)
-    assert "Trigger device" not in discord_names
-    assert "Trigger device" not in teams_names
+    assert "📷 Trigger device" not in discord_names
+    assert "📷 Trigger device" not in teams_names
     assert item.metadata["trigger_device"] == device_value
 
 
@@ -196,6 +197,152 @@ def test_protect_event_time_formats_seconds_milliseconds_and_iso(event_time):
 
 def test_protect_malformed_event_time_falls_back_safely():
     assert format_protect_event_time("synthetic-malformed-time") == "synthetic-malformed-time"
+
+
+@pytest.mark.parametrize(
+    ("source", "discord_formatter", "teams_formatter", "title_prefix"),
+    [
+        (
+            "unifi_network",
+            UniFiNetworkDiscordFormatter(),
+            UniFiNetworkTeamsFormatter(),
+            "📡 ℹ️",
+        ),
+        (
+            "unifi_protect",
+            UniFiProtectDiscordFormatter(),
+            UniFiProtectTeamsFormatter(),
+            "📹 ℹ️",
+        ),
+        (
+            "unifi_drive",
+            UniFiDriveDiscordFormatter(),
+            UniFiDriveTeamsFormatter(),
+            "💾 ⚠️",
+        ),
+    ],
+)
+def test_unifi_titles_have_one_application_and_status_icon(
+    source, discord_formatter, teams_formatter, title_prefix
+):
+    item = notification(source)
+    discord_title = discord_formatter.format(item)["embeds"][0]["title"]
+    teams_title = teams_formatter.format(item)["attachments"][0]["content"]["body"][0]["text"]
+
+    assert discord_title.startswith(f"{title_prefix} ")
+    assert teams_title.startswith(f"{title_prefix} ")
+
+
+@pytest.mark.parametrize(
+    ("source", "discord_formatter", "teams_formatter", "expected_labels"),
+    [
+        (
+            "unifi_network",
+            UniFiNetworkDiscordFormatter(),
+            UniFiNetworkTeamsFormatter(),
+            {
+                "🎛️ Controller",
+                "🗂️ Category",
+                "⚠️ Severity",
+                "💻 Client",
+                "📶 Network / Wi-Fi",
+                "📍 Last connected device",
+                "⏱️ Duration",
+                "📡 Wireless",
+            },
+        ),
+        (
+            "unifi_protect",
+            UniFiProtectDiscordFormatter(),
+            UniFiProtectTeamsFormatter(),
+            {
+                "🎯 Trigger type",
+                "📷 Trigger device",
+                "🕒 Event time",
+                "🔎 Condition",
+            },
+        ),
+        (
+            "unifi_drive",
+            UniFiDriveDiscordFormatter(),
+            UniFiDriveTeamsFormatter(),
+            {"🖥️ System", "💾 Backup task", "📌 State", "🗂️ Category"},
+        ),
+    ],
+)
+def test_unifi_discord_and_teams_labels_have_readable_icons(
+    source, discord_formatter, teams_formatter, expected_labels
+):
+    item = notification(source)
+    discord_fields = discord_formatter.format(item)["embeds"][0]["fields"]
+    teams_card = teams_formatter.format(item)["attachments"][0]["content"]
+    teams_facts = next(
+        block["facts"] for block in teams_card["body"] if block["type"] == "FactSet"
+    )
+
+    assert expected_labels <= {field["name"] for field in discord_fields}
+    assert expected_labels <= {fact["title"] for fact in teams_facts}
+    assert all(any(character.isalpha() for character in label) for label in expected_labels)
+
+
+@pytest.mark.parametrize(
+    ("status", "discord_color", "teams_color"),
+    [
+        ("failure", 0xE74C3C, "Attention"),
+        ("warning", 0xF39C12, "Warning"),
+        ("success", 0x2ECC71, "Good"),
+        ("information", 0x3498DB, "Accent"),
+    ],
+)
+def test_unifi_status_colors_are_unchanged(status, discord_color, teams_color):
+    item = notification("unifi_network")
+    item.status = status
+    item.metadata["severity"] = status
+    discord = UniFiNetworkDiscordFormatter().format(item)["embeds"][0]
+    teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
+
+    assert discord["color"] == discord_color
+    assert teams["body"][0]["color"] == teams_color
+
+
+def test_missing_values_do_not_leave_icon_only_fields():
+    item = Notification(
+        source="unifi_network",
+        category="",
+        status="information",
+        title="Synthetic empty Network event",
+        body="Synthetic detail",
+        metadata={},
+    )
+    discord = UniFiNetworkDiscordFormatter().format(item)["embeds"][0]
+    teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
+    facts = next(block["facts"] for block in teams["body"] if block["type"] == "FactSet")
+
+    assert discord["fields"] == []
+    assert facts == []
+
+
+def test_unifi_formatter_field_and_text_limits_remain_enforced():
+    item = notification("unifi_network")
+    item.title = "T" * 1000
+    item.body = "B" * 5000
+    item.metadata.update(
+        controller="C" * 2000,
+        client_display_name="D" * 2000,
+        wifi_name="W" * 2000,
+    )
+
+    discord = UniFiNetworkDiscordFormatter().format(item)["embeds"][0]
+    teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
+    facts = next(block["facts"] for block in teams["body"] if block["type"] == "FactSet")
+
+    assert len(discord["title"]) <= 256
+    assert len(discord["description"]) <= 2048
+    assert len(discord["fields"]) <= 25
+    assert all(len(field["value"]) <= 1024 for field in discord["fields"])
+    assert len(teams["body"][0]["text"]) <= 512
+    assert len(teams["body"][1]["text"]) <= 4000
+    assert all(len(fact["value"]) <= 1000 for fact in facts)
 
 
 def test_partial_drive_cards_use_warning_style():

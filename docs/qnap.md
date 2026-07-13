@@ -1,9 +1,9 @@
 # QNAP notification support
 
-QNAP QTS and QuTS hero support is provisional in Notifinho
-`v1.3.0-dev`. It was developed from clearly labelled synthetic messages
-that resemble common Notification Center layouts. The parser has not yet
-been verified against anonymized mail from physical QNAP systems.
+QNAP QTS and QuTS hero support remains provisional in Notifinho `v1.5.1`.
+It was initially developed from clearly labelled synthetic messages resembling
+common Notification Center layouts and is now being validated against real QNAP
+systems and Microsoft Teams delivery workflows.
 
 ## Initial event coverage
 

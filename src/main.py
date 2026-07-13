@@ -15,6 +15,7 @@ import sys
 import time
 
 from dispatcher import Dispatcher
+from inputs.http import HTTPInput
 from inputs.smtp import SMTPInput
 from logger import log
 from router import Router
@@ -33,6 +34,9 @@ def main() -> int:
     log.info("Starting application...")
     log.info("")
 
+    smtp = None
+    http = None
+
     try:
 
         dispatcher = Dispatcher()
@@ -46,13 +50,20 @@ def main() -> int:
 
         smtp.start()
 
+        http = HTTPInput(
+            dispatcher=dispatcher,
+            router=router,
+        )
+
+        http.start()
+
         #
         # Keep the application alive
         #
 
         while True:
 
-            time.sleep(60)
+            time.sleep(1)
 
     except KeyboardInterrupt:
 
@@ -63,6 +74,16 @@ def main() -> int:
         log.exception("Unhandled exception.")
 
         return 1
+
+    finally:
+
+        if http is not None:
+
+            http.stop()
+
+        if smtp is not None:
+
+            smtp.stop()
 
     log.info("%s stopped.", APP_NAME)
 

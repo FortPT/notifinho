@@ -138,6 +138,8 @@ class SMTPInput:
             port=port,
         )
 
+        self.started = False
+
     def start(self):
 
         log.info(
@@ -146,8 +148,28 @@ class SMTPInput:
 
         self.controller.start()
 
+        self.started = True
+
         log.info(
             "Listening on %s:%s",
             self.controller.hostname,
             self.controller.port,
+        )
+
+    def stop(self):
+
+        if not self.started:
+
+            return
+
+        log.info(
+            "Stopping SMTP server..."
+        )
+
+        self.controller.stop()
+
+        self.started = False
+
+        log.info(
+            "SMTP server stopped."
         )

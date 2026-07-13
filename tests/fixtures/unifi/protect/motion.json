@@ -1,0 +1,29 @@
+{
+  "alarm": {
+    "conditions": [
+      {
+        "condition": {
+          "source": "motion",
+          "type": "is"
+        }
+      }
+    ],
+    "eventLocalLink": "https://protect.example/event/synthetic",
+    "eventPath": "/events/synthetic-event-0001",
+    "name": "Synthetic motion alarm",
+    "sources": [
+      {"device": "SYNTHETIC-CAMERA-01", "type": "include"},
+      {"device": "SYNTHETIC-CAMERA-02", "type": "include"}
+    ],
+    "triggers": [
+      {
+        "device": "SYNTHETIC-CAMERA-02",
+        "eventId": "synthetic-event-0001",
+        "key": "motion",
+        "timestamp": 1767323045000
+      }
+    ]
+  },
+  "alarm_id": "synthetic-alarm-protect-0001",
+  "timestamp": 1767323045
+}

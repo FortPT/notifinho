@@ -15,6 +15,6 @@ COPY start.sh /notifinho/start.sh
 
 RUN chmod +x /notifinho/start.sh
 
-EXPOSE 8025
+EXPOSE 8025 8080
 
 CMD ["/notifinho/start.sh"]

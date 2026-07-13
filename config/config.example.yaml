@@ -2,6 +2,16 @@ smtp:
   host: 0.0.0.0
   port: 8025
 
+# Native UniFi Network and Protect webhook listener.
+# Keep disabled unless the container port is intentionally published and
+# protected by firewall rules and, when available, the shared secret.
+http:
+  enabled: false
+  host: "0.0.0.0"
+  port: 8080
+  max_body_bytes: 1048576
+  shared_secret: ""
+
 outputs:
   discord:
     # Set to false to disable all Discord notifications.
@@ -18,6 +28,10 @@ outputs:
     # Dedicated TrueNAS alert destination.
     truenas:
       webhook: "PASTE_TRUENAS_DISCORD_WEBHOOK_HERE"
+
+    # Shared UniFi Network, Protect, and Drive destination.
+    unifi:
+      webhook: "PASTE_UNIFI_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -49,6 +63,11 @@ outputs:
     #
     # truenas:
     #   webhook: "PASTE_TRUENAS_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional shared UniFi destination.
+    #
+    # unifi:
+    #   webhook: "PASTE_UNIFI_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -145,6 +164,32 @@ routing:
       #
       # - output: teams
       #   target: truenas
+
+  unifi_network:
+    outputs:
+      # Network and Protect may share one target or use separate targets.
+      - output: discord
+        target: unifi
+
+      # - output: teams
+      #   target: unifi
+
+  unifi_protect:
+    outputs:
+      - output: discord
+        target: unifi
+
+      # - output: teams
+      #   target: unifi
+
+  unifi_drive:
+    outputs:
+      # Drive email follows the same normalized routing pipeline.
+      - output: discord
+        target: unifi
+
+      # - output: teams
+      #   target: unifi
 
   generic:
     outputs:

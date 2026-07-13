@@ -22,6 +22,9 @@ from parsers.generic import Parser as GenericParser
 from parsers.proxmox import Parser as ProxmoxParser
 from parsers.qnap import Parser as QnapParser
 from parsers.truenas import Parser as TrueNASParser
+from parsers.unifi_drive import Parser as UniFiDriveParser
+from parsers.unifi_network import Parser as UniFiNetworkParser
+from parsers.unifi_protect import Parser as UniFiProtectParser
 from parsers.xo import Parser as XOParser
 from parsers.zabbix import Parser as ZabbixParser
 
@@ -43,6 +46,12 @@ class Dispatcher:
         self.qnap_parser = QnapParser()
 
         self.grafana_parser = GrafanaParser()
+
+        self.unifi_drive_parser = UniFiDriveParser()
+
+        self.unifi_network_parser = UniFiNetworkParser()
+
+        self.unifi_protect_parser = UniFiProtectParser()
 
         log.info("Dispatcher initialized")
 
@@ -67,15 +76,32 @@ class Dispatcher:
 
         sender_lower = sender.lower()
 
-        log.info(
-            "Subject : %s",
-            subject,
+        unifi_drive_candidate = self.unifi_drive_parser.is_message(
+            message,
         )
 
-        log.info(
-            "Sender  : %s",
-            sender,
-        )
+        if unifi_drive_candidate:
+
+            # The Drive From display may contain a private system name.
+            log.info(
+                "Subject : [UniFi Drive notification]"
+            )
+
+            log.info(
+                "Sender  : notifications.ui.com"
+            )
+
+        else:
+
+            log.info(
+                "Subject : %s",
+                subject,
+            )
+
+            log.info(
+                "Sender  : %s",
+                sender,
+            )
 
         #
         # Xen Orchestra
@@ -181,6 +207,20 @@ class Dispatcher:
             )
 
         #
+        # UniFi Drive
+        #
+
+        if unifi_drive_candidate:
+
+            log.info(
+                "Detected UniFi Drive email"
+            )
+
+            return self.unifi_drive_parser.parse(
+                message,
+            )
+
+        #
         # Generic
         #
 
@@ -191,6 +231,28 @@ class Dispatcher:
         return self.generic_parser.parse(
             message,
         )
+
+    def parse_webhook(self, application: str, payload):
+        """Validate and parse a supported webhook into the shared model."""
+
+        parsers = {
+            "network": (
+                self.unifi_network_parser,
+                "Detected UniFi Network webhook",
+            ),
+            "protect": (
+                self.unifi_protect_parser,
+                "Detected UniFi Protect webhook",
+            ),
+        }
+        selected = parsers.get(str(application).casefold())
+        if selected is None:
+            return None
+        parser, log_message = selected
+        if not parser.is_envelope(payload):
+            return None
+        log.info(log_message)
+        return parser.parse(payload)
 
     def _is_qnap_email(
         self,

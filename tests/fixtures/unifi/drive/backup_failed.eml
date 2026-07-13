@@ -1,0 +1,10 @@
+From: "UniFi OS, SYNTHETIC-DRIVE" <alerts@notifications.ui.com>
+To: notifinho@example.invalid
+Date: Fri, 02 Jan 2026 03:04:05 +0000
+Subject: Backup Task Failed
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+UniFi Drive
+The backup task SYNTHETIC-BACKUP on SYNTHETIC-DRIVE was failed.
+The synthetic backup destination is unavailable.

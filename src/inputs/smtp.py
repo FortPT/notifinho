@@ -16,6 +16,7 @@ from pathlib import Path
 from aiosmtpd.controller import Controller
 
 from config import config
+from inputs.smtp_security import load_smtp_security
 from logger import log
 
 
@@ -129,6 +130,10 @@ class SMTPInput:
             default=8025,
         )
 
+        self.security = load_smtp_security(
+            config,
+        )
+
         self.controller = Controller(
             Handler(
                 dispatcher,
@@ -136,6 +141,7 @@ class SMTPInput:
             ),
             hostname=host,
             port=port,
+            **self.security.controller_kwargs(),
         )
 
         self.started = False
@@ -144,6 +150,10 @@ class SMTPInput:
 
         log.info(
             "Starting SMTP server..."
+        )
+
+        log.info(
+            self.security.safe_summary()
         )
 
         self.controller.start()

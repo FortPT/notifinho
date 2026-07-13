@@ -61,7 +61,9 @@ Notifinho v1.5.0 adds native, disabled-by-default HTTP webhooks for UniFi
 Network and Protect. UniFi Drive parses RFC822 email delivered to the existing
 SMTP listener; it does not poll IMAP, Microsoft Graph, Gmail, or other
 mailboxes, so an external forwarding or delivery mechanism is still required.
-See the [UniFi integration guide](docs/unifi.md).
+See the [UniFi integration guide](docs/unifi.md). SMTP transport security is
+disabled by default and can be enabled with STARTTLS and SMTP AUTH; see the
+[SMTP security guide](docs/smtp-security.md).
 
 ---
 
@@ -189,6 +191,9 @@ Instead of replacing your monitoring software, Notifinho enhances it.
 ## 📨 SMTP Gateway
 
 - Native SMTP server
+- Optional STARTTLS with TLS 1.2 or newer
+- Optional SMTP AUTH LOGIN and PLAIN after TLS
+- Environment-variable or mounted-secret credentials
 - Automatic email reception
 - Parser-based architecture
 - Configurable routing
@@ -642,6 +647,9 @@ docker compose up -d
 > Configuration files and logs are stored outside the container using bind mounts.
 > This allows you to upgrade Notifinho by simply pulling the latest image and restarting the container without losing your configuration or logs.
 
+SMTP security remains disabled by default. Mount certificates and configure
+STARTTLS/AUTH only after reviewing the [SMTP security guide](docs/smtp-security.md).
+
 Verify that the container is running:
 
 ```bash
@@ -670,7 +678,7 @@ The configuration is intentionally simple and organized into logical sections.
 |----------|-------------|
 | `application` | General application settings. |
 | `logging` | Log level and log file location. |
-| `smtp` | SMTP listener configuration. |
+| `smtp` | SMTP listener, STARTTLS, and authentication configuration. |
 | `routing` | Maps notification sources to outputs. |
 | `outputs` | Notification destinations (Discord, Teams, etc.). |
 | `notifications` | Product-specific notification preferences. |
@@ -683,6 +691,18 @@ The configuration is intentionally simple and organized into logical sections.
 smtp:
   host: 0.0.0.0
   port: 8025
+
+  # Optional security; disabled by default.
+  tls:
+    enabled: false
+    certfile: "/notifinho/config/tls/cert.pem"
+    keyfile: "/notifinho/config/tls/key.pem"
+
+  auth:
+    enabled: false
+    username: "notifinho"
+    password_env: "NOTIFINHO_SMTP_PASSWORD"
+    password_file: ""
 
 outputs:
   discord:

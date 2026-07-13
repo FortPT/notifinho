@@ -234,26 +234,31 @@ class Dispatcher:
 
     def parse_webhook(self, application: str, payload):
         """Validate and parse a supported webhook into the shared model."""
-
         parsers = {
             "network": (
-                self.unifi_network_parser,
+                self.unifi_network_parser.is_envelope,
+                self.unifi_network_parser.parse,
                 "Detected UniFi Network webhook",
             ),
             "protect": (
-                self.unifi_protect_parser,
+                self.unifi_protect_parser.is_envelope,
+                self.unifi_protect_parser.parse,
                 "Detected UniFi Protect webhook",
+            ),
+            "drive": (
+                self.unifi_drive_parser.is_envelope,
+                self.unifi_drive_parser.parse_webhook,
+                "Detected UniFi Drive webhook",
             ),
         }
         selected = parsers.get(str(application).casefold())
         if selected is None:
             return None
-        parser, log_message = selected
-        if not parser.is_envelope(payload):
+        validator, parse, log_message = selected
+        if not validator(payload):
             return None
         log.info(log_message)
-        return parser.parse(payload)
-
+        return parse(payload)
     def _is_qnap_email(
         self,
         message: EmailMessage,

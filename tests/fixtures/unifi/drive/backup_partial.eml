@@ -1,0 +1,12 @@
+From: "UniFi OS, SYNTHETIC-DRIVE" <alerts@notifications.ui.com>
+To: notifinho@example.invalid
+Date: Fri, 02 Jan 2026 03:04:05 +0000
+Subject: Backup Task Partially Completed
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+UniFi Drive
+Backup Task Partially Completed
+The backup task SYNTHETIC-BACKUP on SYNTHETIC-DRIVE was completed partially.
+Please check the details in UniFi Drive > Settings > Remote backup to resolve the issue.
+Manage Backup Task

@@ -1,0 +1,29 @@
+{
+  "alarm_id": "synthetic-alarm-network-0001",
+  "app": "network",
+  "customContent": null,
+  "deviceEventClassId": "synthetic-client-disconnected",
+  "message": "Synthetic WiFi client disconnected normally.",
+  "name": "WiFi Client Disconnected",
+  "parameters": {
+    "UNIFIcategory": "Client",
+    "UNIFIclientAlias": "SYNTHETIC-CLIENT",
+    "UNIFIclientHostname": "synthetic-client.example.invalid",
+    "UNIFIclientIp": "192.0.2.20",
+    "UNIFIclientMac": "00:00:5e:00:53:20",
+    "UNIFIduration": "5m 30s",
+    "UNIFIhost": "synthetic-controller.example.invalid",
+    "UNIFIlastConnectedToDeviceMac": "00:00:5e:00:53:21",
+    "UNIFIlastConnectedToDeviceModel": "Synthetic AP",
+    "UNIFIlastConnectedToDeviceName": "SYNTHETIC-AP",
+    "UNIFIlastConnectedToWiFiRssi": "-61 dBm",
+    "UNIFInetworkName": "SYNTHETIC-NETWORK",
+    "UNIFInetworkVlan": "101",
+    "UNIFIutcTime": "2026-01-02T03:04:05Z",
+    "UNIFIwifiBand": "5 GHz",
+    "UNIFIwifiChannel": "36",
+    "UNIFIwifiName": "SYNTHETIC-WIFI"
+  },
+  "severity": 2,
+  "version": "synthetic-v1"
+}

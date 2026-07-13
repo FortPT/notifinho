@@ -4,6 +4,7 @@ logs/
 *.eml
 !tests/fixtures/qnap/*.eml
 !tests/fixtures/grafana/*.eml
+!tests/fixtures/unifi/drive/*.eml
 
 # Local config with secrets
 config/config.yaml

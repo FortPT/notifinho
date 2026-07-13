@@ -2,6 +2,27 @@ smtp:
   host: 0.0.0.0
   port: 8025
 
+  # Optional explicit STARTTLS. Security remains disabled by default.
+  tls:
+    enabled: false
+    certfile: "/notifinho/config/tls/cert.pem"
+    keyfile: "/notifinho/config/tls/key.pem"
+
+    # Defaults to true whenever TLS is enabled.
+    # Set false only for a controlled migration.
+    # require_starttls: false
+
+  # Optional SMTP AUTH LOGIN/PLAIN. AUTH is available only after TLS.
+  auth:
+    enabled: false
+    username: "notifinho"
+    password_env: "NOTIFINHO_SMTP_PASSWORD"
+    password_file: ""
+
+    # Defaults to true whenever authentication is enabled.
+    # Set false only for a controlled migration.
+    # required: false
+
 # Native UniFi Network and Protect webhook listener.
 # Keep disabled unless the container port is intentionally published and
 # protected by firewall rules and, when available, the shared secret.

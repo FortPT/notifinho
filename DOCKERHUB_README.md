@@ -35,6 +35,7 @@ Current features include:
 - Rich Discord notifications
 - Microsoft Teams Adaptive Cards
 - SMTP gateway input
+- Optional STARTTLS and SMTP AUTH security
 - Disabled-by-default native HTTP webhook input
 - Docker deployment
 - Parser-driven architecture
@@ -64,8 +65,14 @@ services:
       - "8025:8025"
       - "18080:8080"
 
+    # Uncomment after configuring SMTP authentication.
+    # environment:
+    #   NOTIFINHO_SMTP_PASSWORD: "${NOTIFINHO_SMTP_PASSWORD}"
+
     volumes:
       - ./config:/notifinho/config
+      # Mount certificates read-only when STARTTLS is enabled.
+      # - ./config/tls:/notifinho/config/tls:ro
       - ./logs:/notifinho/logs
 ```
 
@@ -73,6 +80,9 @@ The container exposes two independent ports:
 
 - `8025/tcp` for the existing SMTP listener;
 - `8080/tcp` for the native HTTP webhook listener.
+
+SMTP STARTTLS and authentication remain disabled by default. Deployment and
+rollout guidance is available in the repository's `docs/smtp-security.md`.
 
 Publishing port `8080` does not enable HTTP input. It remains disabled by
 default and must be explicitly enabled in `config/config.yaml`:

@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.4.0-blue" alt="Stable release v1.4.0">
+  <img src="https://img.shields.io/badge/stable-v1.5.0-blue" alt="Stable release v1.5.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -48,18 +48,20 @@ Built for Homelabs • Ready for Enterprise
 
 | Property | Value |
 |----------|-------|
-| **Status** | 🚧 v1.5.0 native UniFi support in development |
-| **Current Stable Release** | **v1.4.0** |
-| **Active Development Version** | **v1.5.0-dev** |
+| **Status** | 🚀 Stable – Production Ready |
+| **Current Stable Release** | **v1.5.0** |
+| **Next Planned Release** | **v1.6.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
-Notifinho is under active development. New parsers, notification platforms and integrations are planned while maintaining backwards compatibility whenever possible.
+Notifinho is stable and production ready. New parsers, notification platforms
+and integrations remain planned with backwards compatibility as a priority.
 
-The v1.5.0 development branch adds native, disabled-by-default HTTP webhook
-input for UniFi Network and Protect plus delivered-email parsing for UniFi
-Drive. Drive does not include mailbox polling; an external forwarding or SMTP
-delivery mechanism is still required. See the [UniFi integration guide](docs/unifi.md).
+Notifinho v1.5.0 adds native, disabled-by-default HTTP webhooks for UniFi
+Network and Protect. UniFi Drive parses RFC822 email delivered to the existing
+SMTP listener; it does not poll IMAP, Microsoft Graph, Gmail, or other
+mailboxes, so an external forwarding or delivery mechanism is still required.
+See the [UniFi integration guide](docs/unifi.md).
 
 ---
 
@@ -347,7 +349,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
-| UniFi Network / Protect / Drive | 🚧 v1.5.0-dev |
+| UniFi Network / Protect / Drive | ✅ v1.5.0 |
 | Proxmox VE | 📅 v1.6.0 |
 
 ## 📤 Destinations
@@ -1154,7 +1156,7 @@ v1.3.0 feature set.
 
 ## ✅ v1.4.0 — TrueNAS
 
-Notifinho v1.4.0 is the current stable release. See the
+Notifinho v1.4.0 introduced provisional TrueNAS 26 support. See the
 [v1.4.0 release notes](docs/releases/v1.4.0.md) for highlights, upgrade
 guidance, validation results, and current compatibility limitations.
 
@@ -1168,9 +1170,13 @@ guidance, validation results, and current compatibility limitations.
 
 ---
 
-## 🚧 v1.5.0 — Native UniFi support
+## ✅ v1.5.0 — Native UniFi support
 
-v1.5.0 is the active development version. The discovery findings now support:
+Notifinho v1.5.0 is the current stable release. See the
+[v1.5.0 release notes](docs/releases/v1.5.0.md) for upgrade, rollback,
+validation, and compatibility details.
+
+The release includes:
 
 - Native HTTP input for UniFi Network and Protect Alarm Manager webhooks
 - Strong-envelope Network client, gateway, switch, access point, connectivity,

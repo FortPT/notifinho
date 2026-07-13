@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from datetime import datetime, timezone
+
 import pytest
 
 import router as router_module
@@ -18,6 +20,7 @@ from formatters.teams_unifi import (
     UniFiNetworkTeamsFormatter,
     UniFiProtectTeamsFormatter,
 )
+from formatters.unifi import format_protect_event_time, protect_device_display
 from models import Notification
 from outputs.discord import DiscordOutput
 from outputs.teams import TeamsOutput
@@ -120,6 +123,79 @@ def test_protect_card_does_not_list_configured_sources():
     assert "SYNTHETIC-CAMERA" in serialized
     assert "configured_source_count" not in serialized
     assert "8" not in serialized
+
+
+def _protect_field_names(item):
+    discord = UniFiProtectDiscordFormatter().format(item)["embeds"][0]["fields"]
+    teams = UniFiProtectTeamsFormatter().format(item)["attachments"][0]["content"]
+    facts = next(block["facts"] for block in teams["body"] if block["type"] == "FactSet")
+    return [field["name"] for field in discord], [fact["title"] for fact in facts]
+
+
+def test_protect_human_readable_camera_name_is_retained_on_both_platforms():
+    item = notification("unifi_protect")
+    item.metadata["trigger_device"] = "Front Door Camera"
+
+    discord = json.dumps(UniFiProtectDiscordFormatter().format(item))
+    teams = json.dumps(UniFiProtectTeamsFormatter().format(item))
+
+    assert protect_device_display("Front Door Camera") == "Front Door Camera"
+    assert "Front Door Camera" in discord
+    assert "Front Door Camera" in teams
+
+
+@pytest.mark.parametrize(
+    "device_value",
+    [
+        "00:00:5e:00:53:41",
+        "00-00-5e-00-53-41",
+        "123e4567-e89b-42d3-a456-426614174000",
+        "A1B2C3D4E5F60708",
+        "FAKE_MAC",
+    ],
+)
+def test_protect_private_or_opaque_device_is_omitted_without_empty_field(device_value):
+    item = notification("unifi_protect")
+    item.metadata["trigger_device"] = device_value
+
+    discord = UniFiProtectDiscordFormatter().format(item)
+    teams = UniFiProtectTeamsFormatter().format(item)
+    discord_names, teams_names = _protect_field_names(item)
+
+    assert protect_device_display(device_value) == ""
+    assert device_value not in json.dumps(discord)
+    assert device_value not in json.dumps(teams)
+    assert "Trigger device" not in discord_names
+    assert "Trigger device" not in teams_names
+    assert item.metadata["trigger_device"] == device_value
+
+
+@pytest.mark.parametrize(
+    "event_time",
+    [
+        datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp(),
+        datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp() * 1000,
+        "2026-07-13T01:16:35.108000+00:00",
+        "2026-07-13T02:16:35.108000+01:00",
+    ],
+)
+def test_protect_event_time_formats_seconds_milliseconds_and_iso(event_time):
+    expected = "13/07/2026 01:16:35 UTC"
+    item = notification("unifi_protect")
+    item.metadata["event_time"] = event_time
+
+    discord = json.dumps(UniFiProtectDiscordFormatter().format(item))
+    teams = json.dumps(UniFiProtectTeamsFormatter().format(item))
+
+    assert format_protect_event_time(event_time) == expected
+    assert expected in discord
+    assert expected in teams
+    assert ".108000" not in discord
+    assert ".108000" not in teams
+
+
+def test_protect_malformed_event_time_falls_back_safely():
+    assert format_protect_event_time("synthetic-malformed-time") == "synthetic-malformed-time"
 
 
 def test_partial_drive_cards_use_warning_style():

@@ -214,12 +214,35 @@ class Parser:
             folded = clean.casefold()
             if not clean or folded in ignored:
                 continue
+            if re.fullmatch(r"https?://\S+", clean, flags=re.IGNORECASE):
+                continue
+            if folded.startswith("manage backup task:"):
+                continue
+            signature = folded.strip(" .,!:-")
+            if signature in {
+                "best regards",
+                "kind regards",
+                "regards",
+                "the ubiquiti team",
+                "warm regards",
+            }:
+                continue
             if any(
                 marker in folded
                 for marker in (
+                    "contact support",
                     "copyright",
+                    "do not reply",
+                    "help center",
+                    "manage email preferences",
+                    "need help?",
                     "privacy policy",
                     "postal address",
+                    "support center",
+                    "terms of service",
+                    "this email was sent",
+                    "unsubscribe",
+                    "view in browser",
                     "all rights reserved",
                 )
             ):

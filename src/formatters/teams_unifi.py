@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from formatters.base import BaseFormatter
+from formatters.unifi import format_protect_event_time, protect_device_display
 from models import Notification
 from version import VERSION
 
@@ -15,6 +16,7 @@ class _UniFiTeamsFormatter(BaseFormatter):
         notification: Notification,
         facts: list[dict],
         url: str = "",
+        action_title: str = "Open event",
     ) -> dict:
         body = [
             {
@@ -54,7 +56,7 @@ class _UniFiTeamsFormatter(BaseFormatter):
             card["actions"] = [
                 {
                     "type": "Action.OpenUrl",
-                    "title": "Open event",
+                    "title": action_title,
                     "url": url,
                 }
             ]
@@ -129,8 +131,14 @@ class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
         )
         facts = [
             self._fact("Trigger type", metadata.get("trigger_key")),
-            self._fact("Trigger device", metadata.get("trigger_device")),
-            self._fact("Event time", metadata.get("event_time")),
+            self._fact(
+                "Trigger device",
+                protect_device_display(metadata.get("trigger_device")),
+            ),
+            self._fact(
+                "Event time",
+                format_protect_event_time(metadata.get("event_time")),
+            ),
             self._fact("Condition", condition),
         ]
         return self._payload(notification, facts, self._text(metadata.get("event_link")))
@@ -147,4 +155,9 @@ class UniFiDriveTeamsFormatter(_UniFiTeamsFormatter):
             self._fact("State", metadata.get("event_state")),
             self._fact("Category", notification.category),
         ]
-        return self._payload(notification, facts, self._text(metadata.get("action_link")))
+        return self._payload(
+            notification,
+            facts,
+            self._text(metadata.get("action_link")),
+            "Manage Backup Task",
+        )

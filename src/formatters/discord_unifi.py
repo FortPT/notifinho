@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from formatters.base import BaseFormatter
+from formatters.unifi import format_protect_event_time, protect_device_display
 from models import Notification
 from version import VERSION
 
@@ -97,8 +98,14 @@ class UniFiProtectDiscordFormatter(_UniFiDiscordFormatter):
         )
         fields = [
             self._field("Trigger type", metadata.get("trigger_key")),
-            self._field("Trigger device", metadata.get("trigger_device")),
-            self._field("Event time", metadata.get("event_time")),
+            self._field(
+                "Trigger device",
+                protect_device_display(metadata.get("trigger_device")),
+            ),
+            self._field(
+                "Event time",
+                format_protect_event_time(metadata.get("event_time")),
+            ),
             self._field("Condition", condition),
         ]
         return self._embed(notification, fields, self._text(metadata.get("event_link")))

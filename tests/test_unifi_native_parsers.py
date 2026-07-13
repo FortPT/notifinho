@@ -13,6 +13,8 @@ from pathlib import Path
 import pytest
 
 from dispatcher import Dispatcher
+from formatters.discord_unifi import UniFiDriveDiscordFormatter
+from formatters.teams_unifi import UniFiDriveTeamsFormatter
 from parsers.unifi_drive import Parser as DriveParser
 from parsers.unifi_network import Parser as NetworkParser
 from parsers.unifi_protect import Parser as ProtectParser
@@ -158,6 +160,18 @@ def test_protect_invalid_links_are_omitted(link):
     assert ProtectParser().parse(payload).metadata["event_link"] == ""
 
 
+def test_protect_opaque_trigger_device_is_not_logged_at_info(caplog):
+    payload = protect_payload()
+    payload["alarm"]["triggers"][0]["device"] = "00:00:5e:00:53:42"
+    caplog.set_level("INFO", logger="notifinho.tests")
+
+    notification = Dispatcher().parse_webhook("protect", payload)
+
+    assert notification.metadata["trigger_device"] == "00:00:5e:00:53:42"
+    assert "Detected UniFi Protect webhook" in caplog.text
+    assert "00:00:5e:00:53:42" not in caplog.text
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -238,6 +252,76 @@ def test_drive_html_only_removes_style_script_footer_and_inline_images():
     assert "trackingToken" not in notification.body
     assert "Copyright" not in notification.body
     assert len(notification.items) == 0
+
+
+def _visible_card_text(value) -> list[str]:
+    visible = []
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if key in {"description", "text", "title", "value"} and isinstance(
+                nested,
+                str,
+            ):
+                visible.append(nested)
+            elif key != "url":
+                visible.extend(_visible_card_text(nested))
+    elif isinstance(value, list):
+        for nested in value:
+            visible.extend(_visible_card_text(nested))
+    return visible
+
+
+def test_drive_body_removes_action_url_signature_and_footer_but_keeps_operations():
+    action_link = (
+        "https://console.example.invalid/manage/"
+        "opaque-console-identifier-0123456789"
+    )
+    message = EmailMessage()
+    message["From"] = '"UniFi OS, SYNTHETIC-DRIVE" <alerts@notifications.ui.com>'
+    message["Subject"] = "Backup Task Partially Completed"
+    message.set_content(
+        "\n".join(
+            [
+                "UniFi Drive",
+                "The backup task SYNTHETIC-BACKUP on SYNTHETIC-DRIVE was completed partially.",
+                "Please check the details in UniFi Drive > Settings > Remote backup to resolve the issue.",
+                f"Manage Backup Task: {action_link}",
+                action_link,
+                "Regards,",
+                "The Ubiquiti team",
+                "Contact support in the Support Center",
+                "Unsubscribe from these notifications",
+                "Copyright Synthetic Postal Address",
+            ]
+        )
+    )
+
+    notification = DriveParser().parse(message)
+    discord = UniFiDriveDiscordFormatter().format(notification)
+    teams = UniFiDriveTeamsFormatter().format(notification)
+    visible_discord = "\n".join(_visible_card_text(discord))
+    visible_teams = "\n".join(_visible_card_text(teams))
+
+    assert notification.metadata["action_link"] == action_link
+    assert action_link not in notification.body
+    assert "Regards" not in notification.body
+    assert "The Ubiquiti team" not in notification.body
+    assert "Unsubscribe" not in notification.body
+    assert "Contact support" not in notification.body
+    assert "Copyright" not in notification.body
+    assert "was completed partially" in notification.body
+    assert "UniFi Drive > Settings > Remote backup" in notification.body
+    assert action_link not in visible_discord
+    assert action_link not in visible_teams
+    assert discord["embeds"][0]["url"] == action_link
+    teams_card = teams["attachments"][0]["content"]
+    assert teams_card["actions"] == [
+        {
+            "type": "Action.OpenUrl",
+            "title": "Manage Backup Task",
+            "url": action_link,
+        }
+    ]
 
 
 def test_drive_sender_domain_alone_is_not_sufficient():

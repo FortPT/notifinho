@@ -22,6 +22,62 @@ _PLACEHOLDER_MAC_RE = re.compile(
 _OPAQUE_ALNUM_RE = re.compile(r"^[A-Za-z0-9]{16,}$")
 _OPAQUE_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]{24,}$")
 
+_IDENTIFIER_ACRONYMS = {
+    "ai": "AI",
+    "id": "ID",
+    "ip": "IP",
+    "mac": "MAC",
+    "nvr": "NVR",
+    "ptz": "PTZ",
+    "unifi": "UniFi",
+    "unvr": "UNVR",
+    "ups": "UPS",
+}
+
+
+def humanize_unifi_identifier(value) -> str:
+    """Convert UniFi identifier keys into readable labels."""
+
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+    words = re.sub(r"[_-]+", " ", text).split()
+    return " ".join(
+        _IDENTIFIER_ACRONYMS.get(word.casefold(), word.capitalize())
+        for word in words
+    )
+
+
+def _canonical_identifier(value) -> str:
+    return re.sub(
+        r"[^a-z0-9]+",
+        "",
+        "" if value is None else str(value).casefold(),
+    )
+
+
+def protect_condition_display(
+    source,
+    operator,
+    trigger_key="",
+    *,
+    omit_redundant: bool = False,
+) -> str:
+    """Render a useful Protect condition without a dangling operator."""
+
+    source_label = humanize_unifi_identifier(source)
+    if not source_label:
+        return ""
+    if omit_redundant and (
+        _canonical_identifier(source) == _canonical_identifier(trigger_key)
+    ):
+        return ""
+
+    # Discovered payloads expose operators such as "is" without a reliable
+    # right-hand value. Retain the raw operator in metadata, not visible text.
+    _ = operator
+    return source_label
+
 
 def protect_device_display(value) -> str:
     """Return only a human-readable Protect trigger-device value."""
@@ -41,6 +97,8 @@ def protect_device_display(value) -> str:
         or _OPAQUE_TOKEN_RE.fullmatch(text)
     ):
         return ""
+    if text.casefold() in {"nvr", "unvr"}:
+        return humanize_unifi_identifier(text)
     return text
 
 

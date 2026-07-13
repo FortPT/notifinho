@@ -70,7 +70,7 @@ ports:
   - "18080:8080"
 ```
 
-The development Compose example uses host port `18081` for HTTP so it can run
+The development Compose example uses host port `18082` for HTTP so it can run
 beside another local capture listener. Publishing the port does not enable the
 input; `http.enabled` must also be true.
 

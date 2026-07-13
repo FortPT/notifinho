@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.5.2-blue" alt="Stable release v1.5.2">
+  <img src="https://img.shields.io/badge/stable-v1.6.0-blue" alt="Stable release v1.6.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,8 +49,8 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.5.2** |
-| **Next Planned Release** | **v1.6.0** |
+| **Current Stable Release** | **v1.6.0** |
+| **Next Planned Release** | **v1.7.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
@@ -355,7 +355,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
 | UniFi Network / Protect / Drive | ✅ v1.5.0 |
-| Proxmox VE | 📅 v1.6.0 |
+| Proxmox VE | 📅 v1.7.0 |
 
 ## 📤 Destinations
 
@@ -1192,7 +1192,7 @@ guidance, validation results, and current compatibility limitations.
 
 ## ✅ v1.5.0 — Native UniFi support
 
-Notifinho v1.5.0 is the current stable release. See the
+Notifinho v1.5.0 introduced native UniFi support. See the
 [v1.5.0 release notes](docs/releases/v1.5.0.md) for upgrade, rollback,
 validation, and compatibility details.
 
@@ -1218,7 +1218,28 @@ input. See [docs/unifi.md](docs/unifi.md) for configuration and security.
 
 ---
 
-## 📅 v1.6.0 — Proxmox VE
+## ✅ v1.6.0 — SMTP transport security
+
+Notifinho v1.6.0 is the current stable release. See the
+[v1.6.0 release notes](docs/releases/v1.6.0.md) for configuration, upgrade,
+rollback, validation, and compatibility details.
+
+The release includes:
+
+- Optional explicit STARTTLS for the SMTP listener
+- TLS 1.2 minimum
+- SMTP AUTH LOGIN and PLAIN after TLS
+- Environment-variable and Docker-secret password sources
+- Timing-safe credential comparisons
+- Fail-closed configuration validation
+- Secure enablement defaults
+- Secret-safe logging
+- Backward-compatible disabled state
+- Focused protocol and regression coverage
+
+---
+
+## 📅 v1.7.0 — Proxmox VE
 
 - Proxmox VE notification parser
 - Backup and replication events
@@ -1229,7 +1250,7 @@ input. See [docs/unifi.md](docs/unifi.md) for configuration and security.
 
 ---
 
-## 📅 v1.7.0 — Configuration API
+## 📅 v1.8.0 — Configuration API
 
 - Formal configuration schema
 - Configuration validation API
@@ -1241,7 +1262,7 @@ input. See [docs/unifi.md](docs/unifi.md) for configuration and security.
 
 ---
 
-## 📅 v1.8.0 — Community WebUI
+## 📅 v1.9.0 — Community WebUI
 
 - Browser-based configuration management
 - Output and webhook editor

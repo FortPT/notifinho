@@ -1,5 +1,52 @@
 # Changelog
 
+## 1.6.0 - 2026-07-13
+
+### Added
+
+- Optional explicit STARTTLS support for the SMTP listener.
+- SMTP AUTH LOGIN and PLAIN support after a TLS session is established.
+- Password loading from an environment variable or Docker-compatible secret
+  file.
+- A dedicated SMTP security configuration and validation layer.
+- Deployment guidance for Docker Compose, Portainer, certificates, secrets,
+  rollout, and rollback.
+
+### Security
+
+- Enforced TLS 1.2 or newer.
+- Prevented AUTH advertisement and use before STARTTLS.
+- Used timing-safe comparisons for usernames and passwords.
+- Added fail-closed validation for missing certificates, private keys,
+  usernames, environment variables, and secret files.
+- Prevented inline plaintext password configuration.
+- Prevented password, AUTH payload, and secret-file content logging.
+- Made STARTTLS required by default whenever TLS is enabled.
+- Made authentication required by default whenever AUTH is enabled.
+- Disabled the built-in LOGIN and PLAIN mechanisms in TLS-only mode.
+- Avoided retaining submitted credential data after successful authentication.
+
+### Compatibility
+
+- SMTP security remains disabled by default.
+- Existing configurations containing only `smtp.host` and `smtp.port` remain
+  compatible.
+- The SMTP container port remains `8025`.
+- The HTTP listener, parsers, routing, formatters, and outputs are unchanged.
+- Explicit optional STARTTLS or optional authentication modes remain available
+  for controlled migration.
+
+### Validation
+
+- 348 automated tests passed.
+- 51 focused SMTP security tests passed.
+- Python syntax validation passed.
+- Docker release-candidate validation passed.
+- Real sender-device compatibility remains dependent on each appliance's
+  STARTTLS, AUTH, certificate-trust, and hostname-validation capabilities.
+
+---
+
 ## 1.5.2 - 2026-07-13
 
 ### Fixed

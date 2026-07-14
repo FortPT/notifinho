@@ -257,7 +257,8 @@ The v1.2.0 implementation includes:
 
 ## 💽 QNAP QTS / QuTS hero
 
-The provisional v1.3.0 integration includes:
+The v1.3.0 integration, now validated with real QNAP Notification Center
+delivery, includes:
 
 - Case-insensitive QNAP Notification Center detection
 - Notification Center test messages
@@ -277,11 +278,10 @@ python3 -m pip install -r requirements-dev.txt
 python3 -m pytest -q
 ```
 
-QNAP support was developed without access to a physical NAS. The included
-fixtures are synthetic, and compatibility remains provisional until the
-parser is verified with anonymized real QTS and QuTS hero emails. See the
-[QNAP integration guide](docs/qnap.md) for testing instructions, current
-limitations, and safe sample-submission guidance.
+The included fixtures remain anonymized and synthetic so no production data is
+stored in the repository. Real QNAP delivery has confirmed the integration;
+additional QTS, QuTS hero, localized, and customized templates remain normal
+compatibility-hardening work. See the [QNAP integration guide](docs/qnap.md).
 
 ---
 
@@ -349,12 +349,18 @@ This separation allows new infrastructure products and new messaging platforms t
 |----------|:------:|
 | Xen Orchestra | ✅ Stable |
 | Zabbix | ✅ v1.2.0 |
-| QNAP QTS / QuTS hero | 🚧 v1.3.0 |
+| QNAP QTS / QuTS hero | ✅ Validated |
 | Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
 | UniFi Network / Protect / Drive | ✅ v1.7.0 |
 | Proxmox VE | 📅 v1.8.0 |
+| Portainer | 📅 v1.8.0 |
+| Synology DSM | 📅 v1.8.0 |
+| Supermicro BMC / IPMI | 📅 v1.9.0 |
+| HPE iLO | 📅 v1.9.0 |
+| Dell iDRAC | 📅 v1.9.0 |
+| Home Assistant | 📅 v1.9.0 |
 
 ## 📤 Destinations
 
@@ -362,7 +368,10 @@ This separation allows new infrastructure products and new messaging platforms t
 |-----------|:------:|
 | Discord | ✅ Stable |
 | Microsoft Teams | ✅ Stable |
-| Other destinations | 📅 Planned |
+| Slack | 📅 v2.0.0 |
+| Generic outbound webhook | 📅 v2.0.0 |
+| MQTT | 📅 v2.0.0 |
+| ntfy | 📅 v2.0.0 |
 
 ---
 
@@ -423,47 +432,27 @@ while a new destination can be added without modifying source parsers.
 # 🏗️ Architecture
 
 ```text
-SMTP email
-    |
-    v
-SMTP listener / raw email capture
-    |
-    v
-Dispatcher and source detection
-    |
-    v
-Source-specific parser
-    |- Xen Orchestra
-    |- Zabbix
-    |- QNAP
-    |- Grafana
-    |- TrueNAS
-    `- Generic fallback
-    |
-    v
+Inputs
+    |- SMTP listener / raw email capture
+    `- authenticated HTTP webhook listener
+            |
+            v
+Dispatcher and source adapter
+    |- email detection and source-specific parsers
+    |- native UniFi JSON adapters
+    `- generic SMTP fallback
+            |
+            v
 Shared Notification model
-    |
-    v
+            |
+            v
 Router
     |- source route selection
-    |- target selection
+    |- output and target selection
     `- optional host filters
-    |
-    +-> Discord output
-    |       |
-    |       v
-    |   source-specific Discord formatter
-    |       |
-    |       v
-    |   Discord webhook
-    |
-    `-> Microsoft Teams output
             |
-            v
-        source-specific Teams formatter
-            |
-            v
-        Teams workflow webhook
+            +-> destination formatter -> Discord output
+            `-> destination formatter -> Microsoft Teams output
 ```
 
 One notification model.
@@ -472,16 +461,21 @@ Multiple parsers.
 
 Multiple outputs.
 
-Parsers normalize vendor-specific email formats into the output-neutral shared
-`Notification` model. The router then selects one or more configured output
-targets using source routes and optional host filters. Each selected output
-chooses the formatter for the notification source; generic messages use the
-default formatter.
+Input adapters normalize vendor-specific email or webhook formats into the
+output-neutral shared `Notification` model. The router then selects one or more
+configured output targets using source routes and optional host filters. Each
+selected output chooses the formatter for the notification source; generic
+messages use the default formatter.
 
-Formatters only build Discord or Teams payloads and never send web requests.
-Outputs deliver those completed payloads to their configured webhooks. Because
-routing and formatting are separate, one notification can be delivered to
-multiple destinations without being parsed again.
+Formatters only build destination payloads and never perform delivery. Outputs
+deliver those completed payloads to their configured transports. Because
+ingestion, normalization, routing, formatting, and delivery are separate, one
+event can be delivered to multiple destinations without being parsed again.
+
+The v1.8-v2.0 roadmap preserves this pipeline while adding Proxmox, Portainer,
+Synology, Redfish hardware-management events, Home Assistant, authenticated
+user event submission, and more output transports. The v2.0 WebUI and API will
+manage the same backend model rather than implementing a second routing engine.
 
 ---
 
@@ -527,14 +521,14 @@ single responsibility.
 
 Notifinho was designed from the beginning to support additional infrastructure platforms and messaging services without requiring architectural changes.
 
-The current implementation supports Xen Orchestra and Zabbix sources, plus
-provisional QNAP QTS, QuTS hero, and Grafana Alerting support in v1.3.0 and
-provisional TrueNAS 26 support in `v1.4.0`, with delivery to Discord and
-Microsoft Teams.
+The current implementation supports Xen Orchestra, Zabbix, validated QNAP,
+provisional Grafana and TrueNAS, generic SMTP, and native UniFi Network,
+Protect, and Drive inputs, with delivery to Discord and Microsoft Teams.
 
-The active v1.5.0 development work includes native UniFi Network and Protect
-webhooks plus delivered-email parsing for UniFi Drive. Future versions may
-include Proxmox VE, Slack, Telegram, and additional integrations.
+By v2.0, Notifinho is planned to include Proxmox VE, Portainer, Synology DSM,
+Supermicro BMC/IPMI, HPE iLO, Dell iDRAC, and Home Assistant sources. Slack,
+generic outbound webhooks, MQTT, and ntfy will extend delivery beyond the two
+current collaboration platforms.
 
 ---
 
@@ -548,6 +542,8 @@ Deploying Notifinho only takes a few minutes.
 - Docker Compose
 - SMTP-capable application (Xen Orchestra, Zabbix, etc.)
 - A Discord webhook and/or Microsoft Teams workflow webhook
+- Optional reverse proxy for native HTTP inputs (Nginx Proxy Manager is a
+  supported deployment pattern)
 
 ---
 
@@ -619,22 +615,25 @@ Create a `docker-compose.yml` file:
 
 ```yaml
 services:
-
   notifinho:
-
     image: fortpt/notifinho:latest
-
     container_name: notifinho
-
     restart: unless-stopped
-
     ports:
+      # SMTP input
       - "8025:8025"
-      - "18080:8080"
 
+      # Native HTTP inputs. Publish only when http.enabled is true.
+      - "18080:8080"
     volumes:
       - ./config:/notifinho/config
       - ./logs:/notifinho/logs
+
+      # Optional Docker-compatible secrets.
+      - ./secrets:/run/secrets:ro
+
+    environment:
+      TZ: Europe/Lisbon
 ```
 
 ```bash
@@ -645,6 +644,17 @@ docker compose up -d
 >
 > Configuration files and logs are stored outside the container using bind mounts.
 > This allows you to upgrade Notifinho by simply pulling the latest image and restarting the container without losing your configuration or logs.
+
+When deploying this Compose file as a Portainer stack, replace the relative
+bind mounts with absolute host paths such as `/docker/notifinho/config`,
+`/docker/notifinho/logs`, and `/docker/notifinho/secrets`. Re-pull the image and
+redeploy the stack to update production. Keep the `notifinho-dev` checkout and
+its development ports separate from the production stack.
+
+If Nginx Proxy Manager publishes the HTTP listener, proxy HTTPS traffic to
+container port `8080`, keep `http.shared_secret` enabled, and restrict access
+to the networks or senders that need the native webhook endpoints. SMTP port
+`8025` is not an HTTP service and must not be placed behind Nginx Proxy Manager.
 
 SMTP security remains disabled by default. Mount certificates and configure
 STARTTLS/AUTH only after reviewing the [SMTP security guide](docs/smtp-security.md).
@@ -678,6 +688,7 @@ The configuration is intentionally simple and organized into logical sections.
 | `application` | General application settings. |
 | `logging` | Log level and log file location. |
 | `smtp` | SMTP listener, STARTTLS, and authentication configuration. |
+| `http` | Native authenticated webhook listener configuration. |
 | `routing` | Maps notification sources to outputs. |
 | `outputs` | Notification destinations (Discord, Teams, etc.). |
 | `notifications` | Product-specific notification preferences. |
@@ -703,6 +714,15 @@ smtp:
     password_env: "NOTIFINHO_SMTP_PASSWORD"
     password_file: ""
 
+# Native webhook input used by UniFi Network, Protect, and Drive.
+# Keep disabled unless port 8080 is intentionally published.
+http:
+  enabled: false
+  host: 0.0.0.0
+  port: 8080
+  max_body_bytes: 1048576
+  shared_secret: ""
+
 outputs:
   discord:
     # Set to false to disable all Discord notifications.
@@ -719,6 +739,10 @@ outputs:
     # Dedicated TrueNAS alert destination.
     truenas:
       webhook: "PASTE_TRUENAS_DISCORD_WEBHOOK_HERE"
+
+    # Shared UniFi Network, Protect, and Drive destination.
+    unifi:
+      webhook: "PASTE_UNIFI_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -748,6 +772,10 @@ outputs:
     # Optional dedicated Teams destination for TrueNAS.
     # truenas:
     #   webhook: "PASTE_TRUENAS_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional shared Teams destination for UniFi.
+    # unifi:
+    #   webhook: "PASTE_UNIFI_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -829,6 +857,30 @@ routing:
       # - output: teams
       #   target: truenas
 
+  unifi_network:
+    outputs:
+      - output: discord
+        target: unifi
+
+      # - output: teams
+      #   target: unifi
+
+  unifi_protect:
+    outputs:
+      - output: discord
+        target: unifi
+
+      # - output: teams
+      #   target: unifi
+
+  unifi_drive:
+    outputs:
+      - output: discord
+        target: unifi
+
+      # - output: teams
+      #   target: unifi
+
   generic:
     outputs:
       # Fallback route for emails that do not match
@@ -876,6 +928,11 @@ routing:
       - output: teams
         target: default
 ```
+
+An output target is a reusable destination such as a Discord channel or Teams
+workflow. A source route references that target by name, so webhook URLs are
+defined once and are not copied into every rule. SMTP and native HTTP inputs
+use the same normalized source keys and the same router.
 
 QNAP uses the same source-based routing model:
 
@@ -948,6 +1005,33 @@ section remain unconditional and continue to receive every notification.
 
 This allows selected infrastructure hosts to be forwarded to different
 Discord servers, Teams channels, or other configured destinations.
+
+Native UniFi webhook events use independent source keys and can share one
+destination or be separated:
+
+```yaml
+routing:
+  unifi_network:
+    outputs:
+      - output: discord
+        target: unifi
+
+  unifi_protect:
+    outputs:
+      - output: discord
+        target: unifi
+
+  unifi_drive:
+    outputs:
+      - output: discord
+        target: unifi
+```
+
+The v2.0 route model will extend these rules with authenticated user and
+application ownership, severity and event filters, and private or shared
+destinations. Existing YAML source routes will remain importable during the
+v2.0 migration.
+
 ---
 
 ## Logging
@@ -1254,45 +1338,82 @@ rollback, validation, and compatibility details.
 
 ---
 
-## 📅 v1.8.0 — Proxmox VE
+## 📅 v1.8.0 — Virtualization, containers, and storage
 
-- Proxmox VE notification parser
-- Backup and replication events
-- Node and cluster alerts
-- Storage and availability events
-- Discord and Microsoft Teams cards
-- Tests and documentation
+v1.8.0 expands the server-side notification engine while preserving the
+current YAML configuration and Discord/Microsoft Teams delivery model.
 
----
+- Proxmox VE SMTP and native notification-webhook ingestion
+- Backup, replication, node, cluster, storage, and availability events
+- Portainer Alerting email and webhook ingestion where supported by the
+  deployed Portainer edition, with an explicit compatibility matrix
+- Synology DSM email and webhook ingestion
+- Source-specific Discord embeds and Microsoft Teams Adaptive Cards
+- Real-sample validation, safe fixtures, replay tooling, routing examples, and
+  integration documentation
+- Grafana compatibility hardening when anonymized real samples are available
 
-## 📅 v1.9.0 — Configuration API
-
-- Formal configuration schema
-- Configuration validation API
-- Atomic configuration updates and backups
-- Health, logs, preview and test-send endpoints
-- Local authentication
-- Secure webhook and secret handling
-- Security and audit foundations
+Portainer support will consume notifications that Portainer emits; it will not
+poll the Portainer API or require permanent administrative credentials.
 
 ---
 
-## 📅 v2.0.0 — Community WebUI
+## 📅 v1.9.0 — Event platform and hardware management
 
-- Browser-based configuration management
-- Output and webhook editor
-- Visual routing and host-filter editor
-- Discord and Microsoft Teams card preview
-- Test notification delivery
-- Configuration backup and restore
-- Basic log viewer
-- Single-instance local administration
+v1.9.0 completes the backend foundation required by the user-facing v2.0
+release.
+
+- Shared Redfish Event Service listener and normalized hardware event model
+- Supermicro BMC/IPMI adapter, including Redfish events and SMTP compatibility
+- HPE iLO adapter for Redfish events and AlertMail compatibility
+- Dell iDRAC adapter for Redfish events and email-alert compatibility
+- Home Assistant event ingestion through authenticated HTTP requests generated
+  by automations and `rest_command`
+- Generic authenticated event-submission API with source-scoped tokens
+- Formal configuration schema and validation API
+- Atomic configuration updates, backups, health, logs, preview, and test-send
+  API foundations
+- Local authentication, secure secret storage, masking, rate limits, and audit
+  foundations
+- Backwards-compatible migration checks for existing YAML configuration
+
+The three server-management products share a Redfish foundation but retain
+vendor adapters for their registry identifiers, severities, links, and useful
+operator actions.
+
+---
+
+## 📅 v2.0.0 — User-facing notification platform
+
+v2.0.0 turns the completed notification engine into a self-service platform
+without duplicating parser, formatter, or routing logic in the browser.
+
+- Responsive WebUI backed by the v1.9 API
+- Local administrator and user accounts with clear roles
+- User- and application-scoped event endpoints and API tokens
+- Private and shared destinations with secrets never returned to the browser
+- User-owned routing rules for source, host, event, and severity filters
+- Visual route editor, configuration validation, import/export, backup, and
+  restore
+- Preview and test delivery using the real backend formatters
+- Searchable delivery history, safe error details, and audit events
+- Slack output
+- Generic outbound webhook output with customizable headers and JSON templates
+- MQTT output for automation and Home Assistant workflows
+- ntfy output for a lightweight self-hosted mobile/desktop destination
+- Automatic import of supported v1.x YAML routes and targets
+- Production examples for Docker Compose, Portainer stacks, persistent data,
+  and Nginx Proxy Manager TLS termination
+
+Telegram and additional destination adapters remain candidates for the v2.x
+series after the core v2.0 transports and self-service security model are
+stable.
 
 ---
 
 The Community edition will continue to provide the complete notification
-engine, parsers, formatters, configuration management, card preview and
-test-delivery features.
+engine, parsers, formatters, configuration management, user routing, preview,
+and test-delivery features for a self-hosted instance.
 
 Advanced commercial functionality may be developed separately without
 duplicating or replacing the open-source notification engine.

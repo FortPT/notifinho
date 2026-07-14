@@ -1,5 +1,30 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Replanned v1.8.0 as the Proxmox VE, Portainer, and Synology DSM integration
+  release.
+- Replanned v1.9.0 as the Redfish hardware-management, Home Assistant, secure
+  event API, and configuration API foundation release.
+- Expanded the v2.0.0 scope into a user-facing notification platform with
+  administrator and user roles, scoped event submission, user-owned routing,
+  and private or shared destinations.
+- Planned Slack, generic outbound webhook, MQTT, and ntfy outputs for v2.0.0.
+- Updated the README source and destination matrices, architecture, production
+  Docker Compose and Portainer example, Nginx Proxy Manager guidance, example
+  configuration, routing model, and roadmap through v2.0.0.
+
+### Validation
+
+- Marked QNAP QTS / QuTS hero support as validated following successful real
+  QNAP Notification Center delivery.
+- Kept anonymized synthetic QNAP fixtures and broader template coverage as
+  ongoing compatibility-hardening work.
+
+---
+
 ## 1.7.0 - 2026-07-14
 
 ### Added

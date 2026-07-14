@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- Private-safe Portainer Alerting webhook capture and offline webhook/email
+  analysis tools for the v1.8.0 discovery phase.
+- Shared discovery sanitization helpers with regression coverage for private
+  identifiers, credentials, URLs, and infrastructure metadata.
+- A Portainer BE 2.42.0 discovery runbook for development-only validation on
+  VM-04 without API polling or permanent Portainer credentials.
+
 ### Changed
 
 - Replanned v1.8.0 as the Proxmox VE, Portainer, and Synology DSM integration

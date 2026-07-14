@@ -1355,6 +1355,8 @@ current YAML configuration and Discord/Microsoft Teams delivery model.
 
 Portainer support will consume notifications that Portainer emits; it will not
 poll the Portainer API or require permanent administrative credentials.
+The private-safe validation workflow is documented in the
+[Portainer discovery guide](docs/portainer-discovery.md).
 
 ---
 

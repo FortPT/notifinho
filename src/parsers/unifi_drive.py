@@ -15,7 +15,12 @@ from models import Notification
 
 
 class Parser:
-    """Detect and normalize Drive email without mailbox-access concerns."""
+    """Detect and normalize Drive email and Alarm Manager webhooks."""
+
+    WEBHOOK_PATTERN = re.compile(
+        r'^\s*Alarm\s+"(?P<alarm_name>.+?)"\s+was\s+triggered\s*$',
+        flags=re.IGNORECASE,
+    )
 
     EVENT_RULES = (
         (
@@ -111,6 +116,68 @@ class Parser:
         )
         return bool(drive_identity and (event_vocabulary or unknown_event_evidence))
 
+    @classmethod
+    def is_envelope(cls, payload) -> bool:
+        "Validate the discovered UniFi Drive Alarm Manager JSON shape."
+
+        if not isinstance(payload, dict):
+            return False
+        alarm_id = payload.get("alarm_id")
+        text = payload.get("text")
+        if not isinstance(alarm_id, str) or not alarm_id.strip():
+            return False
+        if not isinstance(text, str) or not text.strip():
+            return False
+        return cls.WEBHOOK_PATTERN.fullmatch(text.strip()) is not None
+
+    def parse_webhook(self, payload: dict) -> Notification:
+        "Normalize one authenticated Drive Alarm Manager webhook."
+
+        if not self.is_envelope(payload):
+            raise ValueError("invalid UniFi Drive webhook envelope")
+
+        text = self._clean_text(payload.get("text"))
+        match = self.WEBHOOK_PATTERN.fullmatch(text)
+        if match is None:
+            raise ValueError("invalid UniFi Drive webhook text")
+
+        alarm_name = (
+            self._clean_value(match.group("alarm_name"))
+            or "UniFi Drive alarm"
+        )
+        status, severity, category, state = self._classify_webhook(
+            alarm_name,
+            text,
+        )
+
+        notification = Notification(
+            source="unifi_drive",
+            category=category,
+            status=status,
+            title=alarm_name,
+            subject=alarm_name,
+            body=text,
+        )
+        notification.metadata = {
+            "provider": "UniFi Drive",
+            "system": "",
+            "host": "",
+            "event_title": alarm_name,
+            "alarm_name": alarm_name,
+            "alarm_id": self._clean_value(payload.get("alarm_id")),
+            "backup_task": "",
+            "event_state": state,
+            "message": text,
+            "action_link": "",
+            "category": category,
+            "severity": severity,
+            "parser_confidence": "high",
+            "event_time": "",
+            "format": "webhook",
+            "webhook_schema": "alarm-manager-default-v1",
+        }
+        return notification
+
     def parse(self, message: EmailMessage) -> Notification:
         subject = self._header(message, "Subject") or "UniFi Drive notification"
         sender = self._header(message, "From")
@@ -156,6 +223,42 @@ class Parser:
             "format": "html" if used_html else "plain",
         }
         return notification
+
+    def _classify_webhook(
+        self,
+        alarm_name: str,
+        text: str,
+    ) -> tuple[str, str, str, str]:
+        "Classify the limited default Drive webhook content."
+
+        status, severity, category, state = self._classify(
+            alarm_name,
+            text,
+        )
+        combined = f"{alarm_name}\n{text}".casefold()
+
+        if category == "generic":
+            if "setting" in combined or "administrat" in combined:
+                category = "administration"
+            elif "backup" in combined:
+                category = "backup"
+            elif any(
+                marker in combined
+                for marker in (
+                    "disk",
+                    "drive",
+                    "pool",
+                    "shared",
+                    "storage",
+                    "volume",
+                )
+            ):
+                category = "storage"
+
+        if state == "unknown":
+            state = "triggered"
+
+        return status, severity, category, state
 
     def _classify(self, subject: str, body: str) -> tuple[str, str, str, str]:
         """Return provisional normalized state, severity, category, and label."""

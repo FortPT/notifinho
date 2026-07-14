@@ -1,4 +1,4 @@
-"""Native production HTTP input for UniFi Network and Protect webhooks."""
+"""Native production HTTP input for UniFi Network, Protect, and Drive webhooks."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ from logger import log
 ENDPOINTS = {
     "/unifi/network": "network",
     "/unifi/protect": "protect",
+    "/unifi/drive": "drive",
 }
 
 

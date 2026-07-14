@@ -48,6 +48,12 @@ def test_portainer_json_request_analysis():
         "portainer",
         "alertmanager-compatible",
     ]
+    assert summary["first_alert_shape"] == {"labels": {"source": "string"}}
+    assert summary["portainer_enums"] == {
+        "alert_statuses": ["<redacted>"],
+        "severity": "critical",
+        "top_status": "firing",
+    }
 
 
 def test_non_json_request_analysis_is_private_safe():

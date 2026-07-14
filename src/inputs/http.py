@@ -1,4 +1,4 @@
-"""Native production HTTP input for UniFi Network, Protect, and Drive webhooks."""
+"""Native production HTTP input for supported JSON webhooks."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ import json
 import threading
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlsplit
 
 from config import config
 from logger import log
@@ -16,6 +17,7 @@ ENDPOINTS = {
     "/unifi/network": "network",
     "/unifi/protect": "protect",
     "/unifi/drive": "drive",
+    "/portainer/alerts": "portainer",
 }
 
 
@@ -51,11 +53,12 @@ class HTTPHandler(BaseHTTPRequestHandler):
     server: HTTPServer
 
     def do_POST(self) -> None:  # noqa: N802 - standard-library callback name
-        if not self._authenticated():
+        request_url = urlsplit(self.path)
+        if not self._authenticated(request_url.path, request_url.query):
             self._respond(401)
             return
 
-        application = ENDPOINTS.get(self.path)
+        application = ENDPOINTS.get(request_url.path)
         if application is None:
             self._respond(404)
             return
@@ -87,16 +90,21 @@ class HTTPHandler(BaseHTTPRequestHandler):
             return
 
         try:
-            notification = self.server.dispatcher.parse_webhook(
+            parsed = self.server.dispatcher.parse_webhook(
                 application,
                 payload,
             )
-            if notification is None:
+            if parsed is None:
                 self._respond(400)
                 return
-            self.server.router.route(notification)
+            notifications = parsed if isinstance(parsed, list) else [parsed]
+            if not notifications:
+                self._respond(400)
+                return
+            for notification in notifications:
+                self.server.router.route(notification)
         except Exception:
-            log.exception("UniFi webhook processing failed")
+            log.exception("Webhook processing failed")
             self._respond(500)
             return
 
@@ -118,16 +126,20 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self._unsupported_method()
 
     def _unsupported_method(self) -> None:
-        if not self._authenticated():
+        request_url = urlsplit(self.path)
+        if not self._authenticated(request_url.path, request_url.query):
             self._respond(401)
             return
         self._respond(405, {"Allow": "POST"})
 
-    def _authenticated(self) -> bool:
+    def _authenticated(self, path: str, query: str) -> bool:
         expected = self.server.shared_secret
         if not expected:
             return True
         supplied = self.headers.get("X-Notifinho-Token", "")
+        if path == "/portainer/alerts" and not supplied:
+            values = parse_qs(query, keep_blank_values=True).get("token", [])
+            supplied = values[0] if len(values) == 1 else ""
         return hmac.compare_digest(
             str(supplied).encode("utf-8"),
             str(expected).encode("utf-8"),

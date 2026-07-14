@@ -4,6 +4,14 @@
 
 ### Added
 
+- Native Portainer BE Alerting ingestion at `POST /portainer/alerts`, including
+  grouped firing/resolved events and URL query-token authentication for
+  Portainer's URL-only webhook channel.
+- Portainer-specific normalization and dedicated Discord embeds and Microsoft
+  Teams Adaptive Cards based on a private-safe BE 2.42.0 firing-event
+  validation.
+- Synthetic Alertmanager-compatible Portainer fixtures and production HTTP,
+  parser, presentation, routing, privacy, and authentication coverage.
 - Private-safe Portainer Alerting webhook capture and offline webhook/email
   analysis tools for the v1.8.0 discovery phase.
 - Shared discovery sanitization helpers with regression coverage for private

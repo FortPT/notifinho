@@ -1,8 +1,9 @@
 # Portainer discovery for v1.8.0
 
-This guide covers discovery only. It does not expose a production Notifinho
-Portainer endpoint. The first validation target is Portainer Business Edition
-2.42.0 running on VM-04 (`192.168.0.164`).
+This guide preserves the private-sample discovery workflow used to design the
+production integration. Production configuration now lives in the
+[Portainer integration guide](portainer.md). The first validation target is
+Portainer Business Edition 2.42.0 running on VM-04 (`192.168.0.164`).
 
 [Portainer Alerting](https://docs.portainer.io/user/observability/alerting) is
 a Business Edition feature and is configured by a Portainer administrator
@@ -10,6 +11,26 @@ under **Additional Functionality > Alerting**. Its notification channels
 include webhook and email. Notifinho consumes those outbound alert
 notifications; it does not use Portainer's stack redeployment webhooks, poll
 the Portainer API, or retain an administrator credential.
+
+## Confirmed BE 2.42.0 findings
+
+- Portainer can reach a listener on VM-04 through its container network.
+- The alert-manager **Test** action checks instance reachability but does not
+  send a channel notification.
+- An actual firing rule emits an Alertmanager-compatible versioned JSON
+  envelope with `alerts`, common labels and annotations, group metadata,
+  receiver, status, and truncated-alert count.
+- Each alert contains status, labels, annotations, start/end times, generator
+  URL, and fingerprint.
+- Confirmed Portainer labels include alert metric and rule identifiers, alert
+  source and name, authentication method, instance, job, severity, source,
+  status, summary, and username.
+- Confirmed annotations include creator and description.
+- A warning-severity firing event was validated using a nonexistent synthetic
+  username. Resolved-event delivery remains to be recorded.
+
+Private values from the original request were not copied into Git. The
+production test fixture is synthetic and preserves only the reviewed schema.
 
 ## Safety boundary
 

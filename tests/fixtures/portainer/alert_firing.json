@@ -1,0 +1,56 @@
+{
+  "receiver": "notifinho-discovery",
+  "status": "firing",
+  "alerts": [
+    {
+      "status": "firing",
+      "labels": {
+        "alert_metric_name": "authentication_failures_total",
+        "alert_rule_id": "synthetic-rule-id",
+        "alert_source": "security",
+        "alertname": "HighAuthenticationFailuresSingleUser",
+        "authentication_method": "local",
+        "instance": "synthetic-portainer",
+        "job": "portainer",
+        "severity": "warning",
+        "source": "Portainer",
+        "status": "firing",
+        "summary": "High authentication failures for a single user",
+        "username": "notifinho-discovery-test"
+      },
+      "annotations": {
+        "created_by": "Portainer",
+        "description": "Authentication failures exceeded the configured threshold."
+      },
+      "startsAt": "2026-07-14T15:45:00Z",
+      "endsAt": "0001-01-01T00:00:00Z",
+      "generatorURL": "http://synthetic-portainer.invalid/alerts",
+      "fingerprint": "synthetic-fingerprint"
+    }
+  ],
+  "groupLabels": {
+    "alertname": "HighAuthenticationFailuresSingleUser"
+  },
+  "commonLabels": {
+    "alert_metric_name": "authentication_failures_total",
+    "alert_rule_id": "synthetic-rule-id",
+    "alert_source": "security",
+    "alertname": "HighAuthenticationFailuresSingleUser",
+    "authentication_method": "local",
+    "instance": "synthetic-portainer",
+    "job": "portainer",
+    "severity": "warning",
+    "source": "Portainer",
+    "status": "firing",
+    "summary": "High authentication failures for a single user",
+    "username": "notifinho-discovery-test"
+  },
+  "commonAnnotations": {
+    "created_by": "Portainer",
+    "description": "Authentication failures exceeded the configured threshold."
+  },
+  "externalURL": "http://synthetic-portainer.invalid/alerting",
+  "version": "4",
+  "groupKey": "synthetic-group-key",
+  "truncatedAlerts": 0
+}

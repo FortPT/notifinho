@@ -47,6 +47,8 @@ _SAFE_PATH_SEGMENTS = {
     "webhook",
     "webhooks",
 }
+_SAFE_STATUSES = {"active", "firing", "inactive", "pending", "resolved"}
+_SAFE_SEVERITIES = {"critical", "error", "info", "information", "warning"}
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -110,6 +112,32 @@ def _json_shape(value: object, depth: int = 0) -> object:
     return "string"
 
 
+def _safe_enum(value: object, allowed: set[str]) -> str:
+    normalized = str(value or "").casefold()
+    return normalized if normalized in allowed else REDACTED
+
+
+def _portainer_enums(value: object) -> dict[str, object] | None:
+    if not isinstance(value, dict):
+        return None
+    alerts = value.get("alerts")
+    if not isinstance(alerts, list):
+        return None
+    common_labels = value.get("commonLabels")
+    if not isinstance(common_labels, dict):
+        common_labels = {}
+    alert_statuses = [
+        _safe_enum(alert.get("status"), _SAFE_STATUSES)
+        for alert in alerts
+        if isinstance(alert, dict)
+    ]
+    return {
+        "alert_statuses": alert_statuses,
+        "severity": _safe_enum(common_labels.get("severity"), _SAFE_SEVERITIES),
+        "top_status": _safe_enum(value.get("status"), _SAFE_STATUSES),
+    }
+
+
 def analyze_request(
     method: str,
     target: str,
@@ -130,8 +158,12 @@ def analyze_request(
             malformed_json = True
 
     top_level_keys = []
+    alert_item_shape = None
     if isinstance(json_data, dict):
         top_level_keys = sorted(sanitize_text(key) for key in json_data)
+        alerts = json_data.get("alerts")
+        if isinstance(alerts, list) and alerts and isinstance(alerts[0], dict):
+            alert_item_shape = _json_shape(alerts[0])
 
     marker_values: list[object] = [target]
     if json_data is not None:
@@ -141,6 +173,7 @@ def analyze_request(
 
     return {
         "body_size": len(body),
+        "first_alert_shape": alert_item_shape,
         "content_type": media_type,
         "header_names": safe_header_names(headers.keys()),
         "json_shape": _json_shape(json_data) if json_data is not None else None,
@@ -148,6 +181,7 @@ def analyze_request(
         "malformed_json": malformed_json,
         "method": method.upper(),
         "path_shape": path_shape(target),
+        "portainer_enums": _portainer_enums(json_data),
         "top_level_json_keys": top_level_keys,
     }
 

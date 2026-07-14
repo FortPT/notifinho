@@ -714,7 +714,7 @@ smtp:
     password_env: "NOTIFINHO_SMTP_PASSWORD"
     password_file: ""
 
-# Native webhook input used by UniFi Network, Protect, and Drive.
+# Native webhook input used by UniFi and Portainer Alerting.
 # Keep disabled unless port 8080 is intentionally published.
 http:
   enabled: false
@@ -743,6 +743,10 @@ outputs:
     # Shared UniFi Network, Protect, and Drive destination.
     unifi:
       webhook: "PASTE_UNIFI_DISCORD_WEBHOOK_HERE"
+
+    # Dedicated Portainer Alerting destination.
+    portainer:
+      webhook: "PASTE_PORTAINER_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -776,6 +780,10 @@ outputs:
     # Optional shared Teams destination for UniFi.
     # unifi:
     #   webhook: "PASTE_UNIFI_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Teams destination for Portainer.
+    # portainer:
+    #   webhook: "PASTE_PORTAINER_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -1026,6 +1034,25 @@ routing:
       - output: discord
         target: unifi
 ```
+
+Portainer Alerting uses its own source key and can route to either output:
+
+```yaml
+routing:
+  portainer:
+    outputs:
+      - output: discord
+        target: portainer
+
+      # - output: teams
+      #   target: portainer
+```
+
+Portainer's webhook channel accepts a URL but cannot add Notifinho's custom
+authentication header. Use the same `http.shared_secret` as a URL query token
+on the private direct endpoint. See the
+[Portainer integration guide](docs/portainer.md) for the secure deployment and
+validation workflow.
 
 The v2.0 route model will extend these rules with authenticated user and
 application ownership, severity and event filters, and private or shared
@@ -1357,6 +1384,8 @@ Portainer support will consume notifications that Portainer emits; it will not
 poll the Portainer API or require permanent administrative credentials.
 The private-safe validation workflow is documented in the
 [Portainer discovery guide](docs/portainer-discovery.md).
+Production ingestion and routing are documented in the
+[Portainer integration guide](docs/portainer.md).
 
 ---
 

@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.7.0 - 2026-07-14
+
+### Added
+
+- Native authenticated `POST /unifi/drive` Alarm Manager webhook input.
+- Shared `X-Notifinho-Token` authentication for Network, Protect, and Drive.
+- Dedicated Drive JSON parsing while preserving Drive email parsing through SMTP.
+- Drive `Alarm rule` fields for Discord and Microsoft Teams.
+- Release, deployment, alarm-naming, and rollback documentation.
+
+### Changed
+
+- Drive webhook titles now derive a readable event label from descriptive alarm names.
+- The complete configured Drive alarm name remains visible as `Alarm rule`.
+- Raw `Alarm "..." was triggered` text is replaced by a concise description.
+- Proxmox VE moves to v1.8.0, the Configuration API to v1.9.0, and the
+  Community WebUI to v2.0.0.
+
+### Compatibility
+
+- Existing Network and Protect endpoints are unchanged.
+- Existing Drive delivered-email parsing remains supported.
+- Existing SMTP and SMTP security configurations remain compatible.
+- The HTTP listener remains disabled by default.
+- Drive uses the existing global `http.shared_secret`.
+- Drive payloads do not identify the condition inside a multi-trigger alarm;
+  descriptive, single-event Drive alarm rules are recommended.
+
+### Validation
+
+- 357 automated tests passed.
+- 44 focused UniFi Drive tests passed.
+- Real Drive delivery succeeded over HTTPS and routed to Discord.
+- Alarm IDs remain hidden from visible cards.
+- No private payload, token, webhook URL, or production configuration was included.
+
+---
+
 ## 1.6.0 - 2026-07-13
 
 ### Added

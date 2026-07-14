@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.6.0**.
+The current stable release is **v1.7.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -30,8 +30,8 @@ Current features include:
 
 - Xen Orchestra parser
 - Zabbix, QNAP, Grafana Alerting, and TrueNAS notification support
-- UniFi Network and Protect native HTTP webhooks
-- UniFi Drive delivered-email parsing
+- UniFi Network, Protect, and Drive native HTTP webhooks
+- UniFi Drive delivered-email parsing remains supported
 - Rich Discord notifications
 - Microsoft Teams Adaptive Cards
 - SMTP gateway input
@@ -96,8 +96,9 @@ http:
   shared_secret: ""
 ```
 
-UniFi Network and Protect send JSON to `/unifi/network` and `/unifi/protect`.
-UniFi Drive delivers RFC822 email through the existing SMTP listener; Notifinho
+UniFi Network, Protect, and Drive send JSON to `/unifi/network`,
+`/unifi/protect`, and `/unifi/drive`. All three endpoints can use the same
+`X-Notifinho-Token`. Drive delivered-email parsing remains supported; Notifinho
 does not poll IMAP, Microsoft Graph, Gmail, or other mailbox providers.
 
 A shared Discord target can receive all three normalized UniFi sources:

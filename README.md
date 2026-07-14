@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.6.0-blue" alt="Stable release v1.6.0">
+  <img src="https://img.shields.io/badge/stable-v1.7.0-blue" alt="Stable release v1.7.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,21 +49,20 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.6.0** |
-| **Next Planned Release** | **v1.7.0** |
+| **Current Stable Release** | **v1.7.0** |
+| **Next Planned Release** | **v1.8.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.5.0 adds native, disabled-by-default HTTP webhooks for UniFi
-Network and Protect. UniFi Drive parses RFC822 email delivered to the existing
-SMTP listener; it does not poll IMAP, Microsoft Graph, Gmail, or other
-mailboxes, so an external forwarding or delivery mechanism is still required.
-See the [UniFi integration guide](docs/unifi.md). SMTP transport security is
-disabled by default and can be enabled with STARTTLS and SMTP AUTH; see the
-[SMTP security guide](docs/smtp-security.md).
+Notifinho v1.7.0 provides native, disabled-by-default HTTP webhooks for
+UniFi Network, Protect, and Drive. Drive delivered-email parsing remains
+available, but Notifinho does not poll IMAP, Microsoft Graph, Gmail, or other
+mailboxes. See the [UniFi integration guide](docs/unifi.md). SMTP transport
+security is disabled by default and can be enabled with STARTTLS and SMTP AUTH;
+see the [SMTP security guide](docs/smtp-security.md).
 
 ---
 
@@ -354,8 +353,8 @@ This separation allows new infrastructure products and new messaging platforms t
 | Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
-| UniFi Network / Protect / Drive | ✅ v1.5.0 |
-| Proxmox VE | 📅 v1.7.0 |
+| UniFi Network / Protect / Drive | ✅ v1.7.0 |
+| Proxmox VE | 📅 v1.8.0 |
 
 ## 📤 Destinations
 
@@ -1220,7 +1219,7 @@ input. See [docs/unifi.md](docs/unifi.md) for configuration and security.
 
 ## ✅ v1.6.0 — SMTP transport security
 
-Notifinho v1.6.0 is the current stable release. See the
+Notifinho v1.6.0 introduced SMTP transport security. See the
 [v1.6.0 release notes](docs/releases/v1.6.0.md) for configuration, upgrade,
 rollback, validation, and compatibility details.
 
@@ -1239,7 +1238,23 @@ The release includes:
 
 ---
 
-## 📅 v1.7.0 — Proxmox VE
+## ✅ v1.7.0 — Native UniFi Drive webhooks
+
+Notifinho v1.7.0 is the current stable release. See the
+[v1.7.0 release notes](docs/releases/v1.7.0.md) for configuration, upgrade,
+rollback, validation, and compatibility details.
+
+- Native authenticated `POST /unifi/drive` webhooks
+- Shared token authentication with Network and Protect
+- Readable titles derived from descriptive Drive alarm names
+- Full rule names preserved as `Alarm rule`
+- Dedicated Discord and Microsoft Teams presentation
+- Existing Drive delivered-email parsing preserved
+- Real HTTPS and Discord end-to-end validation
+
+---
+
+## 📅 v1.8.0 — Proxmox VE
 
 - Proxmox VE notification parser
 - Backup and replication events
@@ -1250,7 +1265,7 @@ The release includes:
 
 ---
 
-## 📅 v1.8.0 — Configuration API
+## 📅 v1.9.0 — Configuration API
 
 - Formal configuration schema
 - Configuration validation API
@@ -1262,7 +1277,7 @@ The release includes:
 
 ---
 
-## 📅 v1.9.0 — Community WebUI
+## 📅 v2.0.0 — Community WebUI
 
 - Browser-based configuration management
 - Output and webhook editor

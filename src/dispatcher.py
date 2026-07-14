@@ -259,6 +259,7 @@ class Dispatcher:
             return None
         log.info(log_message)
         return parse(payload)
+
     def _is_qnap_email(
         self,
         message: EmailMessage,

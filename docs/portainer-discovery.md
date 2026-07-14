@@ -27,7 +27,11 @@ the Portainer API, or retain an administrator credential.
   status, summary, and username.
 - Confirmed annotations include creator and description.
 - A warning-severity firing event was validated using a nonexistent synthetic
-  username. Resolved-event delivery remains to be recorded.
+  username.
+- Firing and resolved channel delivery were validated end to end by submitting
+  a short-lived synthetic alert to Portainer's internal Alertmanager API. Both
+  events reached the authenticated Notifinho development endpoint and were
+  delivered to Discord with the expected warning and recovery presentation.
 
 Private values from the original request were not copied into Git. The
 production test fixture is synthetic and preserves only the reviewed schema.

@@ -14,7 +14,7 @@ credentials.
 
 | Portainer | Edition | Transport | Validation |
 |---|---|---|---|
-| 2.42.0 | Business Edition | Alerting webhook | Firing event validated on VM-04 |
+| 2.42.0 | Business Edition | Alerting webhook | Firing and resolved events validated on VM-04 |
 | 2.42.0 | Business Edition | Alerting email | Discovery pending |
 
 The validated webhook is an Alertmanager-compatible envelope containing one or
@@ -128,6 +128,12 @@ Use a narrow rule with synthetic activity. The initial BE 2.42.0 validation
 used **High Authentication Failures (Single User)** with a nonexistent test
 username. Immediately restore the original threshold, duration, severity, and
 disabled state after capture.
+
+Final end-to-end validation used one short-lived synthetic alert submitted to
+Portainer's internal Alertmanager API. Portainer emitted both firing and
+resolved webhooks through its configured channel; Notifinho authenticated,
+normalized, routed, and delivered both cards to development Discord. No
+managed container or production workload was interrupted.
 
 Watch Notifinho without printing configuration values:
 

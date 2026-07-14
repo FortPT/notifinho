@@ -35,6 +35,11 @@
 
 ### Validation
 
+- Validated Portainer Business Edition 2.42.0 firing and resolved Alertmanager
+  delivery through the authenticated native endpoint to development Discord.
+- Confirmed missing Portainer query tokens return `401`, valid tokens return
+  `204`, and the Portainer container network can reach the private development
+  listener.
 - Marked QNAP QTS / QuTS hero support as validated following successful real
   QNAP Notification Center delivery.
 - Kept anonymized synthetic QNAP fixtures and broader template coverage as

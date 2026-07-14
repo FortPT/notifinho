@@ -149,20 +149,21 @@ class Parser:
             alarm_name,
             text,
         )
+        display_title = self._webhook_display_title(alarm_name)
 
         notification = Notification(
             source="unifi_drive",
             category=category,
             status=status,
-            title=alarm_name,
-            subject=alarm_name,
-            body=text,
+            title=display_title,
+            subject=display_title,
+            body=f"{display_title} alarm triggered",
         )
         notification.metadata = {
             "provider": "UniFi Drive",
             "system": "",
             "host": "",
-            "event_title": alarm_name,
+            "event_title": display_title,
             "alarm_name": alarm_name,
             "alarm_id": self._clean_value(payload.get("alarm_id")),
             "backup_task": "",
@@ -259,6 +260,23 @@ class Parser:
             state = "triggered"
 
         return status, severity, category, state
+
+    def _webhook_display_title(self, alarm_name: str) -> str:
+        """Remove a Drive naming prefix while preserving the full alarm rule."""
+
+        cleaned = self._clean_value(alarm_name) or "UniFi Drive alarm"
+
+        for separator in (" - ", " | "):
+            if separator not in cleaned:
+                continue
+
+            prefix, candidate = cleaned.rsplit(separator, 1)
+            candidate = self._clean_value(candidate)
+
+            if "drive" in prefix.casefold() and candidate:
+                return candidate
+
+        return cleaned
 
     def _classify(self, subject: str, body: str) -> tuple[str, str, str, str]:
         """Return provisional normalized state, severity, category, and label."""

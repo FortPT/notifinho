@@ -12,6 +12,7 @@ import pytest
 
 from dispatcher import Dispatcher
 from formatters.discord_unifi import UniFiDriveDiscordFormatter
+from formatters.teams_unifi import UniFiDriveTeamsFormatter
 from inputs.http import HTTPServer
 from parsers.unifi_drive import Parser as DriveParser
 
@@ -91,13 +92,29 @@ def test_drive_webhook_normalizes_discovered_default_content():
     notification = DriveParser().parse_webhook(payload)
 
     assert notification.source == "unifi_drive"
-    assert notification.title == "Notifinho | Drive - Settings"
-    assert notification.body == payload["text"]
+    assert notification.title == "Settings"
+    assert notification.subject == "Settings"
+    assert notification.body == "Settings alarm triggered"
     assert notification.status == "information"
     assert notification.category == "administration"
+    assert notification.metadata["event_title"] == "Settings"
+    assert notification.metadata["alarm_name"] == "Notifinho | Drive - Settings"
     assert notification.metadata["event_state"] == "triggered"
     assert notification.metadata["format"] == "webhook"
     assert notification.metadata["alarm_id"] == payload["alarm_id"]
+
+
+def test_drive_webhook_preserves_an_unstructured_alarm_name():
+    payload = {
+        "alarm_id": "00000000-0000-4000-8000-000000000002",
+        "text": 'Alarm "Storage pool warning" was triggered',
+    }
+
+    notification = DriveParser().parse_webhook(payload)
+
+    assert notification.title == "Storage pool warning"
+    assert notification.body == "Storage pool warning alarm triggered"
+    assert notification.metadata["alarm_name"] == "Storage pool warning"
 
 
 def test_drive_webhook_dispatcher_selects_drive_parser():
@@ -156,14 +173,41 @@ def test_drive_http_endpoint_uses_global_shared_token_and_routes():
     ] == ["unifi_drive"]
 
 
-def test_drive_alarm_id_is_not_visible_in_discord_card():
+def test_drive_alarm_rule_is_formatted_and_alarm_id_is_hidden():
     payload = drive_payload()
     notification = DriveParser().parse_webhook(payload)
 
-    rendered = json.dumps(
-        UniFiDriveDiscordFormatter().format(notification),
+    discord = UniFiDriveDiscordFormatter().format(notification)
+    teams = UniFiDriveTeamsFormatter().format(notification)
+    rendered = json.dumps({"discord": discord, "teams": teams})
+
+    discord_embed = discord["embeds"][0]
+    discord_alarm_rule = next(
+        field
+        for field in discord_embed["fields"]
+        if field["name"] == "🚨 Alarm rule"
+    )
+
+    teams_card = teams["attachments"][0]["content"]
+    teams_alarm_rule = next(
+        fact
+        for fact in teams_card["body"][2]["facts"]
+        if fact["title"] == "🚨 Alarm rule"
     )
 
     assert payload["alarm_id"] not in rendered
-    assert "Notifinho | Drive - Settings" in rendered
-    assert "triggered" in rendered
+
+    assert discord_embed["title"].endswith("Settings")
+    assert discord_embed["description"] == "Settings alarm triggered"
+    assert discord_alarm_rule == {
+        "name": "🚨 Alarm rule",
+        "value": "Notifinho | Drive - Settings",
+        "inline": False,
+    }
+
+    assert teams_card["body"][0]["text"].endswith("Settings")
+    assert teams_card["body"][1]["text"] == "Settings alarm triggered"
+    assert teams_alarm_rule == {
+        "title": "🚨 Alarm rule",
+        "value": "Notifinho | Drive - Settings",
+    }

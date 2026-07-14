@@ -174,9 +174,11 @@ class UniFiDriveTeamsFormatter(_UniFiTeamsFormatter):
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
+        alarm_rule = self._text(metadata.get("alarm_name"))
         facts = [
             self._fact("🖥️ System", metadata.get("system")),
             self._fact("💾 Backup task", metadata.get("backup_task")),
+            self._fact("🚨 Alarm rule", alarm_rule),
             self._fact("📌 State", metadata.get("event_state")),
             self._fact("🗂️ Category", notification.category),
         ]

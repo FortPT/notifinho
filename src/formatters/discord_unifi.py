@@ -141,9 +141,11 @@ class UniFiDriveDiscordFormatter(_UniFiDiscordFormatter):
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
+        alarm_rule = self._text(metadata.get("alarm_name"))
         fields = [
             self._field("🖥️ System", metadata.get("system")),
             self._field("💾 Backup task", metadata.get("backup_task")),
+            self._field("🚨 Alarm rule", alarm_rule, False),
             self._field("📌 State", metadata.get("event_state")),
             self._field("🗂️ Category", notification.category),
         ]

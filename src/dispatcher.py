@@ -22,6 +22,7 @@ from parsers.generic import Parser as GenericParser
 from parsers.proxmox import Parser as ProxmoxParser
 from parsers.portainer import Parser as PortainerParser
 from parsers.qnap import Parser as QnapParser
+from parsers.synology import Parser as SynologyParser
 from parsers.truenas import Parser as TrueNASParser
 from parsers.unifi_drive import Parser as UniFiDriveParser
 from parsers.unifi_network import Parser as UniFiNetworkParser
@@ -47,6 +48,8 @@ class Dispatcher:
         self.portainer_parser = PortainerParser()
 
         self.qnap_parser = QnapParser()
+
+        self.synology_parser = SynologyParser()
 
         self.grafana_parser = GrafanaParser()
 
@@ -188,6 +191,20 @@ class Dispatcher:
             )
 
         #
+        # Synology DSM
+        #
+
+        if self.synology_parser.is_message(message):
+
+            log.info(
+                "Detected Synology DSM email"
+            )
+
+            return self.synology_parser.parse(
+                message,
+            )
+
+        #
         # TrueNAS
         #
         # Run content-based TrueNAS detection after the established
@@ -262,6 +279,11 @@ class Dispatcher:
                 self.proxmox_parser.is_envelope,
                 self.proxmox_parser.parse_webhook,
                 "Detected Proxmox VE webhook",
+            ),
+            "synology": (
+                self.synology_parser.is_envelope,
+                self.synology_parser.parse_webhook,
+                "Detected Synology DSM webhook",
             ),
         }
         selected = parsers.get(str(application).casefold())

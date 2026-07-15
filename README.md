@@ -356,7 +356,7 @@ This separation allows new infrastructure products and new messaging platforms t
 | UniFi Network / Protect / Drive | ✅ v1.7.0 |
 | Proxmox VE | 🧪 v1.8.0 candidate; real validation pending |
 | Portainer | ✅ v1.8.0 validated |
-| Synology DSM | 📅 v1.8.0 |
+| Synology DSM | 🧪 v1.8.0 candidate; real validation pending |
 | Supermicro BMC / IPMI | 📅 v1.9.0 |
 | HPE iLO | 📅 v1.9.0 |
 | Dell iDRAC | 📅 v1.9.0 |
@@ -714,7 +714,7 @@ smtp:
     password_env: "NOTIFINHO_SMTP_PASSWORD"
     password_file: ""
 
-# Native webhook input used by UniFi, Portainer Alerting, and Proxmox VE.
+# Native webhook input used by UniFi, Portainer, Proxmox, and Synology DSM.
 # Keep disabled unless port 8080 is intentionally published.
 http:
   enabled: false
@@ -751,6 +751,10 @@ outputs:
     # Dedicated Proxmox VE destination.
     proxmox:
       webhook: "PASTE_PROXMOX_DISCORD_WEBHOOK_HERE"
+
+    # Dedicated Synology DSM destination.
+    synology:
+      webhook: "PASTE_SYNOLOGY_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -792,6 +796,10 @@ outputs:
     # Optional dedicated Teams destination for Proxmox VE.
     # proxmox:
     #   webhook: "PASTE_PROXMOX_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Teams destination for Synology DSM.
+    # synology:
+    #   webhook: "PASTE_SYNOLOGY_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -1079,6 +1087,23 @@ Native events use `POST /proxmox/events` and the `X-Notifinho-Token` header.
 The webhook body follows a versioned Notifinho contract because Proxmox
 webhook targets render administrator-defined templates instead of one fixed
 vendor envelope. See the [Proxmox integration guide](docs/proxmox.md).
+
+Synology DSM SMTP and custom-provider webhook events share the `synology`
+source key:
+
+```yaml
+routing:
+  synology:
+    outputs:
+      - output: discord
+        target: synology
+
+      # - output: teams
+      #   target: synology
+```
+
+Native events use `POST /synology/events` and accept either JSON or bounded
+form-encoded fields. See the [Synology integration guide](docs/synology.md).
 
 The v2.0 route model will extend these rules with authenticated user and
 application ownership, severity and event filters, and private or shared
@@ -1414,6 +1439,9 @@ Production ingestion and routing are documented in the
 [Portainer integration guide](docs/portainer.md).
 The fixture-validated Proxmox candidate and its deferred real-system checklist
 are documented in the [Proxmox integration guide](docs/proxmox.md).
+The fixture-validated Synology DSM candidate and its deferred real-system
+checklist are documented in the
+[Synology integration guide](docs/synology.md).
 
 ---
 

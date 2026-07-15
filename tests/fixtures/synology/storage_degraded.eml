@@ -1,0 +1,19 @@
+From: Synology DSM <notifications@synology.invalid>
+To: notifinho@synthetic.invalid
+Subject: [Synology NAS] Storage Pool 1 on synthetic-dsm-01 is degraded
+Date: Wed, 15 Jul 2026 12:30:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Dear user,
+
+Event: Storage Pool 1 has degraded and requires attention.
+NAS Name: synthetic-dsm-01
+Model: DS-SYNTHETIC
+Severity: Warning
+Event Time: 2026-07-15T12:30:00Z
+Storage Pool: Storage Pool 1
+Volume: Volume 1
+
+Sincerely,
+Synology DiskStation

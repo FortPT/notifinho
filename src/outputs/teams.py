@@ -16,6 +16,7 @@ from formatters.teams_grafana import GrafanaTeamsFormatter
 from formatters.teams_portainer import PortainerTeamsFormatter
 from formatters.teams_proxmox import ProxmoxTeamsFormatter
 from formatters.teams_qnap import QNAPTeamsFormatter
+from formatters.teams_synology import SynologyTeamsFormatter
 from formatters.teams_truenas import TrueNASTeamsFormatter
 from formatters.teams_unifi import (
     UniFiDriveTeamsFormatter,
@@ -38,6 +39,7 @@ class TeamsOutput:
             "portainer": PortainerTeamsFormatter(),
             "proxmox": ProxmoxTeamsFormatter(),
             "qnap": QNAPTeamsFormatter(),
+            "synology": SynologyTeamsFormatter(),
             "truenas": TrueNASTeamsFormatter(),
             "unifi_drive": UniFiDriveTeamsFormatter(),
             "unifi_network": UniFiNetworkTeamsFormatter(),

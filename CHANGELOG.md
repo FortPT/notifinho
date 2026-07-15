@@ -4,6 +4,14 @@
 
 ### Added
 
+- Fixture-validated Synology DSM SMTP parsing for system, storage, disk/SMART,
+  backup, replication, UPS/power, package, security, network, and availability
+  notifications.
+- A versioned Synology contract at `POST /synology/events` accepting bounded
+  JSON and form-encoded custom-provider fields with header or query-token
+  authentication.
+- Dedicated Synology DSM Discord embeds, Microsoft Teams Adaptive Cards,
+  routing examples, synthetic email/JSON fixtures, and integration guidance.
 - Fixture-validated Proxmox VE SMTP parsing for backup, replication, node,
   cluster, storage, availability, security, guest, and system notifications.
 - A versioned Proxmox webhook contract at `POST /proxmox/events`, protected by
@@ -43,6 +51,11 @@
 
 ### Validation
 
+- Passed the full automated suite with 426 tests, including synthetic Synology
+  SMTP, JSON/form webhook, authentication, recovery, routing, and formatter
+  coverage.
+- Marked real Synology DSM email and custom-webhook delivery as pending; the
+  initial integration remains a fixture-validated candidate.
 - Passed the full automated suite with 408 tests, including synthetic Proxmox
   SMTP and webhook transport, parser, authentication, routing, and formatter
   coverage.

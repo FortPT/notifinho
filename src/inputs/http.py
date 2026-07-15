@@ -19,6 +19,7 @@ ENDPOINTS = {
     "/unifi/drive": "drive",
     "/portainer/alerts": "portainer",
     "/proxmox/events": "proxmox",
+    "/synology/events": "synology",
 }
 
 
@@ -64,7 +65,13 @@ class HTTPHandler(BaseHTTPRequestHandler):
             self._respond(404)
             return
 
-        if not is_json_content_type(self.headers.get("Content-Type", "")):
+        content_type = self.headers.get("Content-Type", "")
+        form_encoded = (
+            application == "synology"
+            and str(content_type).split(";", 1)[0].strip().casefold()
+            == "application/x-www-form-urlencoded"
+        )
+        if not is_json_content_type(content_type) and not form_encoded:
             self._respond(400)
             return
 
@@ -85,8 +92,19 @@ class HTTPHandler(BaseHTTPRequestHandler):
             self._respond(413)
             return
         try:
-            payload = json.loads(body.decode("utf-8"))
-        except (UnicodeError, json.JSONDecodeError):
+            if form_encoded:
+                values = parse_qs(
+                    body.decode("utf-8"),
+                    keep_blank_values=True,
+                    strict_parsing=True,
+                    max_num_fields=64,
+                )
+                if not values or any(len(items) != 1 for items in values.values()):
+                    raise ValueError("invalid form fields")
+                payload = {key: items[0] for key, items in values.items()}
+            else:
+                payload = json.loads(body.decode("utf-8"))
+        except (UnicodeError, json.JSONDecodeError, ValueError):
             self._respond(400)
             return
 
@@ -138,7 +156,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
         if not expected:
             return True
         supplied = self.headers.get("X-Notifinho-Token", "")
-        if path == "/portainer/alerts" and not supplied:
+        if path in {"/portainer/alerts", "/synology/events"} and not supplied:
             values = parse_qs(query, keep_blank_values=True).get("token", [])
             supplied = values[0] if len(values) == 1 else ""
         return hmac.compare_digest(

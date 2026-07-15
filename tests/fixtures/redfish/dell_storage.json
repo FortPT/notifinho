@@ -1,0 +1,18 @@
+{
+  "@odata.type": "#Event.v1_11_0.Event",
+  "Id": "synthetic-dell-envelope",
+  "Name": "Dell iDRAC Event Service",
+  "Events": [
+    {
+      "EventId": "synthetic-dell-storage-001",
+      "EventTimestamp": "2026-07-15T20:20:00Z",
+      "Severity": "Critical",
+      "Message": "Physical disk 0:1:2 has failed",
+      "MessageId": "IDRACMsg.2.0.PDR3",
+      "Resolution": "Replace the failed physical disk.",
+      "OriginOfCondition": {
+        "@odata.id": "/redfish/v1/Systems/System.Embedded.1/Storage/RAID.Slot.2-1/Drives/Disk.Bay.2"
+      }
+    }
+  ]
+}

@@ -16,6 +16,13 @@ sys.path.insert(0, str(ROOT / "src"))
 from models import Notification  # noqa: E402
 from formatters.discord import DiscordFormatter  # noqa: E402
 from formatters.discord_grafana import GrafanaDiscordFormatter  # noqa: E402
+from formatters.discord_hardware import (  # noqa: E402
+    DellIDRACDiscordFormatter,
+    HPEILODiscordFormatter,
+    RedfishDiscordFormatter,
+    SupermicroDiscordFormatter,
+)
+from formatters.discord_home_assistant import HomeAssistantDiscordFormatter  # noqa: E402
 from formatters.discord_portainer import PortainerDiscordFormatter  # noqa: E402
 from formatters.discord_proxmox import ProxmoxDiscordFormatter  # noqa: E402
 from formatters.discord_qnap import QNAPDiscordFormatter  # noqa: E402
@@ -29,6 +36,13 @@ from formatters.discord_unifi import (  # noqa: E402
 from formatters.discord_zabbix import ZabbixDiscordFormatter  # noqa: E402
 from formatters.teams import TeamsFormatter  # noqa: E402
 from formatters.teams_grafana import GrafanaTeamsFormatter  # noqa: E402
+from formatters.teams_hardware import (  # noqa: E402
+    DellIDRACTeamsFormatter,
+    HPEILOTeamsFormatter,
+    RedfishTeamsFormatter,
+    SupermicroTeamsFormatter,
+)
+from formatters.teams_home_assistant import HomeAssistantTeamsFormatter  # noqa: E402
 from formatters.teams_portainer import PortainerTeamsFormatter  # noqa: E402
 from formatters.teams_proxmox import ProxmoxTeamsFormatter  # noqa: E402
 from formatters.teams_qnap import QNAPTeamsFormatter  # noqa: E402
@@ -54,6 +68,11 @@ SOURCES = (
     "portainer",
     "proxmox",
     "synology",
+    "redfish",
+    "supermicro",
+    "hpe_ilo",
+    "dell_idrac",
+    "home_assistant",
 )
 
 DISCORD_FORMATTERS = {
@@ -68,6 +87,11 @@ DISCORD_FORMATTERS = {
     "portainer": PortainerDiscordFormatter(),
     "proxmox": ProxmoxDiscordFormatter(),
     "synology": SynologyDiscordFormatter(),
+    "redfish": RedfishDiscordFormatter(),
+    "supermicro": SupermicroDiscordFormatter(),
+    "hpe_ilo": HPEILODiscordFormatter(),
+    "dell_idrac": DellIDRACDiscordFormatter(),
+    "home_assistant": HomeAssistantDiscordFormatter(),
 }
 
 TEAMS_FORMATTERS = {
@@ -82,6 +106,11 @@ TEAMS_FORMATTERS = {
     "portainer": PortainerTeamsFormatter(),
     "proxmox": ProxmoxTeamsFormatter(),
     "synology": SynologyTeamsFormatter(),
+    "redfish": RedfishTeamsFormatter(),
+    "supermicro": SupermicroTeamsFormatter(),
+    "hpe_ilo": HPEILOTeamsFormatter(),
+    "dell_idrac": DellIDRACTeamsFormatter(),
+    "home_assistant": HomeAssistantTeamsFormatter(),
 }
 
 
@@ -93,7 +122,7 @@ def build_notification(source: str) -> Notification:
         category="storage",
         status="warning",
         title=f"Synthetic {source.replace('_', ' ').title()} presentation warning",
-        body="Private-safe v1.8.1 presentation validation event.",
+        body="Private-safe v1.9.0 presentation validation event.",
         job_name="Synthetic Xen Orchestra presentation backup",
         repository="SYNTHETIC-REPOSITORY",
         start_time=timestamp,
@@ -124,7 +153,7 @@ def build_notification(source: str) -> Notification:
         "wifi_name": "SYNTHETIC-WIFI",
         "trigger_key": "motion",
         "trigger_device": "SYNTHETIC-CAMERA",
-        "alarm_name": "Notifinho v1.8.1 presentation validation",
+        "alarm_name": "Notifinho v1.9.0 presentation validation",
         "system": "SYNTHETIC-DRIVE",
         "backup_task": "SYNTHETIC-BACKUP",
         "instance": "SYNTHETIC-PORTAINER",
@@ -133,6 +162,16 @@ def build_notification(source: str) -> Notification:
         "storage": "SYNTHETIC-STORAGE",
         "model": "SYNTHETIC-MODEL",
         "storage_pool": "SYNTHETIC-POOL",
+        "provider": "Synthetic hardware management",
+        "sensor": "SYNTHETIC-SENSOR",
+        "registry": "SyntheticRegistry",
+        "message_id": "Synthetic.1.0.Event",
+        "origin": "/redfish/v1/Systems/SYNTHETIC",
+        "recommended_action": "Inspect the synthetic test condition.",
+        "entity_id": "sensor.synthetic_validation",
+        "device": "Synthetic device",
+        "area": "Synthetic lab",
+        "tags": ["synthetic", "validation"],
     }
     return item
 
@@ -194,7 +233,7 @@ def main() -> None:
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("/tmp/notifinho-v181-card-previews"),
+        default=Path("/tmp/notifinho-v190-card-previews"),
     )
     parser.add_argument("--confirm-send", action="store_true")
     args = parser.parse_args()

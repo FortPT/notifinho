@@ -10,6 +10,8 @@ configuration.
 from __future__ import annotations
 
 from pathlib import Path
+from copy import deepcopy
+from threading import RLock
 
 import yaml
 
@@ -40,6 +42,8 @@ class Config:
 
         self._data = {}
 
+        self._lock = RLock()
+
         self.reload()
 
     def reload(self):
@@ -49,7 +53,15 @@ class Config:
 
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
 
-            self._data = yaml.safe_load(f) or {}
+            loaded = yaml.safe_load(f) or {}
+
+        if not isinstance(loaded, dict):
+
+            raise ValueError("configuration must be an object")
+
+        with self._lock:
+
+            self._data = loaded
 
     def get(self, *keys, default=None):
         """
@@ -62,21 +74,30 @@ class Config:
         Returns None (or default) if any key is missing.
         """
 
-        value = self._data
+        with self._lock:
 
-        for key in keys:
+            value = self._data
 
-            if not isinstance(value, dict):
+            for key in keys:
 
-                return default
+                if not isinstance(value, dict):
 
-            value = value.get(key)
+                    return default
 
-            if value is None:
+                value = value.get(key)
 
-                return default
+                if value is None:
 
-        return value
+                    return default
+
+            return deepcopy(value)
+
+    def snapshot(self):
+        """Return an isolated copy for validation and masked API responses."""
+
+        with self._lock:
+
+            return deepcopy(self._data)
 
 
 config = Config()

@@ -1,0 +1,14 @@
+{
+  "schema": "notifinho.home_assistant.v1",
+  "title": "Utility room humidity warning",
+  "message": "Humidity exceeded the configured threshold.",
+  "severity": "warning",
+  "status": "active",
+  "category": "environment",
+  "timestamp": "2026-07-15T20:40:00Z",
+  "entity_id": "sensor.utility_room_humidity",
+  "device": "Utility room sensor",
+  "area": "Utility room",
+  "tags": ["humidity", "environment"],
+  "link": "https://homeassistant.synthetic.invalid/lovelace/utility-room"
+}

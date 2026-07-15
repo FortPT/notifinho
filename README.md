@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.8.1-blue" alt="Stable release v1.8.1">
+  <img src="https://img.shields.io/badge/stable-v1.9.0-blue" alt="Stable release v1.9.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,18 +49,19 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.8.1** |
-| **Next Planned Release** | **v1.9.0** |
+| **Current Stable Release** | **v1.9.0** |
+| **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.8.1 standardizes Discord and Microsoft Teams presentation across
-every source, adds self-hosted product badges, and hardens outbound credential
-redaction. It retains the v1.8.0 Portainer, Proxmox VE, and Synology DSM inputs
-and the native UniFi Network, Protect, and Drive endpoints. Notifinho consumes
+Notifinho v1.9.0 adds a shared Redfish Event Service foundation, dedicated
+Supermicro BMC, HPE iLO, and Dell iDRAC adapters, Home Assistant ingestion,
+and the secure backend API foundation required by v2.0. It retains the v1.8.x
+presentation, Portainer, Proxmox VE, and Synology DSM work and the native
+UniFi Network, Protect, and Drive endpoints. Notifinho consumes
 emitted SMTP or webhook notifications; it
 does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
@@ -215,6 +216,26 @@ Instead of replacing your monitoring software, Notifinho enhances it.
 
 ---
 
+## 🖥️ Hardware management and automation
+
+The v1.9.0 backend adds:
+
+- Standard Redfish Event Service envelopes with bounded batch handling and
+  duplicate suppression
+- Supermicro BMC/IPMI, HPE iLO, and Dell iDRAC vendor normalization
+- Conservative SMTP compatibility adapters for the three hardware families
+- Authenticated Home Assistant automation events
+- Generic source-scoped event submission through `/api/events`
+- Disabled-by-default configuration, health, logs, preview, and test-send API
+  foundations
+- Environment-, file-, or SHA-256-backed tokens, rate limits, masked secrets,
+  private audit logs, and atomic configuration backups
+
+See the [API](docs/api.md), [Redfish](docs/redfish.md),
+[Home Assistant](docs/home-assistant.md), and vendor integration guides.
+
+---
+
 ## 💾 Xen Orchestra
 
 Current implementation includes:
@@ -360,10 +381,11 @@ This separation allows new infrastructure products and new messaging platforms t
 | Proxmox VE | 🧪 v1.8.x fixture-validated; real validation pending |
 | Portainer | ✅ v1.8.x validated |
 | Synology DSM | ✅ v1.8.x webhook and SMTP validated |
-| Supermicro BMC / IPMI | 📅 v1.9.0 |
-| HPE iLO | 📅 v1.9.0 |
-| Dell iDRAC | 📅 v1.9.0 |
-| Home Assistant | 📅 v1.9.0 |
+| Generic Redfish Event Service | 🧪 v1.9.0 fixture-validated |
+| Supermicro BMC / IPMI | 🧪 v1.9.0 fixture-validated |
+| HPE iLO | 🧪 v1.9.0 fixture-validated |
+| Dell iDRAC | 🧪 v1.9.0 fixture-validated |
+| Home Assistant | 🧪 v1.9.0 contract-validated |
 
 ## 📤 Destinations
 
@@ -443,7 +465,8 @@ Inputs
 Dispatcher and source adapter
     |- email detection and source-specific parsers
     |- native UniFi JSON adapters
-    `- generic SMTP fallback
+    |- Redfish/vendor and Home Assistant adapters
+    `- generic SMTP and authenticated event fallbacks
             |
             v
 Shared Notification model
@@ -456,6 +479,11 @@ Router
             |
             +-> destination formatter -> Discord output
             `-> destination formatter -> Microsoft Teams output
+
+Backend control plane (disabled by default)
+    |- source-scoped and administrator tokens
+    |- health, masked config, validation, logs, preview, and test-send
+    `- atomic config updates, backups, rate limits, and audit records
 ```
 
 One notification model.
@@ -475,10 +503,10 @@ deliver those completed payloads to their configured transports. Because
 ingestion, normalization, routing, formatting, and delivery are separate, one
 event can be delivered to multiple destinations without being parsed again.
 
-The v1.8-v2.0 roadmap preserves this pipeline while adding Proxmox, Portainer,
-Synology, Redfish hardware-management events, Home Assistant, authenticated
-user event submission, and more output transports. The v2.0 WebUI and API will
-manage the same backend model rather than implementing a second routing engine.
+The v1.9 backend preserves this pipeline while adding Redfish hardware events,
+Home Assistant, authenticated event submission, and configuration-management
+foundations. The v2.0 WebUI will manage this same backend model rather than
+implementing a second routing engine.
 
 ---
 
@@ -692,6 +720,8 @@ The configuration is intentionally simple and organized into logical sections.
 | `logging` | Log level and log file location. |
 | `smtp` | SMTP listener, STARTTLS, and authentication configuration. |
 | `http` | Native authenticated webhook listener configuration. |
+| `redfish` | Redfish duplicate-suppression behavior. |
+| `api` | Disabled-by-default backend API and scoped token definitions. |
 | `routing` | Maps notification sources to outputs. |
 | `outputs` | Notification destinations (Discord, Teams, etc.). |
 | `notifications` | Product-specific notification preferences. |
@@ -717,7 +747,7 @@ smtp:
     password_env: "NOTIFINHO_SMTP_PASSWORD"
     password_file: ""
 
-# Native webhook input used by UniFi, Portainer, Proxmox, and Synology DSM.
+# Native webhook input used by all HTTP source adapters and the backend API.
 # Keep disabled unless port 8080 is intentionally published.
 http:
   enabled: false
@@ -725,6 +755,19 @@ http:
   port: 8080
   max_body_bytes: 1048576
   shared_secret: ""
+
+redfish:
+  deduplication_window_seconds: 300
+
+api:
+  enabled: false
+  tokens:
+    home_assistant:
+      enabled: false
+      role: application
+      sources: [home_assistant]
+      token_env: "NOTIFINHO_HOME_ASSISTANT_TOKEN"
+      rate_limit_per_minute: 120
 
 outputs:
   discord:
@@ -1421,7 +1464,7 @@ rollback, validation, and compatibility details.
 
 ## ✅ v1.8.1 — Consistent Discord and Teams presentation
 
-Notifinho v1.8.1 is the current stable release. See the
+Notifinho v1.8.1 is the presentation and safety patch that preceded v1.9.0. See the
 [v1.8.1 release notes](docs/releases/v1.8.1.md) for upgrade, rollback,
 validation, and compatibility details.
 
@@ -1466,10 +1509,11 @@ checklist are documented in the
 
 ---
 
-## 📅 v1.9.0 — Event platform and hardware management
+## ✅ v1.9.0 — Event platform and hardware management
 
-v1.9.0 completes the backend foundation required by the user-facing v2.0
-release.
+Notifinho v1.9.0 completes the tested backend foundation required by the
+user-facing v2.0 release. See the
+[v1.9.0 release notes](docs/releases/v1.9.0.md).
 
 - Shared Redfish Event Service listener and normalized hardware event model
 - Supermicro BMC/IPMI adapter, including Redfish events and SMTP compatibility
@@ -1488,6 +1532,11 @@ release.
 The three server-management products share a Redfish foundation but retain
 vendor adapters for their registry identifiers, severities, links, and useful
 operator actions.
+
+Hardware compatibility is fixture-validated and remains a synthetic candidate
+until representative Supermicro, HPE, and Dell systems complete live delivery
+tests. Full browser sessions, user-owned routes/destinations, CSRF protection,
+and the responsive WebUI remain explicitly scoped to v2.0.
 
 ---
 

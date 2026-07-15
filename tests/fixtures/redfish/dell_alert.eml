@@ -1,0 +1,13 @@
+From: Dell iDRAC <idrac@synthetic.invalid>
+To: notifinho@synthetic.invalid
+Subject: Dell iDRAC Lifecycle Controller storage alert
+Date: Wed, 15 Jul 2026 20:35:00 +0000
+Content-Type: text/plain; charset="utf-8"
+
+System: synthetic-idrac-01
+Severity: Critical
+Sensor: Physical Disk 0:1:2
+Message ID: DELL-SYNTHETIC-001
+Message: Physical disk 0:1:2 has failed
+Action: Replace the failed physical disk.
+Event Time: 2026-07-15T20:35:00Z

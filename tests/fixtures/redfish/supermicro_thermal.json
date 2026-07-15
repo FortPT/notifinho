@@ -1,0 +1,18 @@
+{
+  "@odata.type": "#Event.v1_11_0.Event",
+  "Id": "synthetic-supermicro-envelope",
+  "Name": "Supermicro Redfish Event",
+  "Events": [
+    {
+      "EventId": "synthetic-smc-thermal-001",
+      "EventTimestamp": "2026-07-15T20:10:00Z",
+      "Severity": "Critical",
+      "Message": "CPU 1 temperature exceeded the critical threshold",
+      "MessageId": "SMC.1.0.CpuTempCritical",
+      "Resolution": "Inspect chassis airflow and cooling fans.",
+      "OriginOfCondition": {
+        "@odata.id": "/redfish/v1/Chassis/1/Thermal#/Temperatures/0"
+      }
+    }
+  ]
+}

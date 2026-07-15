@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.7.0**.
+The current stable release is **v1.8.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -32,6 +32,9 @@ Current features include:
 - Zabbix, QNAP, Grafana Alerting, and TrueNAS notification support
 - UniFi Network, Protect, and Drive native HTTP webhooks
 - UniFi Drive delivered-email parsing remains supported
+- Portainer Business Edition Alerting webhooks
+- Fixture-validated Proxmox VE SMTP and native webhook ingestion
+- Fixture-validated Synology DSM SMTP plus JSON/form custom webhooks
 - Rich Discord notifications
 - Microsoft Teams Adaptive Cards
 - SMTP gateway input
@@ -101,6 +104,11 @@ UniFi Network, Protect, and Drive send JSON to `/unifi/network`,
 `X-Notifinho-Token`. Drive delivered-email parsing remains supported; Notifinho
 does not poll IMAP, Microsoft Graph, Gmail, or other mailbox providers.
 
+v1.8.0 also provides `/portainer/alerts`, `/proxmox/events`, and
+`/synology/events`. Portainer Alerting has real firing/resolved validation.
+Proxmox VE and Synology DSM are fixture-validated and remain pending real-system
+compatibility validation.
+
 A shared Discord target can receive all three normalized UniFi sources:
 
 ```yaml
@@ -140,7 +148,9 @@ https://github.com/FortPT/notifinho
 - Microsoft Teams
 - Zabbix
 - TrueNAS
-- Proxmox VE
+- Redfish hardware-management sources
+- Home Assistant
+- Secure event and configuration APIs
 - Additional UniFi event variants
 - Slack
 - Telegram

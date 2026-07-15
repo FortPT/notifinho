@@ -38,10 +38,12 @@
 - Updated the README source and destination matrices, architecture, production
   Docker Compose and Portainer example, Nginx Proxy Manager guidance, example
   configuration, routing model, and roadmap through v2.0.0.
+- Replaced raw Proxmox backup email bodies in output cards with a concise
+  result summary and structured successful/failed guest details.
 
 ### Validation
 
-- Passed the full automated suite with 407 tests, including synthetic Proxmox
+- Passed the full automated suite with 408 tests, including synthetic Proxmox
   SMTP and webhook transport, parser, authentication, routing, and formatter
   coverage.
 - Marked real Proxmox VE SMTP and webhook delivery as pending; the initial

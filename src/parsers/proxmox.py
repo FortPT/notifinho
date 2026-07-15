@@ -175,6 +175,12 @@ class Parser:
             notification.failures = notification.vm_failed
             notification.successful_vms = [row["label"] for row in successful]
             notification.failed_vms = [row["label"] for row in failed]
+            if backup_rows:
+                notification.body = self._backup_summary(
+                    len(backup_rows),
+                    len(successful),
+                    len(failed),
+                )
             if failed:
                 notification.status = "failure"
                 notification.errors = [row["message"] for row in failed if row["message"]]
@@ -281,6 +287,19 @@ class Parser:
                 }
             )
         return rows
+
+    @staticmethod
+    def _backup_summary(total: int, successful: int, failed: int) -> str:
+        guest_label = "guest" if total == 1 else "guests"
+        if failed:
+            failed_label = "guest" if failed == 1 else "guests"
+            return (
+                f"Backup completed with errors: {failed} {failed_label} "
+                f"failed out of {total} {guest_label}."
+            )
+        return (
+            f"Backup completed successfully for {successful} {guest_label}."
+        )
 
     def _category(self, value: str) -> str:
         text = f" {value.casefold()} "

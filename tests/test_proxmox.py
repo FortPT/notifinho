@@ -76,6 +76,7 @@ def test_synthetic_backup_email_is_normalized():
     assert item.vm_failed == 1
     assert item.successful_vms == ["100 | home-assistant"]
     assert item.failed_vms == ["101 | synthetic-db"]
+    assert item.body == "Backup completed with errors: 1 guest failed out of 2 guests."
     assert item.metadata["validation"] == "synthetic-fixture"
 
 
@@ -195,3 +196,20 @@ def test_formatter_does_not_render_extra_template_metadata():
     assert "synthetic-pve-01" in rendered
     assert "synthetic-backup-store" in rendered
     assert "usage_percent" not in rendered
+
+
+def test_backup_card_uses_summary_instead_of_raw_email_dump():
+    item = Parser().parse(email_fixture())
+    rendered = json.dumps(
+        {
+            "discord": ProxmoxDiscordFormatter().format(item),
+            "teams": ProxmoxTeamsFormatter().format(item),
+        }
+    )
+
+    assert "Backup completed with errors" in rendered
+    assert "101 | synthetic-db" in rendered
+    assert "synthetic timeout" in rendered
+    assert "100 | home-assistant" in rendered
+    assert "VMID NAME STATUS TIME SIZE MESSAGE" not in rendered
+    assert "TASK ERROR: job errors" not in rendered

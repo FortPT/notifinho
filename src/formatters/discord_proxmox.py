@@ -44,6 +44,30 @@ class ProxmoxDiscordFormatter(BaseFormatter):
                     self._field("❌ Guests failed", notification.vm_failed),
                 )
             )
+        if notification.failed_vms:
+            fields.append(
+                self._field(
+                    "❌ Failed guests",
+                    "\n".join(notification.failed_vms),
+                    False,
+                )
+            )
+        if notification.errors:
+            fields.append(
+                self._field(
+                    "🚨 Error details",
+                    "\n".join(notification.errors),
+                    False,
+                )
+            )
+        if notification.successful_vms:
+            fields.append(
+                self._field(
+                    "✅ Successful guests",
+                    "\n".join(notification.successful_vms),
+                    False,
+                )
+            )
         embed = {
             "title": self._truncate(f"🟧 {icon} {title}", 256),
             "description": self._truncate(

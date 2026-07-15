@@ -31,6 +31,21 @@ class ProxmoxTeamsFormatter(BaseFormatter):
                     self._fact("Guests failed", notification.vm_failed),
                 )
             )
+        if notification.failed_vms:
+            facts.append(
+                self._fact("Failed guests", ", ".join(notification.failed_vms))
+            )
+        if notification.errors:
+            facts.append(
+                self._fact("Error details", "; ".join(notification.errors))
+            )
+        if notification.successful_vms:
+            facts.append(
+                self._fact(
+                    "Successful guests",
+                    ", ".join(notification.successful_vms),
+                )
+            )
         body = [
             {
                 "type": "TextBlock",

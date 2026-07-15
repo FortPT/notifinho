@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.7.0-blue" alt="Stable release v1.7.0">
+  <img src="https://img.shields.io/badge/stable-v1.8.0-blue" alt="Stable release v1.8.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,20 +49,21 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.7.0** |
-| **Next Planned Release** | **v1.8.0** |
+| **Current Stable Release** | **v1.8.0** |
+| **Next Planned Release** | **v1.9.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.7.0 provides native, disabled-by-default HTTP webhooks for
-UniFi Network, Protect, and Drive. Drive delivered-email parsing remains
-available, but Notifinho does not poll IMAP, Microsoft Graph, Gmail, or other
-mailboxes. See the [UniFi integration guide](docs/unifi.md). SMTP transport
-security is disabled by default and can be enabled with STARTTLS and SMTP AUTH;
-see the [SMTP security guide](docs/smtp-security.md).
+Notifinho v1.8.0 adds Portainer Alerting plus fixture-validated Proxmox VE and
+Synology DSM ingestion while preserving the native UniFi Network, Protect, and
+Drive endpoints. Notifinho consumes emitted SMTP or webhook notifications; it
+does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
+mailboxes. SMTP transport security remains disabled by default and can be
+enabled with STARTTLS and SMTP AUTH; see the
+[SMTP security guide](docs/smtp-security.md).
 
 ---
 
@@ -354,9 +355,9 @@ This separation allows new infrastructure products and new messaging platforms t
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
 | UniFi Network / Protect / Drive | ✅ v1.7.0 |
-| Proxmox VE | 🧪 v1.8.0 candidate; real validation pending |
+| Proxmox VE | 🧪 v1.8.0 fixture-validated; real validation pending |
 | Portainer | ✅ v1.8.0 validated |
-| Synology DSM | 🧪 v1.8.0 candidate; real validation pending |
+| Synology DSM | 🧪 v1.8.0 fixture-validated; real validation pending |
 | Supermicro BMC / IPMI | 📅 v1.9.0 |
 | HPE iLO | 📅 v1.9.0 |
 | Dell iDRAC | 📅 v1.9.0 |
@@ -1402,7 +1403,7 @@ The release includes:
 
 ## ✅ v1.7.0 — Native UniFi Drive webhooks
 
-Notifinho v1.7.0 is the current stable release. See the
+Notifinho v1.7.0 introduced native UniFi Drive webhooks. See the
 [v1.7.0 release notes](docs/releases/v1.7.0.md) for configuration, upgrade,
 rollback, validation, and compatibility details.
 
@@ -1416,10 +1417,13 @@ rollback, validation, and compatibility details.
 
 ---
 
-## 📅 v1.8.0 — Virtualization, containers, and storage
+## ✅ v1.8.0 — Virtualization, containers, and storage
 
-v1.8.0 expands the server-side notification engine while preserving the
-current YAML configuration and Discord/Microsoft Teams delivery model.
+Notifinho v1.8.0 is the current stable release. See the
+[v1.8.0 release notes](docs/releases/v1.8.0.md) for upgrade, rollback,
+validation, and compatibility details. It expands the server-side notification
+engine while preserving the current YAML configuration and
+Discord/Microsoft Teams delivery model.
 
 - Proxmox VE SMTP and native notification-webhook ingestion
 - Backup, replication, node, cluster, storage, and availability events

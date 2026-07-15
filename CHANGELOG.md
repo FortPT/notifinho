@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+No changes yet.
+
+---
+
+## 1.8.0 - 2026-07-15
+
 ### Added
 
 - Fixture-validated Synology DSM SMTP parsing for system, storage, disk/SMART,
@@ -51,6 +57,7 @@
 
 ### Validation
 
+- Passed the final v1.8.0 release suite with 430 automated tests.
 - Passed the full automated suite with 426 tests, including synthetic Synology
   SMTP, JSON/form webhook, authentication, recovery, routing, and formatter
   coverage.

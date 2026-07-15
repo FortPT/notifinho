@@ -6,6 +6,56 @@ No changes yet.
 
 ---
 
+## 1.9.0 - 2026-07-15
+
+### Added
+
+- Shared Redfish Event Service ingestion with bounded batches, normalized
+  server-hardware events, safe origin paths, and configurable duplicate
+  suppression.
+- Fixture-validated Supermicro BMC/IPMI, HPE iLO, and Dell iDRAC Redfish and
+  delivered-email adapters with dedicated Discord and Teams presentation.
+- Authenticated Home Assistant automation events using the versioned
+  `notifinho.home_assistant.v1` contract.
+- Generic `notifinho.event.v1` submission through `/api/events` with explicit
+  per-token source scopes.
+- Disabled-by-default health, masked configuration, validation, logs, preview,
+  test-send, and atomic configuration-update API foundations.
+- Environment-, owner-only file-, and SHA-256-backed tokens; per-token and
+  per-client rate limits; PBKDF2 password helpers; private audit logs; and
+  owner-only configuration backups.
+- Product badges, synthetic Redfish/SMTP/Home Assistant fixtures, routing
+  examples, integration guides, and release validation tooling.
+
+### Security
+
+- Rejects inline plaintext API tokens in YAML configuration.
+- Preserves existing secret values when a masked configuration is safely
+  round-tripped through the API.
+- Bounds event batches, payload fields, metadata, tags, links, and log reads.
+- Avoids raw request logging and suppresses credentials, event fingerprints,
+  full management URLs, and secret query values from cards and audit records.
+
+### Compatibility
+
+- Existing v1.8.1 SMTP, HTTP endpoints, YAML routes, Discord targets, Teams
+  targets, and formatter behavior remain covered by the full regression suite.
+- The backend API, Redfish adapters, and Home Assistant endpoint remain
+  disabled until explicitly configured.
+- Supermicro, HPE, and Dell support is a fixture-validated candidate pending
+  representative real-system delivery tests.
+- Browser sessions, CSRF protection, local account management, user-owned
+  destinations, user routing, and the responsive WebUI remain v2.0 scope.
+
+### Validation
+
+- Passed 499 automated parser, HTTP, authentication, config-safety, formatter,
+  routing, and backwards-compatibility tests before RC packaging.
+- Requires isolated v1.9.0 container, SMTP fixture replay, authenticated HTTP
+  matrix, config API, Discord/Teams preview, and rollback checks before tagging.
+
+---
+
 ## 1.8.1 - 2026-07-15
 
 ### Added

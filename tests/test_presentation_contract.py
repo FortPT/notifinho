@@ -102,6 +102,11 @@ def test_shared_datetime_contract(value, expected):
         "portainer",
         "proxmox",
         "synology",
+        "redfish",
+        "supermicro",
+        "hpe_ilo",
+        "dell_idrac",
+        "home_assistant",
     ],
 )
 def test_every_dedicated_discord_card_has_a_product_thumbnail(source):
@@ -125,6 +130,11 @@ def test_every_dedicated_discord_card_has_a_product_thumbnail(source):
         "portainer",
         "proxmox",
         "synology",
+        "redfish",
+        "supermicro",
+        "hpe_ilo",
+        "dell_idrac",
+        "home_assistant",
     ],
 )
 def test_every_dedicated_teams_card_has_a_top_right_product_icon(source):

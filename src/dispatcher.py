@@ -19,9 +19,15 @@ from logger import log
 
 from parsers.grafana import Parser as GrafanaParser
 from parsers.generic import Parser as GenericParser
+from parsers.dell_idrac import Parser as DellIDRACParser
+from parsers.event_api import Parser as EventAPIParser
+from parsers.home_assistant import Parser as HomeAssistantParser
+from parsers.hpe_ilo import Parser as HPEILOParser
 from parsers.proxmox import Parser as ProxmoxParser
 from parsers.portainer import Parser as PortainerParser
 from parsers.qnap import Parser as QnapParser
+from parsers.redfish import RedfishParser
+from parsers.supermicro import Parser as SupermicroParser
 from parsers.synology import Parser as SynologyParser
 from parsers.truenas import Parser as TrueNASParser
 from parsers.unifi_drive import Parser as UniFiDriveParser
@@ -58,6 +64,18 @@ class Dispatcher:
         self.unifi_network_parser = UniFiNetworkParser()
 
         self.unifi_protect_parser = UniFiProtectParser()
+
+        self.redfish_parser = RedfishParser()
+
+        self.supermicro_parser = SupermicroParser()
+
+        self.hpe_ilo_parser = HPEILOParser()
+
+        self.dell_idrac_parser = DellIDRACParser()
+
+        self.home_assistant_parser = HomeAssistantParser()
+
+        self.event_api_parser = EventAPIParser()
 
         log.info("Dispatcher initialized")
 
@@ -205,6 +223,22 @@ class Dispatcher:
             )
 
         #
+        # Server-management email compatibility
+        #
+
+        for parser, label in (
+            (self.supermicro_parser, "Supermicro BMC/IPMI"),
+            (self.hpe_ilo_parser, "HPE iLO"),
+            (self.dell_idrac_parser, "Dell iDRAC"),
+        ):
+
+            if parser.is_message(message):
+
+                log.info("Detected %s email", label)
+
+                return parser.parse(message)
+
+        #
         # TrueNAS
         #
         # Run content-based TrueNAS detection after the established
@@ -284,6 +318,36 @@ class Dispatcher:
                 self.synology_parser.is_envelope,
                 self.synology_parser.parse_webhook,
                 "Detected Synology DSM webhook",
+            ),
+            "redfish": (
+                self.redfish_parser.is_envelope,
+                self.redfish_parser.parse,
+                "Detected Redfish Event Service webhook",
+            ),
+            "supermicro": (
+                self.redfish_parser.is_envelope,
+                lambda payload: self.redfish_parser.parse(payload, "supermicro"),
+                "Detected Supermicro Redfish webhook",
+            ),
+            "hpe": (
+                self.redfish_parser.is_envelope,
+                lambda payload: self.redfish_parser.parse(payload, "hpe"),
+                "Detected HPE iLO Redfish webhook",
+            ),
+            "dell": (
+                self.redfish_parser.is_envelope,
+                lambda payload: self.redfish_parser.parse(payload, "dell"),
+                "Detected Dell iDRAC Redfish webhook",
+            ),
+            "home_assistant": (
+                self.home_assistant_parser.is_envelope,
+                self.home_assistant_parser.parse,
+                "Detected Home Assistant event",
+            ),
+            "event_api": (
+                self.event_api_parser.is_envelope,
+                self.event_api_parser.parse,
+                "Detected authenticated event submission",
             ),
         }
         selected = parsers.get(str(application).casefold())

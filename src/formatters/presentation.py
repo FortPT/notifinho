@@ -27,6 +27,11 @@ class PresentationMixin:
         "portainer": "portainer.png",
         "proxmox": "proxmox.png",
         "synology": "synology.png",
+        "redfish": "redfish.png",
+        "supermicro": "supermicro.png",
+        "hpe_ilo": "hpe-ilo.png",
+        "dell_idrac": "dell-idrac.png",
+        "home_assistant": "home-assistant.png",
     }
 
     XO_ICON_URL = "https://content.vates.tech/assets/xologoname.png"

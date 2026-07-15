@@ -1,0 +1,13 @@
+From: HPE iLO AlertMail <ilo@synthetic.invalid>
+To: notifinho@synthetic.invalid
+Subject: HPE iLO AlertMail: power supply degraded
+Date: Wed, 15 Jul 2026 20:30:00 +0000
+Content-Type: text/plain; charset="utf-8"
+
+System: synthetic-ilo-01
+Severity: Caution
+Sensor: Power Supply 2
+Message ID: HPE-SYNTHETIC-001
+Description: Power Supply 2 is operating in a degraded state
+Resolution: Inspect or replace Power Supply 2.
+Event Time: 2026-07-15T20:30:00Z

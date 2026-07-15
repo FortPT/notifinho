@@ -5,11 +5,13 @@ from __future__ import annotations
 import hmac
 import json
 import threading
+import time
 
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
 from config import config
+from api.service import APIService
 from logger import log
 
 
@@ -20,6 +22,19 @@ ENDPOINTS = {
     "/portainer/alerts": "portainer",
     "/proxmox/events": "proxmox",
     "/synology/events": "synology",
+    "/redfish/events": "redfish",
+    "/redfish/supermicro": "supermicro",
+    "/redfish/hpe": "hpe",
+    "/redfish/dell": "dell",
+    "/home-assistant/events": "home_assistant",
+}
+
+SCOPED_SOURCES = {
+    "redfish": "redfish",
+    "supermicro": "supermicro",
+    "hpe": "hpe_ilo",
+    "dell": "dell_idrac",
+    "home_assistant": "home_assistant",
 }
 
 
@@ -47,6 +62,29 @@ class HTTPServer(ThreadingHTTPServer):
         self.router = router
         self.max_body_bytes = max_body_bytes
         self.shared_secret = shared_secret
+        self.api = APIService(dispatcher, router, config)
+        self._seen: dict[str, float] = {}
+        self._seen_lock = threading.Lock()
+
+    def duplicate(self, notification) -> bool:
+        key = str((notification.metadata or {}).get("deduplication_key") or "")
+        if not key:
+            return False
+        window = max(
+            1,
+            int(config.get("redfish", "deduplication_window_seconds", default=300)),
+        )
+        now = time.monotonic()
+        with self._seen_lock:
+            self._seen = {
+                item: observed
+                for item, observed in self._seen.items()
+                if now - observed < window
+            }
+            if key in self._seen:
+                return True
+            self._seen[key] = now
+        return False
 
 
 class HTTPHandler(BaseHTTPRequestHandler):
@@ -56,13 +94,25 @@ class HTTPHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802 - standard-library callback name
         request_url = urlsplit(self.path)
-        if not self._authenticated(request_url.path, request_url.query):
-            self._respond(401)
+
+        if request_url.path.startswith("/api/"):
+            self._api_request("POST", request_url.path)
             return
 
         application = ENDPOINTS.get(request_url.path)
         if application is None:
+            if not self._authenticated(request_url.path, request_url.query):
+                self._respond(401)
+                return
             self._respond(404)
+            return
+
+        if not self._authenticated_application(
+            application,
+            request_url.path,
+            request_url.query,
+        ):
+            self._respond(401)
             return
 
         content_type = self.headers.get("Content-Type", "")
@@ -121,6 +171,9 @@ class HTTPHandler(BaseHTTPRequestHandler):
                 self._respond(400)
                 return
             for notification in notifications:
+                if application in {"redfish", "supermicro", "hpe", "dell"} and self.server.duplicate(notification):
+                    log.info("Duplicate Redfish event ignored")
+                    continue
                 self.server.router.route(notification)
         except Exception:
             log.exception("Webhook processing failed")
@@ -130,9 +183,17 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self._respond(204)
 
     def do_GET(self) -> None:  # noqa: N802
+        request_url = urlsplit(self.path)
+        if request_url.path.startswith("/api/"):
+            self._api_request("GET", request_url.path)
+            return
         self._unsupported_method()
 
     def do_PUT(self) -> None:  # noqa: N802
+        request_url = urlsplit(self.path)
+        if request_url.path.startswith("/api/"):
+            self._api_request("PUT", request_url.path)
+            return
         self._unsupported_method()
 
     def do_PATCH(self) -> None:  # noqa: N802
@@ -164,12 +225,68 @@ class HTTPHandler(BaseHTTPRequestHandler):
             str(expected).encode("utf-8"),
         )
 
+    def _authenticated_application(self, application: str, path: str, query: str) -> bool:
+        scoped_source = SCOPED_SOURCES.get(application)
+        if not scoped_source:
+            return self._authenticated(path, query)
+        if self.server.shared_secret and self._authenticated(path, query):
+            return True
+        principal = self.server.api.authorize_source(
+            self.headers,
+            scoped_source,
+            self.client_address[0],
+        )
+        return bool(principal)
+
+    def _api_request(self, method: str, path: str) -> None:
+        payload = None
+        if method in {"POST", "PUT"}:
+            content_type = self.headers.get("Content-Type", "")
+            if not is_json_content_type(content_type):
+                self._respond_json(400, {"error": "application/json required"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except (TypeError, ValueError):
+                self._respond_json(400, {"error": "invalid content length"})
+                return
+            if length < 0 or length > self.server.max_body_bytes:
+                self._respond_json(413 if length > self.server.max_body_bytes else 400, None)
+                return
+            try:
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (UnicodeError, json.JSONDecodeError):
+                self._respond_json(400, {"error": "invalid JSON"})
+                return
+        status, response = self.server.api.handle(
+            method,
+            path,
+            payload,
+            self.headers,
+            self.client_address[0],
+        )
+        self._respond_json(status, response)
+
     def _respond(self, status: int, headers: dict[str, str] | None = None) -> None:
         self.send_response(status)
         for name, value in (headers or {}).items():
             self.send_header(name, value)
         self.send_header("Content-Length", "0")
         self.end_headers()
+
+    def _respond_json(self, status: int, payload) -> None:
+        body = b""
+        if payload is not None:
+            body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        if body:
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+        if status == 405:
+            self.send_header("Allow", "GET, POST, PUT")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body:
+            self.wfile.write(body)
 
     def log_message(self, format: str, *args) -> None:
         # Access logging can expose query strings or unexpected identifiers.

@@ -1,0 +1,18 @@
+{
+  "@odata.type": "#Event.v1_11_0.Event",
+  "Id": "synthetic-hpe-envelope",
+  "Name": "HPE iLO Event Service",
+  "Events": [
+    {
+      "EventId": "synthetic-hpe-memory-001",
+      "EventTimestamp": "2026-07-15T20:15:00Z",
+      "Severity": "Warning",
+      "Message": "Correctable memory error threshold exceeded on DIMM 4",
+      "MessageId": "HpeMsg.1.0.MemoryCorrectableThreshold",
+      "Resolution": "Schedule replacement of DIMM 4.",
+      "OriginOfCondition": {
+        "@odata.id": "/redfish/v1/Systems/1/Memory/4"
+      }
+    }
+  ]
+}

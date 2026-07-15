@@ -13,6 +13,13 @@ import requests
 from config import config
 from formatters.teams import TeamsFormatter
 from formatters.teams_grafana import GrafanaTeamsFormatter
+from formatters.teams_hardware import (
+    DellIDRACTeamsFormatter,
+    HPEILOTeamsFormatter,
+    RedfishTeamsFormatter,
+    SupermicroTeamsFormatter,
+)
+from formatters.teams_home_assistant import HomeAssistantTeamsFormatter
 from formatters.teams_portainer import PortainerTeamsFormatter
 from formatters.teams_proxmox import ProxmoxTeamsFormatter
 from formatters.teams_qnap import QNAPTeamsFormatter
@@ -45,6 +52,11 @@ class TeamsOutput:
             "unifi_network": UniFiNetworkTeamsFormatter(),
             "unifi_protect": UniFiProtectTeamsFormatter(),
             "zabbix": ZabbixTeamsFormatter(),
+            "redfish": RedfishTeamsFormatter(),
+            "supermicro": SupermicroTeamsFormatter(),
+            "hpe_ilo": HPEILOTeamsFormatter(),
+            "dell_idrac": DellIDRACTeamsFormatter(),
+            "home_assistant": HomeAssistantTeamsFormatter(),
         }
 
     def send(

@@ -13,6 +13,13 @@ import requests
 from config import config
 from formatters.discord import DiscordFormatter
 from formatters.discord_grafana import GrafanaDiscordFormatter
+from formatters.discord_hardware import (
+    DellIDRACDiscordFormatter,
+    HPEILODiscordFormatter,
+    RedfishDiscordFormatter,
+    SupermicroDiscordFormatter,
+)
+from formatters.discord_home_assistant import HomeAssistantDiscordFormatter
 from formatters.discord_portainer import PortainerDiscordFormatter
 from formatters.discord_proxmox import ProxmoxDiscordFormatter
 from formatters.discord_qnap import QNAPDiscordFormatter
@@ -45,6 +52,11 @@ class DiscordOutput:
             "unifi_network": UniFiNetworkDiscordFormatter(),
             "unifi_protect": UniFiProtectDiscordFormatter(),
             "zabbix": ZabbixDiscordFormatter(),
+            "redfish": RedfishDiscordFormatter(),
+            "supermicro": SupermicroDiscordFormatter(),
+            "hpe_ilo": HPEILODiscordFormatter(),
+            "dell_idrac": DellIDRACDiscordFormatter(),
+            "home_assistant": HomeAssistantDiscordFormatter(),
         }
 
     def send(

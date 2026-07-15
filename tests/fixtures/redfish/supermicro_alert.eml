@@ -1,0 +1,13 @@
+From: Supermicro BMC <bmc@synthetic.invalid>
+To: notifinho@synthetic.invalid
+Subject: Supermicro IPMI system event: fan warning
+Date: Wed, 15 Jul 2026 20:25:00 +0000
+Content-Type: text/plain; charset="utf-8"
+
+System: synthetic-smc-01
+Severity: Warning
+Sensor: FAN1
+Event ID: SMC-SYNTHETIC-001
+Message: FAN1 speed dropped below the warning threshold
+Action: Inspect the fan and chassis airflow.
+Event Time: 2026-07-15T20:25:00Z

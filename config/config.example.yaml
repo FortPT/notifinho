@@ -23,7 +23,7 @@ smtp:
     # Set false only for a controlled migration.
     # required: false
 
-# Native UniFi, Portainer, Proxmox, and Synology webhook listener.
+# Native infrastructure webhook listener and local backend API transport.
 # Keep disabled unless the container port is intentionally published and
 # protected by firewall rules and, when available, the shared secret.
 http:
@@ -32,6 +32,47 @@ http:
   port: 8080
   max_body_bytes: 1048576
   shared_secret: ""
+
+# Shared Redfish Event Service behavior for Supermicro, HPE, Dell, and
+# standards-compliant generic Redfish subscriptions.
+redfish:
+  deduplication_window_seconds: 300
+
+# v1.9 backend API. This is disabled by default. Publish it only on a trusted
+# network or behind an authenticated reverse proxy. Tokens must come from an
+# environment variable, a mode-0600 mounted file, or a precomputed SHA-256.
+api:
+  enabled: false
+  tokens:
+    admin:
+      enabled: false
+      role: admin
+      sources:
+        - "*"
+      token_env: "NOTIFINHO_ADMIN_TOKEN"
+      rate_limit_per_minute: 60
+
+    home_assistant:
+      enabled: false
+      role: application
+      sources:
+        - home_assistant
+      token_file: "/run/secrets/notifinho_home_assistant_token"
+      rate_limit_per_minute: 120
+
+    hardware:
+      enabled: false
+      role: application
+      sources:
+        - redfish
+        - supermicro
+        - hpe_ilo
+        - dell_idrac
+      token_env: "NOTIFINHO_HARDWARE_TOKEN"
+      # Alternatively generate a hash with:
+      # printf %s 'TOKEN' | sha256sum
+      # token_sha256: "PASTE_64_CHARACTER_SHA256_HERE"
+      rate_limit_per_minute: 120
 
 outputs:
   discord:
@@ -65,6 +106,14 @@ outputs:
     # Dedicated Synology DSM destination.
     synology:
       webhook: "PASTE_SYNOLOGY_DISCORD_WEBHOOK_HERE"
+
+    # Shared hardware-management destination. Separate targets may be used
+    # by changing each routing entry below.
+    hardware:
+      webhook: "PASTE_HARDWARE_DISCORD_WEBHOOK_HERE"
+
+    home_assistant:
+      webhook: "PASTE_HOME_ASSISTANT_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -113,6 +162,14 @@ outputs:
     # Optional dedicated Synology DSM destination.
     # synology:
     #   webhook: "PASTE_SYNOLOGY_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional shared server-hardware destination.
+    # hardware:
+    #   webhook: "PASTE_HARDWARE_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional Home Assistant destination.
+    # home_assistant:
+    #   webhook: "PASTE_HOME_ASSISTANT_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -261,6 +318,48 @@ routing:
 
       # - output: teams
       #   target: synology
+
+  redfish:
+    outputs:
+      - output: discord
+        target: hardware
+      # - output: teams
+      #   target: hardware
+
+  supermicro:
+    outputs:
+      - output: discord
+        target: hardware
+      # - output: teams
+      #   target: hardware
+
+  hpe_ilo:
+    outputs:
+      - output: discord
+        target: hardware
+      # - output: teams
+      #   target: hardware
+
+  dell_idrac:
+    outputs:
+      - output: discord
+        target: hardware
+      # - output: teams
+      #   target: hardware
+
+  home_assistant:
+    outputs:
+      - output: discord
+        target: home_assistant
+      # - output: teams
+      #   target: home_assistant
+
+  # Example source accepted through POST /api/events. The submitting token
+  # must explicitly include this source in api.tokens.<name>.sources.
+  home_lab:
+    outputs:
+      - output: discord
+        target: default
 
   generic:
     outputs:

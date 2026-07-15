@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.8.1**.
+The current stable release is **v1.9.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -35,6 +35,13 @@ Current features include:
 - Portainer Business Edition Alerting webhooks
 - Fixture-validated Proxmox VE SMTP and native webhook ingestion
 - Fixture-validated Synology DSM SMTP plus JSON/form custom webhooks
+- Shared Redfish Event Service ingestion with duplicate suppression
+- Fixture-validated Supermicro BMC/IPMI, HPE iLO, and Dell iDRAC adapters
+- Authenticated Home Assistant and generic source-scoped event submission
+- Disabled-by-default health, masked configuration, validation, log, preview,
+  and test-send API foundations
+- Environment-, owner-only file-, or SHA-256-backed API tokens, rate limits,
+  private audit logs, and atomic configuration backups
 - Rich Discord notifications
 - Microsoft Teams Adaptive Cards
 - SMTP gateway input
@@ -109,6 +116,12 @@ v1.8.x also provides `/portainer/alerts`, `/proxmox/events`, and
 Synology DSM has real JSON webhook and SMTP/STARTTLS validation. Proxmox VE
 remains fixture-validated pending real-system compatibility testing.
 
+v1.9.0 adds `/redfish/events`, `/redfish/supermicro`, `/redfish/hpe`,
+`/redfish/dell`, `/home-assistant/events`, and the disabled-by-default `/api/*`
+backend. Hardware adapters remain fixture-validated pending representative
+real systems. See the repository integration and API guides before enabling
+these endpoints.
+
 A shared Discord target can receive all three normalized UniFi sources:
 
 ```yaml
@@ -148,9 +161,8 @@ https://github.com/FortPT/notifinho
 - Microsoft Teams
 - Zabbix
 - TrueNAS
-- Redfish hardware-management sources
-- Home Assistant
-- Secure event and configuration APIs
+- Broader real-system Redfish compatibility validation
+- The v2.0 WebUI, local browser sessions, and user-owned routing
 - Additional UniFi event variants
 - Slack
 - Telegram

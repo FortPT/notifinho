@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Added
+
+- Native Portainer BE Alerting ingestion at `POST /portainer/alerts`, including
+  grouped firing/resolved events and URL query-token authentication for
+  Portainer's URL-only webhook channel.
+- Portainer-specific normalization and dedicated Discord embeds and Microsoft
+  Teams Adaptive Cards based on a private-safe BE 2.42.0 firing-event
+  validation.
+- Synthetic Alertmanager-compatible Portainer fixtures and production HTTP,
+  parser, presentation, routing, privacy, and authentication coverage.
+- Private-safe Portainer Alerting webhook capture and offline webhook/email
+  analysis tools for the v1.8.0 discovery phase.
+- Shared discovery sanitization helpers with regression coverage for private
+  identifiers, credentials, URLs, and infrastructure metadata.
+- A Portainer BE 2.42.0 discovery runbook for development-only validation on
+  VM-04 without API polling or permanent Portainer credentials.
+
 ### Changed
 
 - Replanned v1.8.0 as the Proxmox VE, Portainer, and Synology DSM integration
@@ -18,6 +35,11 @@
 
 ### Validation
 
+- Validated Portainer Business Edition 2.42.0 firing and resolved Alertmanager
+  delivery through the authenticated native endpoint to development Discord.
+- Confirmed missing Portainer query tokens return `401`, valid tokens return
+  `204`, and the Portainer container network can reach the private development
+  listener.
 - Marked QNAP QTS / QuTS hero support as validated following successful real
   QNAP Notification Center delivery.
 - Kept anonymized synthetic QNAP fixtures and broader template coverage as

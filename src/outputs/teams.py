@@ -13,6 +13,7 @@ import requests
 from config import config
 from formatters.teams import TeamsFormatter
 from formatters.teams_grafana import GrafanaTeamsFormatter
+from formatters.teams_portainer import PortainerTeamsFormatter
 from formatters.teams_qnap import QNAPTeamsFormatter
 from formatters.teams_truenas import TrueNASTeamsFormatter
 from formatters.teams_unifi import (
@@ -33,6 +34,7 @@ class TeamsOutput:
 
         self.source_formatters = {
             "grafana": GrafanaTeamsFormatter(),
+            "portainer": PortainerTeamsFormatter(),
             "qnap": QNAPTeamsFormatter(),
             "truenas": TrueNASTeamsFormatter(),
             "unifi_drive": UniFiDriveTeamsFormatter(),

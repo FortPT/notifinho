@@ -20,6 +20,7 @@ from logger import log
 from parsers.grafana import Parser as GrafanaParser
 from parsers.generic import Parser as GenericParser
 from parsers.proxmox import Parser as ProxmoxParser
+from parsers.portainer import Parser as PortainerParser
 from parsers.qnap import Parser as QnapParser
 from parsers.truenas import Parser as TrueNASParser
 from parsers.unifi_drive import Parser as UniFiDriveParser
@@ -42,6 +43,8 @@ class Dispatcher:
         self.truenas_parser = TrueNASParser()
 
         self.proxmox_parser = ProxmoxParser()
+
+        self.portainer_parser = PortainerParser()
 
         self.qnap_parser = QnapParser()
 
@@ -249,6 +252,11 @@ class Dispatcher:
                 self.unifi_drive_parser.is_envelope,
                 self.unifi_drive_parser.parse_webhook,
                 "Detected UniFi Drive webhook",
+            ),
+            "portainer": (
+                self.portainer_parser.is_envelope,
+                self.portainer_parser.parse,
+                "Detected Portainer Alerting webhook",
             ),
         }
         selected = parsers.get(str(application).casefold())

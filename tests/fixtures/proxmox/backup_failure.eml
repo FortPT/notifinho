@@ -1,0 +1,20 @@
+From: Proxmox VE <root@synthetic-pve.invalid>
+To: notifinho@synthetic.invalid
+Subject: vzdump backup status (synthetic-pve-01): backup failed
+Date: Wed, 15 Jul 2026 01:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+
+Proxmox VE backup notification
+Node: synthetic-pve-01
+Storage: synthetic-backup-store
+Start Time: 2026-07-15T00:45:00Z
+End Time: 2026-07-15T01:00:00Z
+Duration: 00:15:00
+
+VMID NAME STATUS TIME SIZE MESSAGE
+100 home-assistant OK 00:12:00 32.00 GiB
+101 synthetic-db FAILED 00:00:18 8.00 GiB synthetic timeout
+TOTAL 00:15:00 40.00 GiB
+
+TASK ERROR: job errors

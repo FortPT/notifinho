@@ -138,7 +138,7 @@ class Dispatcher:
         # Proxmox
         #
 
-        if "proxmox" in sender_lower:
+        if self.proxmox_parser.is_message(message):
 
             log.info(
                 "Detected Proxmox email"
@@ -257,6 +257,11 @@ class Dispatcher:
                 self.portainer_parser.is_envelope,
                 self.portainer_parser.parse,
                 "Detected Portainer Alerting webhook",
+            ),
+            "proxmox": (
+                self.proxmox_parser.is_envelope,
+                self.proxmox_parser.parse_webhook,
+                "Detected Proxmox VE webhook",
             ),
         }
         selected = parsers.get(str(application).casefold())

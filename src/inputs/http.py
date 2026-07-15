@@ -18,6 +18,7 @@ ENDPOINTS = {
     "/unifi/protect": "protect",
     "/unifi/drive": "drive",
     "/portainer/alerts": "portainer",
+    "/proxmox/events": "proxmox",
 }
 
 

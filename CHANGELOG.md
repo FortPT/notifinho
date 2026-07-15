@@ -4,6 +4,12 @@
 
 ### Added
 
+- Fixture-validated Proxmox VE SMTP parsing for backup, replication, node,
+  cluster, storage, availability, security, guest, and system notifications.
+- A versioned Proxmox webhook contract at `POST /proxmox/events`, protected by
+  the existing `X-Notifinho-Token` HTTP authentication boundary.
+- Dedicated Proxmox VE Discord embeds, Microsoft Teams Adaptive Cards,
+  routing examples, synthetic email/JSON fixtures, and integration guidance.
 - Native Portainer BE Alerting ingestion at `POST /portainer/alerts`, including
   grouped firing/resolved events and URL query-token authentication for
   Portainer's URL-only webhook channel.
@@ -35,6 +41,11 @@
 
 ### Validation
 
+- Passed the full automated suite with 407 tests, including synthetic Proxmox
+  SMTP and webhook transport, parser, authentication, routing, and formatter
+  coverage.
+- Marked real Proxmox VE SMTP and webhook delivery as pending; the initial
+  implementation is intentionally not described as production-validated.
 - Validated Portainer Business Edition 2.42.0 firing and resolved Alertmanager
   delivery through the authenticated native endpoint to development Discord.
 - Confirmed missing Portainer query tokens return `401`, valid tokens return

@@ -354,8 +354,8 @@ This separation allows new infrastructure products and new messaging platforms t
 | Generic SMTP | ↩️ Fallback |
 | TrueNAS 26 | 🚧 v1.4.0 |
 | UniFi Network / Protect / Drive | ✅ v1.7.0 |
-| Proxmox VE | 📅 v1.8.0 |
-| Portainer | 📅 v1.8.0 |
+| Proxmox VE | 🧪 v1.8.0 candidate; real validation pending |
+| Portainer | ✅ v1.8.0 validated |
 | Synology DSM | 📅 v1.8.0 |
 | Supermicro BMC / IPMI | 📅 v1.9.0 |
 | HPE iLO | 📅 v1.9.0 |
@@ -714,7 +714,7 @@ smtp:
     password_env: "NOTIFINHO_SMTP_PASSWORD"
     password_file: ""
 
-# Native webhook input used by UniFi and Portainer Alerting.
+# Native webhook input used by UniFi, Portainer Alerting, and Proxmox VE.
 # Keep disabled unless port 8080 is intentionally published.
 http:
   enabled: false
@@ -747,6 +747,10 @@ outputs:
     # Dedicated Portainer Alerting destination.
     portainer:
       webhook: "PASTE_PORTAINER_DISCORD_WEBHOOK_HERE"
+
+    # Dedicated Proxmox VE destination.
+    proxmox:
+      webhook: "PASTE_PROXMOX_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -784,6 +788,10 @@ outputs:
     # Optional dedicated Teams destination for Portainer.
     # portainer:
     #   webhook: "PASTE_PORTAINER_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Teams destination for Proxmox VE.
+    # proxmox:
+    #   webhook: "PASTE_PROXMOX_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -1053,6 +1061,24 @@ authentication header. Use the same `http.shared_secret` as a URL query token
 on the private direct endpoint. See the
 [Portainer integration guide](docs/portainer.md) for the secure deployment and
 validation workflow.
+
+Proxmox VE SMTP and native webhook events share the `proxmox` source key:
+
+```yaml
+routing:
+  proxmox:
+    outputs:
+      - output: discord
+        target: proxmox
+
+      # - output: teams
+      #   target: proxmox
+```
+
+Native events use `POST /proxmox/events` and the `X-Notifinho-Token` header.
+The webhook body follows a versioned Notifinho contract because Proxmox
+webhook targets render administrator-defined templates instead of one fixed
+vendor envelope. See the [Proxmox integration guide](docs/proxmox.md).
 
 The v2.0 route model will extend these rules with authenticated user and
 application ownership, severity and event filters, and private or shared
@@ -1386,6 +1412,8 @@ The private-safe validation workflow is documented in the
 [Portainer discovery guide](docs/portainer-discovery.md).
 Production ingestion and routing are documented in the
 [Portainer integration guide](docs/portainer.md).
+The fixture-validated Proxmox candidate and its deferred real-system checklist
+are documented in the [Proxmox integration guide](docs/proxmox.md).
 
 ---
 

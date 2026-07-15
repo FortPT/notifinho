@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 import re
 from typing import Any
 
@@ -175,14 +174,11 @@ class QNAPTeamsFormatter(BaseFormatter):
         )
 
         body: list[dict[str, Any]] = [
-            {
-                "type": "TextBlock",
-                "text": f"{self.NAS_ICON} {status_icon} {nas_name}",
-                "weight": "Bolder",
-                "size": "Large",
-                "color": accent_color,
-                "wrap": True,
-            },
+            self._teams_header(
+                f"{self.NAS_ICON} {status_icon} {nas_name}",
+                accent_color,
+                "qnap",
+            ),
             {
                 "type": "TextBlock",
                 "text": (
@@ -489,21 +485,7 @@ class QNAPTeamsFormatter(BaseFormatter):
         return str(value).strip()
 
     def _format_datetime(self, value: str) -> str:
-        value = str(value or "").strip()
-        if not value:
-            return "-"
-        formats = (
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y/%m/%d %H:%M:%S",
-            "%Y.%m.%d %H:%M:%S",
-        )
-        for fmt in formats:
-            try:
-                return datetime.strptime(value, fmt).strftime("%d/%m/%y %H:%M")
-            except ValueError:
-                continue
-        return value
+        return super()._format_datetime(value)
 
 
 QnapTeamsFormatter = QNAPTeamsFormatter

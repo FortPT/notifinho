@@ -137,8 +137,14 @@ def test_protect_human_readable_camera_name_is_retained_on_both_platforms():
     item = notification("unifi_protect")
     item.metadata["trigger_device"] = "Front Door Camera"
 
-    discord = json.dumps(UniFiProtectDiscordFormatter().format(item))
-    teams = json.dumps(UniFiProtectTeamsFormatter().format(item))
+    discord = json.dumps(
+        UniFiProtectDiscordFormatter().format(item),
+        ensure_ascii=False,
+    )
+    teams = json.dumps(
+        UniFiProtectTeamsFormatter().format(item),
+        ensure_ascii=False,
+    )
 
     assert protect_device_display("Front Door Camera") == "Front Door Camera"
     assert "Front Door Camera" in discord
@@ -181,12 +187,18 @@ def test_protect_private_or_opaque_device_is_omitted_without_empty_field(device_
     ],
 )
 def test_protect_event_time_formats_seconds_milliseconds_and_iso(event_time):
-    expected = "13/07/2026 01:16:35 UTC"
+    expected = "13 Jul 2026 • 01:16 UTC"
     item = notification("unifi_protect")
     item.metadata["event_time"] = event_time
 
-    discord = json.dumps(UniFiProtectDiscordFormatter().format(item))
-    teams = json.dumps(UniFiProtectTeamsFormatter().format(item))
+    discord = json.dumps(
+        UniFiProtectDiscordFormatter().format(item),
+        ensure_ascii=False,
+    )
+    teams = json.dumps(
+        UniFiProtectTeamsFormatter().format(item),
+        ensure_ascii=False,
+    )
 
     assert format_protect_event_time(event_time) == expected
     assert expected in discord

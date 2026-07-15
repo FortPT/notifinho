@@ -24,32 +24,33 @@ class TrueNASTeamsFormatter(BaseFormatter):
             4000,
         )
         facts = [
-            {"title": "System", "value": host or "Unknown"},
-            {"title": "Category", "value": notification.category or "generic"},
-            {"title": "Status", "value": state_label},
-            {"title": "Severity", "value": severity.title()},
+            {"title": "🗄️ System", "value": host or "Unknown"},
+            {"title": "🗂️ Category", "value": notification.category or "generic"},
+            {"title": "📌 Status", "value": state_label},
+            {"title": "⚠️ Severity", "value": severity.title()},
         ]
         alert_count = metadata.get("alert_count") or len(notification.items or [])
         if alert_count:
-            facts.append({"title": "Alert count", "value": str(alert_count)})
+            facts.append({"title": "🔢 Alert count", "value": str(alert_count)})
         event_time = self._text(
             metadata.get("event_time") or notification.end_time or notification.start_time
         )
         if event_time:
-            facts.append({"title": "Event time", "value": event_time})
+            facts.append(
+                {
+                    "title": "🕒 Event time",
+                    "value": self._format_datetime(event_time),
+                }
+            )
 
         body = [
-            {
-                "type": "TextBlock",
-                "text": self._truncate(
-                    notification.title or metadata.get("event_title") or "TrueNAS notification",
-                    512,
-                ),
-                "weight": "Bolder",
-                "size": "Large",
-                "color": color,
-                "wrap": True,
-            },
+            self._teams_header(
+                notification.title
+                or metadata.get("event_title")
+                or "TrueNAS notification",
+                color,
+                "truenas",
+            ),
             {
                 "type": "TextBlock",
                 "text": f"TrueNAS @ **{host or 'Unknown system'}** - **{state_label}**",
@@ -159,7 +160,3 @@ class TrueNASTeamsFormatter(BaseFormatter):
 
     def _text(self, value) -> str:
         return "" if value is None else str(value).strip()
-
-    def _truncate(self, value: str, limit: int) -> str:
-        value = str(value or "")
-        return value if len(value) <= limit else value[: limit - 3].rstrip() + "..."

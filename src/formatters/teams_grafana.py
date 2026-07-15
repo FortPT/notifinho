@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import re
 
-from datetime import datetime
 from typing import Any
 
 from formatters.base import BaseFormatter
@@ -64,14 +63,11 @@ class GrafanaTeamsFormatter(BaseFormatter):
         )
 
         body: list[dict[str, Any]] = [
-            {
-                "type": "TextBlock",
-                "text": f"{icon} {alert_name}",
-                "weight": "Bolder",
-                "size": "Large",
-                "color": color,
-                "wrap": True,
-            },
+            self._teams_header(
+                f"{icon} {alert_name}",
+                color,
+                "grafana",
+            ),
             {
                 "type": "TextBlock",
                 "text": f"Grafana • **{status_text}**"
@@ -469,29 +465,7 @@ class GrafanaTeamsFormatter(BaseFormatter):
         self,
         value: str,
     ) -> str:
-
-        value = str(value or "").strip()
-
-        for fmt in (
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y/%m/%d %H:%M:%S",
-        ):
-
-            try:
-
-                return datetime.strptime(
-                    value,
-                    fmt,
-                ).strftime(
-                    "%d/%m/%y %H:%M",
-                )
-
-            except ValueError:
-
-                continue
-
-        return value
+        return super()._format_datetime(value)
 
     def _normalized(self, value) -> str:
 

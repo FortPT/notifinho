@@ -8,8 +8,6 @@ Discord formatter.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from config import config
 from models import Notification
 from version import VERSION
@@ -384,43 +382,4 @@ class DiscordFormatter(BaseFormatter):
         self,
         value: str,
     ) -> str:
-
-        if not value:
-
-            return ""
-
-        cleaned = value
-
-        cleaned = cleaned.replace("1st", "1")
-        cleaned = cleaned.replace("2nd", "2")
-        cleaned = cleaned.replace("3rd", "3")
-        cleaned = cleaned.replace("th", "")
-
-        for full, short in self.MONTHS.items():
-
-            cleaned = cleaned.replace(
-                full,
-                short,
-            )
-
-        for fmt in (
-            "%A, %b %d %Y, %I:%M:%S %p",
-            "%A, %b %d %Y, %I:%M %p",
-        ):
-
-            try:
-
-                parsed = datetime.strptime(
-                    cleaned,
-                    fmt,
-                )
-
-                return parsed.strftime(
-                    "%d %b %Y • %H:%M",
-                )
-
-            except ValueError:
-
-                continue
-
-        return value
+        return super()._format_datetime(value)

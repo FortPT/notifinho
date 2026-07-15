@@ -6,6 +6,48 @@ No changes yet.
 
 ---
 
+## 1.8.1 - 2026-07-15
+
+### Added
+
+- Self-hosted product badges for Zabbix, QNAP, Grafana, TrueNAS, UniFi,
+  Portainer, Proxmox VE, and Synology DSM cards.
+- A shared Discord and Microsoft Teams presentation contract with product
+  branding, canonical timestamps, field limits, and credential sanitization.
+- Cross-source regression coverage for all dedicated formatter pairs and the
+  Xen Orchestra default formatters.
+
+### Changed
+
+- Standardized visible dates as `DD Mon YYYY • HH:MM`, retaining an explicit
+  UTC or numeric offset when the source timestamp includes one.
+- Added compact top-right product badges to Microsoft Teams Adaptive Cards and
+  Discord embeds while retaining the established source and status icons.
+- Improved TrueNAS list extraction so wrapped alert details remain readable
+  and duplicate New/Current copies of the same active condition collapse into
+  one card item.
+- Added clearer TrueNAS field icons and normalized UniFi Protect event times.
+
+### Security
+
+- Added a final recursive credential scrub to every Discord and Microsoft
+  Teams payload before delivery.
+- Redacts token, API key, password, secret, session ID, authorization bearer,
+  Discord webhook, and sensitive query-string values while retaining useful
+  operational context.
+
+### Validation
+
+- Passed 458 automated tests, including shared presentation, formatter,
+  routing, parser, payload-budget, and secret-redaction regression coverage.
+- Preserved existing YAML, routing keys, webhook endpoints, SMTP behavior, and
+  destination target configuration.
+- Recorded real Synology DSM JSON webhook and SMTP/STARTTLS delivery to Teams,
+  real Portainer firing/resolved delivery, and a real TrueNAS grouped-alert
+  delivery as compatibility evidence.
+
+---
+
 ## 1.8.0 - 2026-07-15
 
 ### Added

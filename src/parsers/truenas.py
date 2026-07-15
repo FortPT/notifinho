@@ -225,6 +225,16 @@ class Parser:
             soup = BeautifulSoup(content, "lxml")
             for element in soup.find_all(["script", "style"]):
                 element.decompose()
+            # Preserve list item boundaries before converting HTML to text.
+            # TrueNAS can place wrapped audit details inside one <li>; using
+            # one normalized bullet prevents those lines from becoming
+            # separate alerts later.
+            for element in soup.find_all("li"):
+                item_text = self._clean_text(
+                    element.get_text(" ", strip=True)
+                ).replace("\n", " ")
+                element.clear()
+                element.append(f"* {item_text}")
             return self._clean_text(soup.get_text("\n", strip=True))
         except Exception:
             return self._clean_text(re.sub(r"<[^>]+>", "\n", content))
@@ -251,6 +261,14 @@ class Parser:
 
         alerts = []
         section = ""
+        pending_message = ""
+
+        def flush_pending() -> None:
+            nonlocal pending_message
+            if section and pending_message:
+                alerts.append(self._build_alert(section, pending_message))
+            pending_message = ""
+
         for line in lines:
             if re.match(r"^truenas\s*@\s*", line, flags=re.I):
                 continue
@@ -260,13 +278,24 @@ class Parser:
                     matched_section = event_type
                     break
             if matched_section:
+                flush_pending()
                 section = matched_section
                 continue
             if not section:
                 continue
+            bullet = bool(re.match(r"^[*\-\u2022]+\s*", line))
             message = re.sub(r"^[*\-\u2022]+\s*", "", line).strip()
-            if message:
-                alerts.append(self._build_alert(section, message))
+            if not message:
+                continue
+            if bullet:
+                flush_pending()
+                pending_message = message
+            elif pending_message:
+                pending_message = f"{pending_message} {message}"
+            else:
+                pending_message = message
+
+        flush_pending()
         return alerts
 
     def _build_alert(self, event_type: str, message: str) -> dict:
@@ -344,12 +373,30 @@ class Parser:
 
     def _deduplicate(self, alerts: list[dict]) -> list[dict]:
         unique = []
-        seen = set()
+        seen = {}
         for alert in alerts:
-            key = (alert.get("event_type"), alert.get("message"))
-            if key not in seen:
-                seen.add(key)
+            event_type = str(alert.get("event_type") or "unknown")
+            message_key = re.sub(
+                r"\s+",
+                " ",
+                str(alert.get("message") or "").casefold(),
+            ).strip()
+            # "New" alerts are repeated under "Current" in the same
+            # TrueNAS digest. They describe one active condition, not two.
+            key = (
+                "active" if event_type in {"new", "current"} else event_type,
+                message_key,
+            )
+            previous_index = seen.get(key)
+            if previous_index is None:
+                seen[key] = len(unique)
                 unique.append(alert)
+                continue
+            if (
+                event_type == "new"
+                and unique[previous_index].get("event_type") == "current"
+            ):
+                unique[previous_index] = alert
         return unique
 
     def _fallback_message(self, body: str, host: str) -> str:

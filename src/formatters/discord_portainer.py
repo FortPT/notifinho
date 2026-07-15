@@ -37,14 +37,21 @@ class PortainerDiscordFormatter(BaseFormatter):
                     metadata.get("authentication_method"),
                 ),
                 self._field("👤 Username", metadata.get("username")),
-                self._field("🕒 Started", notification.start_time),
-                self._field("✅ Resolved", notification.end_time),
+                self._field(
+                    "🕒 Started",
+                    self._format_datetime(notification.start_time),
+                ),
+                self._field(
+                    "✅ Resolved",
+                    self._format_datetime(notification.end_time),
+                ),
             ],
             "footer": {"text": f"FortPT Labs\nNotifinho v{VERSION}"},
         }
         embed["fields"] = [field for field in embed["fields"] if field["value"]][
             :25
         ]
+        self._set_discord_thumbnail(embed, "portainer")
         return {"embeds": [embed]}
 
     def _field(self, name: str, value, inline: bool = True) -> dict:
@@ -65,8 +72,3 @@ class PortainerDiscordFormatter(BaseFormatter):
         if normalized == "warning":
             return "⚠️", 0xF39C12, "Firing"
         return "ℹ️", 0x3498DB, state_text.title() or "Information"
-
-    @staticmethod
-    def _truncate(value, limit: int) -> str:
-        text = "" if value is None else str(value).strip()
-        return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."

@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import re
 
-from datetime import datetime
-
 from formatters.base import BaseFormatter
 from models import Notification
 from version import VERSION
@@ -171,6 +169,8 @@ class GrafanaDiscordFormatter(BaseFormatter):
             )
 
         embed["fields"] = embed["fields"][:25]
+
+        self._set_discord_thumbnail(embed, "grafana")
 
         self._enforce_embed_budget(
             embed,
@@ -462,32 +462,7 @@ class GrafanaDiscordFormatter(BaseFormatter):
         self,
         value: str,
     ) -> str:
-
-        value = str(
-            value
-            or ""
-        ).strip()
-
-        for fmt in (
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y/%m/%d %H:%M:%S",
-        ):
-
-            try:
-
-                return datetime.strptime(
-                    value,
-                    fmt,
-                ).strftime(
-                    "%d/%m/%y %H:%M",
-                )
-
-            except ValueError:
-
-                continue
-
-        return value
+        return super()._format_datetime(value)
 
     def _normalized(
         self,
@@ -584,9 +559,4 @@ class GrafanaDiscordFormatter(BaseFormatter):
         value: str,
         limit: int,
     ) -> str:
-
-        if len(value) <= limit:
-
-            return value
-
-        return value[: limit - 1].rstrip() + "…"
+        return super()._truncate(value, limit)

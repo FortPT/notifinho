@@ -8,7 +8,6 @@ Discord formatter for QNAP Notification Center events.
 
 from __future__ import annotations
 
-from datetime import datetime
 import re
 
 from formatters.base import BaseFormatter
@@ -223,6 +222,8 @@ class QNAPDiscordFormatter(BaseFormatter):
         self._enforce_embed_budget(
             embed,
         )
+
+        self._set_discord_thumbnail(embed, "qnap")
 
         return {
             "embeds": [
@@ -574,12 +575,7 @@ class QNAPDiscordFormatter(BaseFormatter):
         value: str,
         limit: int,
     ) -> str:
-
-        if len(value) <= limit:
-
-            return value
-
-        return value[: limit - 1].rstrip() + "…"
+        return super()._truncate(value, limit)
 
     def _enforce_embed_budget(
         self,
@@ -715,40 +711,7 @@ class QNAPDiscordFormatter(BaseFormatter):
         self,
         value: str,
     ) -> str:
-
-        value = str(
-            value or "",
-        ).strip()
-
-        if not value:
-
-            return "-"
-
-        formats = [
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y/%m/%d %H:%M:%S",
-            "%Y.%m.%d %H:%M:%S",
-        ]
-
-        for fmt in formats:
-
-            try:
-
-                parsed = datetime.strptime(
-                    value,
-                    fmt,
-                )
-
-                return parsed.strftime(
-                    "%d/%m/%y %H:%M",
-                )
-
-            except ValueError:
-
-                continue
-
-        return value
+        return super()._format_datetime(value)
 
 
 # Alternative capitalization for callers following normal PascalCase rules.

@@ -125,7 +125,7 @@ def format_protect_event_time(value) -> str:
                 parsed = parsed.astimezone(timezone.utc)
     except (TypeError, ValueError, OSError, OverflowError):
         return text
-    return parsed.strftime("%d/%m/%Y %H:%M:%S UTC")
+    return parsed.strftime("%d %b %Y • %H:%M UTC")
 
 
 def notification_status_icon(status, severity="") -> str:

@@ -39,6 +39,7 @@ class _UniFiDiscordFormatter(BaseFormatter):
         }
         if url:
             embed["url"] = url
+        self._set_discord_thumbnail(embed, self.source_name)
         return {"embeds": [embed]}
 
     def _field(self, name: str, value, inline: bool = True) -> dict:
@@ -59,14 +60,13 @@ class _UniFiDiscordFormatter(BaseFormatter):
     def _text(self, value) -> str:
         return "" if value is None else str(value).strip()
 
-    def _truncate(self, value, limit: int) -> str:
-        text = self._text(value)
-        return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
+    source_name = "unifi"
 
 
 class UniFiNetworkDiscordFormatter(_UniFiDiscordFormatter):
     label = "UniFi Network"
     application_icon = "📡"
+    source_name = "unifi_network"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -105,6 +105,7 @@ class UniFiNetworkDiscordFormatter(_UniFiDiscordFormatter):
 class UniFiProtectDiscordFormatter(_UniFiDiscordFormatter):
     label = "UniFi Protect"
     application_icon = "📹"
+    source_name = "unifi_protect"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -138,6 +139,7 @@ class UniFiProtectDiscordFormatter(_UniFiDiscordFormatter):
 class UniFiDriveDiscordFormatter(_UniFiDiscordFormatter):
     label = "UniFi Drive"
     application_icon = "💾"
+    source_name = "unifi_drive"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}

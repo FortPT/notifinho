@@ -8,7 +8,6 @@ Microsoft Teams Adaptive Card formatter.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from config import config
@@ -45,14 +44,7 @@ class TeamsFormatter(BaseFormatter):
         )
 
         body = [
-            {
-                "type": "TextBlock",
-                "text": f"{icon} {title}",
-                "weight": "Bolder",
-                "size": "Large",
-                "color": color,
-                "wrap": True,
-            },
+            self._teams_header(f"{icon} {title}", color, "xo"),
             {
                 "type": "TextBlock",
                 "text": f"{source_name} • **{status_text}**",
@@ -459,49 +451,4 @@ class TeamsFormatter(BaseFormatter):
         self,
         value: str,
     ) -> str:
-
-        if not value:
-
-            return "-"
-
-        value = str(value).strip()
-
-        value = self._remove_ordinal_suffixes(
-            value,
-        )
-
-        value = value.replace(
-            " am",
-            " AM",
-        ).replace(
-            " pm",
-            " PM",
-        )
-
-        formats = [
-            "%A, %B %d %Y, %I:%M:%S %p",
-            "%A, %B %d %Y, %I:%M %p",
-            "%B %d, %Y at %I:%M %p",
-            "%B %d, %Y %I:%M %p",
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-        ]
-
-        for fmt in formats:
-
-            try:
-
-                parsed = datetime.strptime(
-                    value,
-                    fmt,
-                )
-
-                return parsed.strftime(
-                    "%d/%m/%y %H:%M",
-                )
-
-            except ValueError:
-
-                continue
-
-        return value
+        return super()._format_datetime(value)

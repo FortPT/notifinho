@@ -17,6 +17,7 @@ from version import VERSION
 class _UniFiTeamsFormatter(BaseFormatter):
     label = "UniFi"
     application_icon = "ℹ️"
+    source_name = "unifi"
 
     def _payload(
         self,
@@ -37,14 +38,11 @@ class _UniFiTeamsFormatter(BaseFormatter):
             )
         )
         body = [
-            {
-                "type": "TextBlock",
-                "text": self._truncate(title, 512),
-                "weight": "Bolder",
-                "size": "Large",
-                "color": self._color(notification.status),
-                "wrap": True,
-            },
+            self._teams_header(
+                title,
+                self._color(notification.status),
+                self.source_name,
+            ),
             {
                 "type": "TextBlock",
                 "text": self._truncate(notification.body or notification.title, 4000),
@@ -103,14 +101,10 @@ class _UniFiTeamsFormatter(BaseFormatter):
     def _text(self, value) -> str:
         return "" if value is None else str(value).strip()
 
-    def _truncate(self, value, limit: int) -> str:
-        text = self._text(value)
-        return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
-
-
 class UniFiNetworkTeamsFormatter(_UniFiTeamsFormatter):
     label = "UniFi Network"
     application_icon = "📡"
+    source_name = "unifi_network"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -138,6 +132,7 @@ class UniFiNetworkTeamsFormatter(_UniFiTeamsFormatter):
 class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
     label = "UniFi Protect"
     application_icon = "📹"
+    source_name = "unifi_protect"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
@@ -171,6 +166,7 @@ class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
 class UniFiDriveTeamsFormatter(_UniFiTeamsFormatter):
     label = "UniFi Drive"
     application_icon = "💾"
+    source_name = "unifi_drive"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}

@@ -8,8 +8,10 @@ All notification formatters should inherit from this class.
 
 from abc import ABC, abstractmethod
 
+from formatters.presentation import PresentationMixin
 
-class BaseFormatter(ABC):
+
+class BaseFormatter(PresentationMixin, ABC):
     """Base class for all notification formatters."""
 
     @abstractmethod

@@ -1,0 +1,16 @@
+{
+  "schema": "notifinho.synology.v1",
+  "source": "synology-dsm",
+  "event_type": "backup",
+  "title": "Synthetic Hyper Backup failure",
+  "message": "Synthetic backup task stopped because the destination was unavailable.",
+  "severity": "error",
+  "status": "active",
+  "timestamp": "2026-07-15T12:45:00Z",
+  "metadata": {
+    "nas_name": "synthetic-dsm-01",
+    "model": "DS-SYNTHETIC",
+    "task": "Synthetic Nightly Backup",
+    "storage": "synthetic-backup-vault"
+  }
+}

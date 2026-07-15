@@ -23,7 +23,7 @@ smtp:
     # Set false only for a controlled migration.
     # required: false
 
-# Native UniFi, Portainer, and Proxmox webhook listener.
+# Native UniFi, Portainer, Proxmox, and Synology webhook listener.
 # Keep disabled unless the container port is intentionally published and
 # protected by firewall rules and, when available, the shared secret.
 http:
@@ -61,6 +61,10 @@ outputs:
     # Dedicated Proxmox VE destination.
     proxmox:
       webhook: "PASTE_PROXMOX_DISCORD_WEBHOOK_HERE"
+
+    # Dedicated Synology DSM destination.
+    synology:
+      webhook: "PASTE_SYNOLOGY_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -105,6 +109,10 @@ outputs:
     # Optional dedicated Proxmox VE destination.
     # proxmox:
     #   webhook: "PASTE_PROXMOX_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Synology DSM destination.
+    # synology:
+    #   webhook: "PASTE_SYNOLOGY_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -244,6 +252,15 @@ routing:
 
       # - output: teams
       #   target: proxmox
+
+  synology:
+    outputs:
+      # SMTP, JSON, and form-encoded webhook events share this source key.
+      - output: discord
+        target: synology
+
+      # - output: teams
+      #   target: synology
 
   generic:
     outputs:

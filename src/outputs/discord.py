@@ -16,6 +16,7 @@ from formatters.discord_grafana import GrafanaDiscordFormatter
 from formatters.discord_portainer import PortainerDiscordFormatter
 from formatters.discord_proxmox import ProxmoxDiscordFormatter
 from formatters.discord_qnap import QNAPDiscordFormatter
+from formatters.discord_synology import SynologyDiscordFormatter
 from formatters.discord_truenas import TrueNASDiscordFormatter
 from formatters.discord_unifi import (
     UniFiDriveDiscordFormatter,
@@ -38,6 +39,7 @@ class DiscordOutput:
             "portainer": PortainerDiscordFormatter(),
             "proxmox": ProxmoxDiscordFormatter(),
             "qnap": QNAPDiscordFormatter(),
+            "synology": SynologyDiscordFormatter(),
             "truenas": TrueNASDiscordFormatter(),
             "unifi_drive": UniFiDriveDiscordFormatter(),
             "unifi_network": UniFiNetworkDiscordFormatter(),

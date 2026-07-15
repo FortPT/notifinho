@@ -23,7 +23,7 @@ smtp:
     # Set false only for a controlled migration.
     # required: false
 
-# Native UniFi Network and Protect webhook listener.
+# Native UniFi, Portainer, and Proxmox webhook listener.
 # Keep disabled unless the container port is intentionally published and
 # protected by firewall rules and, when available, the shared secret.
 http:
@@ -53,6 +53,14 @@ outputs:
     # Shared UniFi Network, Protect, and Drive destination.
     unifi:
       webhook: "PASTE_UNIFI_DISCORD_WEBHOOK_HERE"
+
+    # Dedicated Portainer Alerting destination.
+    portainer:
+      webhook: "PASTE_PORTAINER_DISCORD_WEBHOOK_HERE"
+
+    # Dedicated Proxmox VE destination.
+    proxmox:
+      webhook: "PASTE_PROXMOX_DISCORD_WEBHOOK_HERE"
 
     # Optional secondary Discord destination.
     # Uncomment this block when forwarding selected hosts
@@ -89,6 +97,14 @@ outputs:
     #
     # unifi:
     #   webhook: "PASTE_UNIFI_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Portainer destination.
+    # portainer:
+    #   webhook: "PASTE_PORTAINER_TEAMS_WORKFLOW_WEBHOOK_HERE"
+
+    # Optional dedicated Proxmox VE destination.
+    # proxmox:
+    #   webhook: "PASTE_PROXMOX_TEAMS_WORKFLOW_WEBHOOK_HERE"
 
 routing:
   xo:
@@ -211,6 +227,23 @@ routing:
 
       # - output: teams
       #   target: unifi
+
+  portainer:
+    outputs:
+      - output: discord
+        target: portainer
+
+      # - output: teams
+      #   target: portainer
+
+  proxmox:
+    outputs:
+      # SMTP and native webhook events share this source key.
+      - output: discord
+        target: proxmox
+
+      # - output: teams
+      #   target: proxmox
 
   generic:
     outputs:

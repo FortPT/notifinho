@@ -1,0 +1,15 @@
+{
+  "schema": "notifinho.proxmox.v1",
+  "source": "proxmox-ve",
+  "type": "storage",
+  "title": "Synthetic storage warning",
+  "message": "Synthetic backup storage usage exceeded the configured threshold.",
+  "severity": "warning",
+  "status": "firing",
+  "timestamp": "2026-07-15T01:15:00Z",
+  "metadata": {
+    "node": "synthetic-pve-01",
+    "storage": "synthetic-backup-store",
+    "usage_percent": 85
+  }
+}

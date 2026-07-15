@@ -85,6 +85,8 @@ class TeamsOutput:
                 notification,
             )
 
+            payload = formatter._sanitize_payload(payload)
+
         except Exception:
 
             log.exception(

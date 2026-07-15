@@ -48,7 +48,9 @@ class SynologyDiscordFormatter(BaseFormatter):
             self._field("🌐 Source IP", metadata.get("source_ip")),
             self._field(
                 "🕒 Event time",
-                metadata.get("event_time") or notification.start_time,
+                self._format_datetime(
+                    metadata.get("event_time") or notification.start_time
+                ),
             ),
         ]
         embed = {
@@ -63,6 +65,7 @@ class SynologyDiscordFormatter(BaseFormatter):
             "fields": [field for field in fields if field["value"]][:25],
             "footer": {"text": f"FortPT Labs\nNotifinho v{VERSION}"},
         }
+        self._set_discord_thumbnail(embed, "synology")
         return {"embeds": [embed]}
 
     def _field(self, name: str, value, inline: bool = True) -> dict:
@@ -86,8 +89,3 @@ class SynologyDiscordFormatter(BaseFormatter):
     @staticmethod
     def _label(value) -> str:
         return str(value or "").replace("_", " ").strip().title()
-
-    @staticmethod
-    def _truncate(value, limit: int) -> str:
-        text = "" if value is None else str(value).strip()
-        return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."

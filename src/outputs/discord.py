@@ -85,6 +85,8 @@ class DiscordOutput:
                 notification,
             )
 
+            payload = formatter._sanitize_payload(payload)
+
         except Exception:
 
             log.exception(

@@ -70,13 +70,14 @@ def test_discord_payload_generation():
 
     serialized = json.dumps(
         payload,
+        ensure_ascii=False,
     )
 
     assert "Storage Pool 1 entered" in serialized
     assert "Storage Pool" in serialized
     assert "RAID Group" in serialized
     assert "Storage & Snapshots" in serialized
-    assert "12/07/26 08:30" in serialized
+    assert "12 Jul 2026 • 08:30" in serialized
 
     assert not any(
         "2026/07/12 08" in field["name"]

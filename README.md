@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.8.0-blue" alt="Stable release v1.8.0">
+  <img src="https://img.shields.io/badge/stable-v1.8.1-blue" alt="Stable release v1.8.1">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.8.0** |
+| **Current Stable Release** | **v1.8.1** |
 | **Next Planned Release** | **v1.9.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,9 +57,11 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.8.0 adds Portainer Alerting plus fixture-validated Proxmox VE and
-Synology DSM ingestion while preserving the native UniFi Network, Protect, and
-Drive endpoints. Notifinho consumes emitted SMTP or webhook notifications; it
+Notifinho v1.8.1 standardizes Discord and Microsoft Teams presentation across
+every source, adds self-hosted product badges, and hardens outbound credential
+redaction. It retains the v1.8.0 Portainer, Proxmox VE, and Synology DSM inputs
+and the native UniFi Network, Protect, and Drive endpoints. Notifinho consumes
+emitted SMTP or webhook notifications; it
 does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
 enabled with STARTTLS and SMTP AUTH; see the
@@ -353,11 +355,11 @@ This separation allows new infrastructure products and new messaging platforms t
 | QNAP QTS / QuTS hero | ✅ Validated |
 | Grafana Alerting | 🚧 v1.3.0 |
 | Generic SMTP | ↩️ Fallback |
-| TrueNAS 26 | 🚧 v1.4.0 |
+| TrueNAS 26 | ✅ v1.8.1 real SMTP validated |
 | UniFi Network / Protect / Drive | ✅ v1.7.0 |
-| Proxmox VE | 🧪 v1.8.0 fixture-validated; real validation pending |
-| Portainer | ✅ v1.8.0 validated |
-| Synology DSM | 🧪 v1.8.0 fixture-validated; real validation pending |
+| Proxmox VE | 🧪 v1.8.x fixture-validated; real validation pending |
+| Portainer | ✅ v1.8.x validated |
+| Synology DSM | ✅ v1.8.x webhook and SMTP validated |
 | Supermicro BMC / IPMI | 📅 v1.9.0 |
 | HPE iLO | 📅 v1.9.0 |
 | Dell iDRAC | 📅 v1.9.0 |
@@ -1417,9 +1419,24 @@ rollback, validation, and compatibility details.
 
 ---
 
+## ✅ v1.8.1 — Consistent Discord and Teams presentation
+
+Notifinho v1.8.1 is the current stable release. See the
+[v1.8.1 release notes](docs/releases/v1.8.1.md) for upgrade, rollback,
+validation, and compatibility details.
+
+- Canonical `DD Mon YYYY • HH:MM` timestamps across formatters
+- Source badges on Discord and Microsoft Teams cards
+- Preserved source/status field icons and existing routing behavior
+- TrueNAS wrapped-list extraction and active-alert deduplication
+- Final recursive credential redaction on every outbound card
+- Cross-source regression coverage for all formatter pairs
+
+---
+
 ## ✅ v1.8.0 — Virtualization, containers, and storage
 
-Notifinho v1.8.0 is the current stable release. See the
+Notifinho v1.8.0 introduced the v1.8 source integrations. See the
 [v1.8.0 release notes](docs/releases/v1.8.0.md) for upgrade, rollback,
 validation, and compatibility details. It expands the server-side notification
 engine while preserving the current YAML configuration and

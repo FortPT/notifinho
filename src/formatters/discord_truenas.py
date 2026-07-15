@@ -40,27 +40,27 @@ class TrueNASDiscordFormatter(BaseFormatter):
             "color": color,
             "fields": [
                 {
-                    "name": "Alert message",
+                    "name": "🚨 Alert message",
                     "value": self._truncate(message, 1024),
                     "inline": False,
                 },
                 {
-                    "name": "System",
+                    "name": "🗄️ System",
                     "value": self._truncate(host or "Unknown", 1024),
                     "inline": True,
                 },
                 {
-                    "name": "Category",
+                    "name": "🗂️ Category",
                     "value": self._truncate(notification.category or "generic", 1024),
                     "inline": True,
                 },
                 {
-                    "name": "Status",
+                    "name": "📌 Status",
                     "value": self._truncate(state_label, 1024),
                     "inline": True,
                 },
                 {
-                    "name": "Severity",
+                    "name": "⚠️ Severity",
                     "value": self._truncate(severity.title(), 1024),
                     "inline": True,
                 },
@@ -71,7 +71,7 @@ class TrueNASDiscordFormatter(BaseFormatter):
         if alert_count:
             embed["fields"].append(
                 {
-                    "name": "Alert count",
+                    "name": "🔢 Alert count",
                     "value": str(alert_count),
                     "inline": True,
                 }
@@ -84,7 +84,11 @@ class TrueNASDiscordFormatter(BaseFormatter):
         )
         if event_time:
             embed["fields"].append(
-                {"name": "Event time", "value": event_time, "inline": True}
+                {
+                    "name": "🕒 Event time",
+                    "value": self._format_datetime(event_time),
+                    "inline": True,
+                }
             )
 
         alerts = metadata.get("alerts") or notification.items or []
@@ -107,6 +111,7 @@ class TrueNASDiscordFormatter(BaseFormatter):
                 )
 
         embed["fields"] = embed["fields"][:25]
+        self._set_discord_thumbnail(embed, "truenas")
         self._enforce_budget(embed)
         return {"embeds": [embed]}
 
@@ -143,11 +148,3 @@ class TrueNASDiscordFormatter(BaseFormatter):
         if isinstance(value, (list, tuple, set)):
             return ", ".join(self._text(item) for item in value if self._text(item))
         return str(value).strip()
-
-    def _truncate(self, value: str, limit: int) -> str:
-        value = str(value or "")
-        if len(value) <= limit:
-            return value
-        if limit <= 3:
-            return value[:limit]
-        return value[: limit - 3].rstrip() + "..."

@@ -8,8 +8,6 @@ Discord formatter for Zabbix monitoring events.
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from config import config
 from formatters.base import BaseFormatter
 from models import Notification
@@ -200,6 +198,8 @@ class ZabbixDiscordFormatter(BaseFormatter):
                 }
             )
 
+        self._set_discord_thumbnail(embed, "zabbix")
+
         return {
             "embeds": [
                 embed,
@@ -210,36 +210,4 @@ class ZabbixDiscordFormatter(BaseFormatter):
         self,
         value: str,
     ) -> str:
-
-        if not value:
-
-            return "-"
-
-        value = str(
-            value,
-        ).strip()
-
-        formats = [
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y.%m.%d %H:%M:%S",
-        ]
-
-        for fmt in formats:
-
-            try:
-
-                parsed = datetime.strptime(
-                    value,
-                    fmt,
-                )
-
-                return parsed.strftime(
-                    "%d/%m/%y %H:%M",
-                )
-
-            except ValueError:
-
-                continue
-
-        return value
+        return super()._format_datetime(value)

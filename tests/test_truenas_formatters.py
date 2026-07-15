@@ -48,6 +48,35 @@ def test_discord_and_teams_payloads_contain_operational_details():
         assert expected in json.dumps(teams)
 
 
+def test_rendered_cards_redact_session_and_token_values():
+    notification = Notification(
+        source="truenas",
+        category="security",
+        status="failure",
+        title="API authentication failures",
+        body=(
+            "username=synthetic-user, session_id=synthetic-session, "
+            "token=synthetic-token"
+        ),
+        metadata={
+            "host": "SYNTHETIC-TRUENAS",
+            "severity": "critical",
+        },
+    )
+
+    rendered = json.dumps(
+        {
+            "discord": TrueNASDiscordFormatter().format(notification),
+            "teams": TrueNASTeamsFormatter().format(notification),
+        }
+    )
+
+    assert "synthetic-session" not in rendered
+    assert "synthetic-token" not in rendered
+    assert "session_id=<redacted>" in rendered
+    assert "token=<redacted>" in rendered
+
+
 @pytest.mark.parametrize(
     ("status", "discord_color", "teams_color"),
     [

@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.8.0**.
+The current stable release is **v1.8.1**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -104,10 +104,10 @@ UniFi Network, Protect, and Drive send JSON to `/unifi/network`,
 `X-Notifinho-Token`. Drive delivered-email parsing remains supported; Notifinho
 does not poll IMAP, Microsoft Graph, Gmail, or other mailbox providers.
 
-v1.8.0 also provides `/portainer/alerts`, `/proxmox/events`, and
+v1.8.x also provides `/portainer/alerts`, `/proxmox/events`, and
 `/synology/events`. Portainer Alerting has real firing/resolved validation.
-Proxmox VE and Synology DSM are fixture-validated and remain pending real-system
-compatibility validation.
+Synology DSM has real JSON webhook and SMTP/STARTTLS validation. Proxmox VE
+remains fixture-validated pending real-system compatibility testing.
 
 A shared Discord target can receive all three normalized UniFi sources:
 

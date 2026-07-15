@@ -21,7 +21,12 @@ class ProxmoxTeamsFormatter(BaseFormatter):
             self._fact("Guest", metadata.get("guest")),
             self._fact("Job", metadata.get("job_id")),
             self._fact("Storage", metadata.get("storage")),
-            self._fact("Event time", metadata.get("event_time") or notification.start_time),
+            self._fact(
+                "Event time",
+                self._format_datetime(
+                    metadata.get("event_time") or notification.start_time
+                ),
+            ),
             self._fact("Duration", notification.duration),
         ]
         if notification.vm_total:
@@ -47,14 +52,7 @@ class ProxmoxTeamsFormatter(BaseFormatter):
                 )
             )
         body = [
-            {
-                "type": "TextBlock",
-                "text": self._truncate(f"🟧 {icon} {title}", 512),
-                "weight": "Bolder",
-                "size": "Large",
-                "color": color,
-                "wrap": True,
-            },
+            self._teams_header(f"🟧 {icon} {title}", color, "proxmox"),
             {
                 "type": "TextBlock",
                 "text": f"Proxmox VE • **{state}**",
@@ -123,8 +121,3 @@ class ProxmoxTeamsFormatter(BaseFormatter):
     @staticmethod
     def _label(value) -> str:
         return str(value or "").replace("_", " ").strip().title()
-
-    @staticmethod
-    def _truncate(value, limit: int) -> str:
-        text = "" if value is None else str(value).strip()
-        return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."

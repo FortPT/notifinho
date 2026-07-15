@@ -22,18 +22,11 @@ class PortainerTeamsFormatter(BaseFormatter):
             self._fact("Source", metadata.get("alert_source")),
             self._fact("Authentication", metadata.get("authentication_method")),
             self._fact("Username", metadata.get("username")),
-            self._fact("Started", notification.start_time),
-            self._fact("Resolved", notification.end_time),
+            self._fact("Started", self._format_datetime(notification.start_time)),
+            self._fact("Resolved", self._format_datetime(notification.end_time)),
         ]
         body = [
-            {
-                "type": "TextBlock",
-                "text": self._truncate(f"🐳 {icon} {title}", 512),
-                "weight": "Bolder",
-                "size": "Large",
-                "color": color,
-                "wrap": True,
-            },
+            self._teams_header(f"🐳 {icon} {title}", color, "portainer"),
             {
                 "type": "TextBlock",
                 "text": f"Portainer • **{state_text}**",
@@ -106,8 +99,3 @@ class PortainerTeamsFormatter(BaseFormatter):
         if normalized == "warning":
             return "⚠️", "Warning", "Firing"
         return "ℹ️", "Accent", state_text.title() or "Information"
-
-    @staticmethod
-    def _truncate(value, limit: int) -> str:
-        text = "" if value is None else str(value).strip()
-        return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."

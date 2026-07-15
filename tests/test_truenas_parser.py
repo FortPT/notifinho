@@ -34,8 +34,8 @@ def test_html_pool_alert_and_current_alerts():
     notification = parse_fixture("pool_degraded.eml")
     assert notification.category == "storage"
     assert notification.status == "warning"
-    assert notification.metadata["alert_count"] == 2
-    assert notification.metadata["event_types"] == ["new", "current"]
+    assert notification.metadata["alert_count"] == 1
+    assert notification.metadata["event_types"] == ["new"]
     assert all(item["title"] == "Pool health alert" for item in notification.items)
 
 
@@ -58,13 +58,36 @@ def test_cleared_recovery_alert():
 
 def test_grouped_new_cleared_and_current_alerts():
     notification = parse_fixture("grouped_alerts.eml")
-    assert notification.metadata["alert_count"] == 5
+    assert notification.metadata["alert_count"] == 4
     assert notification.metadata["event_types"] == ["new", "cleared", "current"]
     assert notification.status == "failure"
     assert notification.category == "backup"
     assert set(notification.metadata["categories"]) >= {"storage", "backup", "power"}
     assert any(item["recovery"] for item in notification.items)
     assert {item["category"] for item in notification.items} >= {"storage", "backup", "power"}
+
+
+def test_wrapped_details_are_joined_and_new_current_entries_are_deduplicated():
+    message = EmailMessage()
+    message["From"] = "TrueNAS Alerts <alerts@example.invalid>"
+    message["Subject"] = "Alerts"
+    message.set_content(
+        """TrueNAS @ SYNTHETIC-TRUENAS
+New alert:
+* 1 API login failures in the last 24 hours:
+(username=synthetic-user,session_id=synthetic-session,address=192.0.2.10)
+Current alerts:
+* 1 API login failures in the last 24 hours:
+(username=synthetic-user,session_id=synthetic-session,address=192.0.2.10)
+"""
+    )
+
+    notification = Parser().parse(message)
+
+    assert notification.metadata["alert_count"] == 1
+    assert notification.metadata["event_types"] == ["new"]
+    assert "username=synthetic-user" in notification.items[0]["message"]
+    assert "session_id=synthetic-session" in notification.items[0]["message"]
 
 
 @pytest.mark.parametrize(

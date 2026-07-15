@@ -9,7 +9,6 @@ for Zabbix monitoring events.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from config import config
@@ -106,14 +105,11 @@ class ZabbixTeamsFormatter(BaseFormatter):
             time_icon = "🕒"
 
         body: list[dict[str, Any]] = [
-            {
-                "type": "TextBlock",
-                "text": f"{icon} {host}",
-                "weight": "Bolder",
-                "size": "Large",
-                "color": accent_color,
-                "wrap": True,
-            },
+            self._teams_header(
+                f"{icon} {host}",
+                accent_color,
+                "zabbix",
+            ),
             {
                 "type": "TextBlock",
                 "text": f"Zabbix • **{status_text}**",
@@ -346,36 +342,4 @@ class ZabbixTeamsFormatter(BaseFormatter):
         self,
         value: str,
     ) -> str:
-
-        if not value:
-
-            return "-"
-
-        value = str(
-            value,
-        ).strip()
-
-        formats = [
-            "%Y-%m-%d %H:%M:%S",
-            "%Y-%m-%dT%H:%M:%S",
-            "%Y.%m.%d %H:%M:%S",
-        ]
-
-        for fmt in formats:
-
-            try:
-
-                parsed = datetime.strptime(
-                    value,
-                    fmt,
-                )
-
-                return parsed.strftime(
-                    "%d/%m/%y %H:%M",
-                )
-
-            except ValueError:
-
-                continue
-
-        return value
+        return super()._format_datetime(value)

@@ -33,18 +33,13 @@ class SynologyTeamsFormatter(BaseFormatter):
             self._fact("Source IP", metadata.get("source_ip")),
             self._fact(
                 "Event time",
-                metadata.get("event_time") or notification.start_time,
+                self._format_datetime(
+                    metadata.get("event_time") or notification.start_time
+                ),
             ),
         ]
         body = [
-            {
-                "type": "TextBlock",
-                "text": self._truncate(f"🗄️ {icon} {title}", 512),
-                "weight": "Bolder",
-                "size": "Large",
-                "color": color,
-                "wrap": True,
-            },
+            self._teams_header(f"🗄️ {icon} {title}", color, "synology"),
             {
                 "type": "TextBlock",
                 "text": f"Synology DSM • **{state}**",
@@ -119,8 +114,3 @@ class SynologyTeamsFormatter(BaseFormatter):
     @staticmethod
     def _label(value) -> str:
         return str(value or "").replace("_", " ").strip().title()
-
-    @staticmethod
-    def _truncate(value, limit: int) -> str:
-        text = "" if value is None else str(value).strip()
-        return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."

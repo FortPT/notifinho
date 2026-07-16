@@ -147,11 +147,46 @@ def test_every_dedicated_teams_card_has_a_top_right_product_icon(source):
 
 def test_xo_cards_keep_the_xen_orchestra_branding():
     item = _notification("xo")
-    discord = DiscordOutput().default_formatter.format(item)["embeds"][0]
-    teams = _teams_content(TeamsOutput().default_formatter.format(item))
+    discord = DiscordOutput().source_formatters["xo"].format(item)["embeds"][0]
+    teams = _teams_content(TeamsOutput().source_formatters["xo"].format(item))
 
     assert "xologoname.png" in discord["thumbnail"]["url"]
     assert _contains_image(teams["body"][0])
+
+
+def test_generic_events_do_not_fall_back_to_xen_orchestra_cards():
+    item = _notification("home_lab")
+    item.job_name = ""
+    item.metadata.update({
+        "provider": "home_lab",
+        "environment": "synthetic",
+        "action_link": "https://example.invalid/events/validation",
+    })
+
+    discord = DiscordOutput().default_formatter.format(item)["embeds"][0]
+    teams = _teams_content(TeamsOutput().default_formatter.format(item))
+    rendered = json.dumps(
+        {"discord": discord, "teams": teams},
+        ensure_ascii=False,
+    )
+
+    assert "Synthetic presentation warning" in rendered
+    assert "Synthetic presentation event." in rendered
+    assert "home_lab" in rendered
+    assert "15 Jul 2026 • 01:15 UTC" in rendered
+    assert "Xen Orchestra" not in rendered
+    assert "Backup Successful" not in rendered
+    assert "xologoname.png" not in rendered
+
+
+def test_xo_and_generic_formatters_are_selected_explicitly():
+    discord = DiscordOutput()
+    teams = TeamsOutput()
+
+    assert discord.source_formatters["xo"].__class__.__name__ == "DiscordFormatter"
+    assert teams.source_formatters["xo"].__class__.__name__ == "TeamsFormatter"
+    assert discord.default_formatter.__class__.__name__ == "GenericDiscordFormatter"
+    assert teams.default_formatter.__class__.__name__ == "GenericTeamsFormatter"
 
 
 @pytest.mark.parametrize(

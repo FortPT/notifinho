@@ -209,6 +209,57 @@ def test_generic_event_api_enforces_source_scope_and_returns_delivery_state():
     assert status == 401
 
 
+def test_generic_event_preview_and_test_send_use_bounded_event_payload():
+    secret = "synthetic-admin-secret"
+    config = Configuration(
+        token_config(
+            hash_token(secret),
+            sources=("*",),
+            role="admin",
+        )
+    )
+    router = Router()
+    service = APIService(Dispatcher(), router, config)
+    headers = {"Authorization": f"Bearer {secret}"}
+    event = {
+        "schema": "notifinho.event.v1",
+        "source": "home_lab",
+        "title": "Synthetic generic preview",
+        "message": "Generic API preview presentation.",
+        "severity": "information",
+        "status": "active",
+        "timestamp": "2026-07-16T16:46:00Z",
+    }
+
+    status, response = service.handle(
+        "POST",
+        "/api/preview",
+        {"event": event, "output": "discord"},
+        headers,
+        "127.0.0.1",
+    )
+    rendered = json.dumps(response["preview"])
+
+    assert status == 200
+    assert "Synthetic generic preview" in rendered
+    assert "Generic API preview presentation." in rendered
+    assert "Xen Orchestra" not in rendered
+    assert "Backup Successful" not in rendered
+    assert "xologoname.png" not in rendered
+
+    status, response = service.handle(
+        "POST",
+        "/api/test-send",
+        {"event": event},
+        headers,
+        "127.0.0.2",
+    )
+
+    assert status == 200
+    assert response == {"delivered": True}
+    assert router.items[-1].source == "home_lab"
+
+
 def test_health_is_public_only_when_api_is_enabled():
     enabled = APIService(Dispatcher(), Router(), Configuration({"api": {"enabled": True}}))
     disabled = APIService(Dispatcher(), Router(), Configuration({"api": {"enabled": False}}))

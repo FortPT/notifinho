@@ -1305,7 +1305,7 @@ This architecture allows Notifinho to grow without increasing complexity.
 The roadmap reflects the planned evolution of Notifinho Community.
 
 Detailed progress is tracked in the
-[Notifinho Roadmap](https://github.com/orgs/FortPT/projects).
+[Notifinho Roadmap](https://github.com/users/FortPT/projects/1).
 
 ## ✅ v1.0.0
 
@@ -1462,21 +1462,6 @@ rollback, validation, and compatibility details.
 
 ---
 
-## ✅ v1.8.1 — Consistent Discord and Teams presentation
-
-Notifinho v1.8.1 is the presentation and safety patch that preceded v1.9.0. See the
-[v1.8.1 release notes](docs/releases/v1.8.1.md) for upgrade, rollback,
-validation, and compatibility details.
-
-- Canonical `DD Mon YYYY • HH:MM` timestamps across formatters
-- Source badges on Discord and Microsoft Teams cards
-- Preserved source/status field icons and existing routing behavior
-- TrueNAS wrapped-list extraction and active-alert deduplication
-- Final recursive credential redaction on every outbound card
-- Cross-source regression coverage for all formatter pairs
-
----
-
 ## ✅ v1.8.0 — Virtualization, containers, and storage
 
 Notifinho v1.8.0 introduced the v1.8 source integrations. See the
@@ -1491,8 +1476,8 @@ Discord/Microsoft Teams delivery model.
   deployed Portainer edition, with an explicit compatibility matrix
 - Synology DSM email and webhook ingestion
 - Source-specific Discord embeds and Microsoft Teams Adaptive Cards
-- Real-sample validation, safe fixtures, replay tooling, routing examples, and
-  integration documentation
+- Safe fixtures, replay tooling, routing examples, integration documentation,
+  and real-system validation where representative systems were available
 - Grafana compatibility hardening when anonymized real samples are available
 
 Portainer support will consume notifications that Portainer emits; it will not
@@ -1506,6 +1491,21 @@ are documented in the [Proxmox integration guide](docs/proxmox.md).
 The fixture-validated Synology DSM candidate and its deferred real-system
 checklist are documented in the
 [Synology integration guide](docs/synology.md).
+
+---
+
+## ✅ v1.8.1 — Consistent Discord and Teams presentation
+
+Notifinho v1.8.1 is the presentation and safety patch that preceded v1.9.0.
+See the [v1.8.1 release notes](docs/releases/v1.8.1.md) for upgrade, rollback,
+validation, and compatibility details.
+
+- Canonical `DD Mon YYYY • HH:MM` timestamps across formatters
+- Source badges on Discord and Microsoft Teams cards
+- Preserved source/status field icons and existing routing behavior
+- TrueNAS wrapped-list extraction and active-alert deduplication
+- Final recursive credential redaction on every outbound card
+- Cross-source regression coverage for all formatter pairs
 
 ---
 
@@ -1525,8 +1525,8 @@ user-facing v2.0 release. See the
 - Formal configuration schema and validation API
 - Atomic configuration updates, backups, health, logs, preview, and test-send
   API foundations
-- Local authentication, secure secret storage, masking, rate limits, and audit
-  foundations
+- API-token authentication, password-hashing helpers, secret masking, rate
+  limits, private audit logs, and secure configuration-storage foundations
 - Backwards-compatible migration checks for existing YAML configuration
 
 The three server-management products share a Redfish foundation but retain

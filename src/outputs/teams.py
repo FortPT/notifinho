@@ -12,6 +12,7 @@ import requests
 
 from config import config
 from formatters.teams import TeamsFormatter
+from formatters.teams_generic import GenericTeamsFormatter
 from formatters.teams_grafana import GrafanaTeamsFormatter
 from formatters.teams_hardware import (
     DellIDRACTeamsFormatter,
@@ -39,9 +40,10 @@ class TeamsOutput:
 
     def __init__(self):
 
-        self.default_formatter = TeamsFormatter()
+        self.default_formatter = GenericTeamsFormatter()
 
         self.source_formatters = {
+            "xo": TeamsFormatter(),
             "grafana": GrafanaTeamsFormatter(),
             "portainer": PortainerTeamsFormatter(),
             "proxmox": ProxmoxTeamsFormatter(),

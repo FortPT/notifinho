@@ -12,6 +12,7 @@ import requests
 
 from config import config
 from formatters.discord import DiscordFormatter
+from formatters.discord_generic import GenericDiscordFormatter
 from formatters.discord_grafana import GrafanaDiscordFormatter
 from formatters.discord_hardware import (
     DellIDRACDiscordFormatter,
@@ -39,9 +40,10 @@ class DiscordOutput:
 
     def __init__(self):
 
-        self.default_formatter = DiscordFormatter()
+        self.default_formatter = GenericDiscordFormatter()
 
         self.source_formatters = {
+            "xo": DiscordFormatter(),
             "grafana": GrafanaDiscordFormatter(),
             "portainer": PortainerDiscordFormatter(),
             "proxmox": ProxmoxDiscordFormatter(),

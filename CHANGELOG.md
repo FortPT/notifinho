@@ -50,9 +50,15 @@ No changes yet.
 ### Validation
 
 - Passed 499 automated parser, HTTP, authentication, config-safety, formatter,
-  routing, and backwards-compatibility tests before RC packaging.
-- Requires isolated v1.9.0 container, SMTP fixture replay, authenticated HTTP
-  matrix, config API, Discord/Teams preview, and rollback checks before tagging.
+  routing, and backwards-compatibility tests.
+- Started an isolated v1.9.0 release-candidate container and verified its SMTP
+  and HTTP listeners without replacing development or production containers.
+- Verified missing-token rejection, authenticated Redfish vendor and Home
+  Assistant inputs, generic event submission, configuration masking and
+  round-trip validation, private backups, and audit-file permissions.
+- Accepted the hardware, Proxmox, and Synology SMTP fixture matrix and
+  delivered the new Redfish, hardware-vendor, and Home Assistant cards to the
+  development Discord destination before tagging.
 
 ---
 

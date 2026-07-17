@@ -21,10 +21,20 @@ from parsers.home_assistant import Parser
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "home_assistant" / "automation_warning.json"
+SYSTEM_LOG_FIXTURE = (
+    Path(__file__).parent
+    / "fixtures"
+    / "home_assistant"
+    / "system_log_chromecast.json"
+)
 
 
 def fixture() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def system_log_fixture() -> dict:
+    return json.loads(SYSTEM_LOG_FIXTURE.read_text(encoding="utf-8"))
 
 
 class Router:
@@ -57,6 +67,64 @@ def test_home_assistant_contract_normalizes_automation_event():
     assert item.metadata["entity_id"] == "sensor.utility_room_humidity"
     assert item.metadata["area"] == "Utility room"
     assert item.metadata["action_link"].startswith("https://")
+
+
+def test_home_assistant_system_log_is_normalized_for_readable_cards():
+    item = Parser().parse(system_log_fixture())
+
+    assert item.title == "TV-01 error"
+    assert item.body == "Failed to connect to service"
+    assert item.metadata["service"] == "Chromecast"
+    assert item.metadata["device"] == "TV-01"
+    assert item.metadata["endpoint"] == "192.168.0.128:8009"
+    assert item.metadata["retry_seconds"] == "5.0"
+    assert "/usr/local/lib" not in item.body
+    assert "MDNSServiceInfo" not in item.body
+    assert "BRAVIA-4K" not in item.body
+
+
+def test_home_assistant_generic_errors_use_service_and_concise_event_details():
+    payload = {
+        "schema": "notifinho.home_assistant.v1",
+        "title": "Home Assistant error",
+        "message": (
+            "State '{bios_hardware: {status: OK}, fans: {status: Not Installed}}' "
+            "for sensor.hp_ilo_echo_server_health is longer than 255, "
+            "falling back to unknown"
+        ),
+        "severity": "error",
+        "category": "system_error",
+        "event_type": "system_log",
+        "component": "homeassistant.core",
+        "device": "Home Assistant",
+        "tags": ["error"],
+    }
+
+    item = Parser().parse(payload)
+
+    assert item.metadata["service"] == "Core"
+    assert item.metadata["device"] == "sensor.hp_ilo_echo_server_health"
+    assert item.metadata["entity_id"] == "sensor.hp_ilo_echo_server_health"
+    assert "255-character limit" in item.body
+    assert "bios_hardware" not in item.body
+
+
+def test_home_assistant_unknown_error_message_is_bounded_for_cards():
+    payload = system_log_fixture()
+    payload.update(
+        title="Home Assistant error · noisy.component",
+        component="homeassistant.components.noisy.worker",
+        message="A useful first sentence. " + ("verbose internal details " * 100),
+        device="Home Assistant",
+    )
+
+    item = Parser().parse(payload)
+
+    assert item.title == "Noisy error"
+    assert item.metadata["service"] == "Noisy"
+    assert item.metadata["device"] == "Noisy"
+    assert item.body == "A useful first sentence…"
+    assert len(item.body) <= 321
 
 
 @pytest.mark.parametrize(
@@ -105,3 +173,20 @@ def test_home_assistant_formatters_are_registered_and_safe():
     assert "Utility room" in rendered
     assert "sensor.utility_room_humidity" in rendered
     assert "Home Assistant" in rendered
+
+
+def test_home_assistant_formatters_present_service_device_and_retry_separately():
+    item = Parser().parse(system_log_fixture())
+    discord = HomeAssistantDiscordFormatter().format(item)
+    teams = HomeAssistantTeamsFormatter().format(item)
+    rendered = json.dumps({"discord": discord, "teams": teams})
+
+    assert "Chromecast" in rendered
+    assert "TV-01" in rendered
+    assert "192.168.0.128:8009" in rendered
+    assert "Retrying in 5.0 seconds" in rendered
+    assert "System Error" in rendered
+    assert "System_Error" not in rendered
+    assert "/usr/local/lib" not in rendered
+    assert "MDNSServiceInfo" not in rendered
+    assert "BRAVIA-4K" not in rendered

@@ -11,13 +11,23 @@ class HomeAssistantTeamsFormatter(HardwareTeamsFormatter):
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
         icon, color, state = self._status_meta(notification.status)
+        category = str(notification.category or "automation").replace("_", " ").replace("-", " ").title()
+        entity = metadata.get("entity_id")
+        device = metadata.get("device")
+        if entity == device:
+            entity = ""
+        retry = metadata.get("retry_seconds")
+        retry_text = f"Retrying in {retry} seconds" if retry else ""
         facts = [
             self._fact("State", state),
             self._fact("Severity", str(metadata.get("severity", "")).title()),
-            self._fact("Category", str(notification.category or "").title()),
-            self._fact("Entity", metadata.get("entity_id")),
-            self._fact("Device", metadata.get("device")),
+            self._fact("Category", category),
+            self._fact("Service", metadata.get("service")),
+            self._fact("Device", device),
+            self._fact("Entity", entity),
+            self._fact("Endpoint", metadata.get("endpoint")),
             self._fact("Area", metadata.get("area")),
+            self._fact("Retry", retry_text),
             self._fact("Tags", ", ".join(metadata.get("tags") or [])),
             self._fact("Event time", self._format_datetime(notification.start_time)),
         ]
@@ -29,7 +39,7 @@ class HomeAssistantTeamsFormatter(HardwareTeamsFormatter):
             ),
             {
                 "type": "TextBlock",
-                "text": f"Home Assistant • **{state}** • {str(notification.category or 'automation').title()}",
+                "text": f"Home Assistant • **{state}** • {category}",
                 "isSubtle": True,
                 "spacing": "Small",
                 "wrap": True,

@@ -1,0 +1,15 @@
+{
+  "schema": "notifinho.home_assistant.v1",
+  "title": "Home Assistant error",
+  "message": [
+    "Source: /usr/local/lib/python3.14/site-packages/pychromecast/socket_client.py:415 --> [TV-01(192.168.0.128):8009] Failed to connect to service MDNSServiceInfo(name='BRAVIA-4K-GB-54b43f5f5e9026ee32f5cc9f219ceb69._googlecast._tcp.local.'), retrying in 5.0s"
+  ],
+  "severity": "error",
+  "status": "active",
+  "category": "system_error",
+  "event_type": "system_log",
+  "component": "pychromecast.socket_client",
+  "device": "Home Assistant",
+  "timestamp": "2026-07-17T22:44:00Z",
+  "tags": ["home-assistant", "error"]
+}

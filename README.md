@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.1-blue" alt="Stable release v1.9.1">
+  <img src="https://img.shields.io/badge/stable-v1.9.2-blue" alt="Stable release v1.9.2">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.1** |
+| **Current Stable Release** | **v1.9.2** |
 | **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,9 +57,9 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.1 is a backwards-compatible presentation patch for the v1.9
-event platform. It adds dedicated generic API event cards and concise,
-service-aware Home Assistant presentation while retaining the Redfish,
+Notifinho v1.9.2 is a backwards-compatible Home Assistant presentation patch
+for the v1.9 event platform. It adds optional device aliases, structured error
+codes, and concise Tapo/Kasa and IPP presentation while retaining the Redfish,
 Supermicro BMC, HPE iLO, Dell iDRAC, Portainer, Proxmox VE, Synology DSM, and
 native UniFi Network, Protect, and Drive integrations. Notifinho consumes
 emitted SMTP or webhook notifications; it
@@ -1555,6 +1555,24 @@ v1.9 configuration schema or endpoint contracts. See the
 - Existing explicit Home Assistant automation fields remain authoritative
 - Generic Home Assistant transport examples keep reusable presentation inside
   Notifinho and deployment-specific exclusions in Home Assistant
+
+---
+
+## ✅ v1.9.2 — Home Assistant device aliases and integration errors
+
+Notifinho v1.9.2 improves generic Home Assistant integration errors without
+changing the existing event contract. See the
+[v1.9.2 release notes](docs/releases/v1.9.2.md).
+
+- Optional endpoint and component aliases keep site-local equipment names in
+  Notifinho configuration instead of Home Assistant automations
+- Bare IPv4 addresses are extracted into the dedicated Endpoint field
+- Tapo/Kasa and Internet Printing Protocol events receive concise summaries
+  and canonical service labels
+- Structured error codes appear separately in Discord and Microsoft Teams
+- Service names are no longer repeated as devices when no real device is known
+- Existing Home Assistant payloads and explicit automation fields remain
+  compatible
 
 ---
 

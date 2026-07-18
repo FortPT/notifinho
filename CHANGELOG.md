@@ -6,6 +6,46 @@ No changes yet.
 
 ---
 
+## 1.9.2 - 2026-07-18
+
+### Added
+
+- Added optional Home Assistant endpoint and component aliases so site-local
+  equipment names and addresses can remain in Notifinho configuration instead
+  of being duplicated across automations.
+- Added structured Home Assistant error-code fields to Discord and Microsoft
+  Teams cards.
+
+### Fixed
+
+- Extracted bare IPv4 addresses from Home Assistant system-log messages into
+  the dedicated Endpoint field.
+- Added concise Tapo/Kasa and Internet Printing Protocol event summaries and
+  service labels while hiding repeated internal method details.
+- Stopped presenting a service or integration name as a Device when no real
+  device or configured alias is known.
+
+### Compatibility
+
+- Existing configurations remain valid. The new `home_assistant.aliases`
+  section is optional and no migration is required.
+- Existing `notifinho.home_assistant.v1` payloads, endpoints, tokens, routes,
+  SMTP behavior, and explicit automation fields remain compatible.
+- Rollback to v1.9.1 requires only restoring the previous image tag; the
+  optional alias section is ignored by that version.
+
+### Validation
+
+- Passed 511 automated parser, API, formatter, routing, security, and
+  backwards-compatibility tests.
+- Passed 58 focused Home Assistant, API HTTP, and presentation-contract tests.
+- Validated live Tapo/Kasa and IPP development cards with concise Event text
+  and separate Service, Device, Endpoint, and Error fields.
+- Confirmed successful Discord delivery, equivalent Microsoft Teams regression
+  coverage, and clean development-container startup.
+
+---
+
 ## 1.9.1 - 2026-07-18
 
 ### Fixed

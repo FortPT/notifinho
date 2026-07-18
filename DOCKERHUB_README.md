@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.9.1**.
+The current stable release is **v1.9.2**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -125,6 +125,11 @@ these endpoints.
 v1.9.1 adds dedicated generic API event presentation and concise,
 service-aware Home Assistant cards. It preserves all v1.9.0 configuration,
 token, routing, and endpoint contracts.
+
+v1.9.2 adds optional Home Assistant endpoint/component aliases, bare IPv4
+endpoint extraction, structured integration error codes, and concise Tapo/Kasa
+and IPP cards. Existing configurations and Home Assistant payloads remain
+compatible; aliases are optional.
 
 A shared Discord target can receive all three normalized UniFi sources:
 

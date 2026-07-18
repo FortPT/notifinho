@@ -1,0 +1,15 @@
+{
+  "schema": "notifinho.home_assistant.v1",
+  "title": "Home Assistant error",
+  "message": [
+    "Error querying 192.168.103.35 for modules 'TriggerLogs' on first update: Error querying device: 192.168.103.35: UNSPECIFIC_ERROR(-1001) for method: control_child (error_code=UNSPECIFIC_ERROR)"
+  ],
+  "severity": "error",
+  "status": "active",
+  "category": "system_error",
+  "event_type": "system_log",
+  "component": "kasa.smart.smartdevice",
+  "device": "Home Assistant",
+  "timestamp": "2026-07-18T13:33:09Z",
+  "tags": ["home-assistant", "error"]
+}

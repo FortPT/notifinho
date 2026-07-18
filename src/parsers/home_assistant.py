@@ -6,6 +6,7 @@ import re
 
 from urllib.parse import urlsplit
 
+from config import config
 from models import Notification
 
 
@@ -15,7 +16,19 @@ class Parser:
     _ENDPOINT_PREFIX = re.compile(
         r"^\[(?P<device>[^\](]+)\((?P<host>[^)]+)\):(?P<port>\d+)\]\s*"
     )
+    _IP_ENDPOINT = re.compile(
+        r"(?<![\d.])(?P<host>(?:\d{1,3}\.){3}\d{1,3})"
+        r"(?::(?P<port>\d{1,5}))?(?![\d.])"
+    )
     _RETRY = re.compile(r"\bretrying\s+in\s+(?P<delay>\d+(?:\.\d+)?)\s*s\b", re.I)
+    _ERROR_CODE = re.compile(
+        r"\b(?P<name>[A-Z][A-Z0-9_]+)\((?P<number>-?\d+)\)"
+    )
+    _NAMED_ERROR = re.compile(
+        r"\berror_code\s*=\s*(?P<name>[A-Z][A-Z0-9_]+)\b",
+        re.I,
+    )
+    _ERRNO = re.compile(r"\[Errno\s+(?P<number>\d+)\]", re.I)
     _LONG_STATE = re.compile(
         r"State\s+.+?\s+for\s+(?P<entity>[a-z0-9_]+\.[a-z0-9_]+)\s+"
         r"is\s+longer\s+than\s+255,\s+falling\s+back\s+to\s+unknown",
@@ -28,6 +41,8 @@ class Parser:
     )
     _SERVICE_LABELS = {
         "cast": "Chromecast",
+        "ipp": "Internet Printing Protocol",
+        "kasa": "Tapo",
         "pychromecast": "Chromecast",
         "mqtt": "MQTT",
         "repairs": "Repairs",
@@ -42,6 +57,9 @@ class Parser:
         "", "active", "firing", "pending", "resolved", "clear", "cleared",
         "ok", "success",
     }
+
+    def __init__(self, aliases=None):
+        self._aliases_override = aliases
 
     @classmethod
     def is_envelope(cls, payload) -> bool:
@@ -91,16 +109,29 @@ class Parser:
             payload.get("component") or payload.get("service"),
             256,
         )
-        service = self._service_label(component, payload.get("category"))
-        normalized = self._normalize_message(raw_message)
+        normalized = self._normalize_message(raw_message, component)
+        aliases = self._aliases()
+        profile = self._alias_profile(
+            aliases,
+            component,
+            normalized["endpoint"],
+        )
+        endpoint = normalized["endpoint"] or profile["endpoint"]
+        profile = self._alias_profile(aliases, component, endpoint)
+        explicit_service = self._clean(payload.get("service"), 128)
+        service = (
+            explicit_service
+            or profile["service"]
+            or self._service_label(component, payload.get("category"))
+        )
+        endpoint = normalized["endpoint"] or profile["endpoint"]
         explicit_entity = self._clean(payload.get("entity_id"), 128)
         entity = explicit_entity or normalized["entity"]
         explicit_device = self._clean(payload.get("device"), 256)
         device = self._device_name(
             explicit_device,
             normalized["device"],
-            entity,
-            service,
+            profile["device"],
         )
         severity = self._clean(payload.get("severity") or "information", 32).casefold()
         status = self._status(payload.get("status"), severity)
@@ -109,6 +140,7 @@ class Parser:
             self._clean(payload.get("title"), 256),
             service,
             device,
+            entity,
             severity,
         )
         item = Notification(
@@ -128,7 +160,8 @@ class Parser:
             "event_type": self._clean(payload.get("event_type") or "automation", 64),
             "entity_id": entity,
             "device": device,
-            "endpoint": normalized["endpoint"],
+            "endpoint": endpoint,
+            "error_code": normalized["error_code"],
             "retry_seconds": normalized["retry_seconds"],
             "area": self._clean(payload.get("area"), 256),
             "tags": [self._clean(tag, 64) for tag in payload.get("tags", [])],
@@ -140,7 +173,7 @@ class Parser:
         return item
 
     @classmethod
-    def _normalize_message(cls, value: str) -> dict[str, str]:
+    def _normalize_message(cls, value: str, component: str = "") -> dict[str, str]:
         text = cls._clean(value, 4000)
         text = re.sub(r"^Source:\s*.*?\s+-->\s*", "", text, flags=re.I)
         endpoint_match = cls._ENDPOINT_PREFIX.match(text)
@@ -154,12 +187,16 @@ class Parser:
             )
             text = text[endpoint_match.end():].strip()
 
+        if not endpoint:
+            endpoint = cls._extract_endpoint(text)
+
         retry_match = cls._RETRY.search(text)
         retry_seconds = retry_match.group("delay") if retry_match else ""
         entity = ""
 
         long_state = cls._LONG_STATE.search(text)
         invalid_state = cls._INVALID_STATE.search(text)
+        error_code = cls._extract_error_code(text)
         if long_state:
             entity = long_state.group("entity")
             summary = (
@@ -169,6 +206,27 @@ class Parser:
         elif invalid_state:
             entity = invalid_state.group("entity")
             summary = f"Home Assistant received an invalid state value for {entity}."
+        elif cls._is_component(component, "ipp") and re.search(
+            r"communicat(?:e|ing).+IPP\s+server",
+            text,
+            flags=re.I,
+        ):
+            summary = "Failed to communicate with the IPP server."
+        elif cls._is_component(component, "kasa", "tplink"):
+            module = cls._module_name(text)
+            if re.search(r"error\s+processing", text, flags=re.I):
+                summary = f"Failed to process the {module} module."
+            else:
+                summary = f"Failed to query the {module} module."
+        elif re.search(r"error\s+reading\s+from\s+socket", text, flags=re.I):
+            socket_error = re.sub(
+                r"^.*?error\s+reading\s+from\s+socket\s*:\s*",
+                "",
+                text,
+                flags=re.I,
+            )
+            socket_error = cls._ERRNO.sub("", socket_error).strip(" :,-")
+            summary = cls._concise(socket_error or "Socket connection failed.", 320)
         else:
             summary = text
             service_info = re.search(r"\s+[A-Za-z0-9_]*ServiceInfo\s*\(", summary)
@@ -184,7 +242,94 @@ class Parser:
             "endpoint": endpoint,
             "entity": entity,
             "retry_seconds": retry_seconds,
+            "error_code": error_code,
         }
+
+    def _aliases(self) -> dict:
+        aliases = self._aliases_override
+        if aliases is None:
+            aliases = config.get("home_assistant", "aliases", default={})
+        return aliases if isinstance(aliases, dict) else {}
+
+    @classmethod
+    def _alias_profile(cls, aliases, component: str, endpoint: str) -> dict[str, str]:
+        profile = {"device": "", "endpoint": "", "service": ""}
+        component_key = cls._clean(component, 256).casefold()
+        endpoint_key = cls._clean(endpoint, 256).casefold()
+        host_key = endpoint_key.rsplit(":", 1)[0] if endpoint_key else ""
+
+        lookups = (
+            (aliases.get("components"), component_key),
+            (aliases.get("endpoints"), endpoint_key),
+            (aliases.get("endpoints"), host_key),
+        )
+        for values, key in lookups:
+            if not isinstance(values, dict) or not key:
+                continue
+            entry = next(
+                (
+                    value
+                    for name, value in values.items()
+                    if str(name).strip().casefold() == key
+                ),
+                None,
+            )
+            if not isinstance(entry, dict):
+                continue
+            for field, limit in (("device", 256), ("endpoint", 256), ("service", 128)):
+                value = cls._clean(entry.get(field), limit)
+                if value:
+                    profile[field] = value
+        return profile
+
+    @classmethod
+    def _extract_endpoint(cls, value: str) -> str:
+        for match in cls._IP_ENDPOINT.finditer(value):
+            host = match.group("host")
+            if any(int(part) > 255 for part in host.split(".")):
+                continue
+            port = match.group("port") or ""
+            if port and not 0 < int(port) <= 65535:
+                continue
+            return f"{host}:{port}" if port else host
+        return ""
+
+    @classmethod
+    def _extract_error_code(cls, value: str) -> str:
+        match = cls._ERROR_CODE.search(value)
+        if match:
+            return f"{match.group('name')} ({match.group('number')})"
+        match = cls._NAMED_ERROR.search(value)
+        if match:
+            return match.group("name").upper()
+        match = cls._ERRNO.search(value)
+        if match:
+            return f"Errno {match.group('number')}"
+        return ""
+
+    @classmethod
+    def _module_name(cls, value: str) -> str:
+        patterns = (
+            r"modules?\s+['\"](?P<name>[A-Za-z0-9_ -]+)['\"]",
+            r"module\s+query\s+['\"](?P<name>[A-Za-z0-9_ -]+)['\"]",
+            r"error\s+processing\s+(?P<name>[A-Za-z0-9_ -]+?)\s+for\s+device",
+        )
+        for pattern in patterns:
+            match = re.search(pattern, value, flags=re.I)
+            if match:
+                name = cls._clean(match.group("name"), 128)
+                if name.casefold().startswith("get_"):
+                    name = name[4:]
+                if "_" in name:
+                    name = "".join(part.title() for part in name.split("_") if part)
+                return name or "device"
+        return "device"
+
+    @staticmethod
+    def _is_component(component: str, *names: str) -> bool:
+        value = str(component or "").casefold()
+        parts = set(re.split(r"[.\s_-]+", value))
+        return any(name.casefold() in parts for name in names)
 
     @classmethod
     def _service_label(cls, component, category) -> str:
@@ -202,13 +347,13 @@ class Parser:
         return cls._SERVICE_LABELS.get(fallback, fallback.replace("_", " ").title())
 
     @staticmethod
-    def _device_name(explicit: str, detected: str, entity: str, service: str) -> str:
+    def _device_name(explicit: str, detected: str, alias: str) -> str:
         if explicit and explicit.casefold() != "home assistant":
             return explicit
-        return detected or entity or service
+        return detected or alias
 
     @staticmethod
-    def _title(title: str, service: str, device: str, severity: str) -> str:
+    def _title(title: str, service: str, device: str, entity: str, severity: str) -> str:
         normalized = title.casefold()
         generic = any(
             normalized.startswith(prefix)
@@ -220,7 +365,7 @@ class Parser:
         )
         if not generic:
             return title
-        subject = device if device and device != service else service
+        subject = device or entity or service
         kind = "error" if severity in {"error", "critical", "fatal", "emergency"} else "event"
         return f"{subject} {kind}"[:256]
 

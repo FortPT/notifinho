@@ -26,6 +26,7 @@ class HomeAssistantTeamsFormatter(HardwareTeamsFormatter):
             self._fact("Device", device),
             self._fact("Entity", entity),
             self._fact("Endpoint", metadata.get("endpoint")),
+            self._fact("Error", metadata.get("error_code")),
             self._fact("Area", metadata.get("area")),
             self._fact("Retry", retry_text),
             self._fact("Tags", ", ".join(metadata.get("tags") or [])),

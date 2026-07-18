@@ -1,0 +1,15 @@
+{
+  "schema": "notifinho.home_assistant.v1",
+  "title": "Home Assistant error",
+  "message": [
+    "Error fetching ipp data: Invalid response from API: Error occurred while communicating with IPP server."
+  ],
+  "severity": "error",
+  "status": "active",
+  "category": "system_error",
+  "event_type": "system_log",
+  "component": "homeassistant.components.ipp.coordinator",
+  "device": "Home Assistant",
+  "timestamp": "2026-07-18T14:23:41Z",
+  "tags": ["home-assistant", "error"]
+}

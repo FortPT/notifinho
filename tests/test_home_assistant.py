@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from config import config
 from dispatcher import Dispatcher
 from formatters.discord_home_assistant import HomeAssistantDiscordFormatter
 from formatters.teams_home_assistant import HomeAssistantTeamsFormatter
@@ -27,6 +28,18 @@ SYSTEM_LOG_FIXTURE = (
     / "home_assistant"
     / "system_log_chromecast.json"
 )
+KASA_LOG_FIXTURE = (
+    Path(__file__).parent
+    / "fixtures"
+    / "home_assistant"
+    / "system_log_kasa.json"
+)
+IPP_LOG_FIXTURE = (
+    Path(__file__).parent
+    / "fixtures"
+    / "home_assistant"
+    / "system_log_ipp.json"
+)
 
 
 def fixture() -> dict:
@@ -35,6 +48,14 @@ def fixture() -> dict:
 
 def system_log_fixture() -> dict:
     return json.loads(SYSTEM_LOG_FIXTURE.read_text(encoding="utf-8"))
+
+
+def kasa_log_fixture() -> dict:
+    return json.loads(KASA_LOG_FIXTURE.read_text(encoding="utf-8"))
+
+
+def ipp_log_fixture() -> dict:
+    return json.loads(IPP_LOG_FIXTURE.read_text(encoding="utf-8"))
 
 
 class Router:
@@ -103,7 +124,7 @@ def test_home_assistant_generic_errors_use_service_and_concise_event_details():
     item = Parser().parse(payload)
 
     assert item.metadata["service"] == "Core"
-    assert item.metadata["device"] == "sensor.hp_ilo_echo_server_health"
+    assert item.metadata["device"] == ""
     assert item.metadata["entity_id"] == "sensor.hp_ilo_echo_server_health"
     assert "255-character limit" in item.body
     assert "bios_hardware" not in item.body
@@ -122,9 +143,87 @@ def test_home_assistant_unknown_error_message_is_bounded_for_cards():
 
     assert item.title == "Noisy error"
     assert item.metadata["service"] == "Noisy"
-    assert item.metadata["device"] == "Noisy"
+    assert item.metadata["device"] == ""
     assert item.body == "A useful first sentence…"
     assert len(item.body) <= 321
+
+
+def test_home_assistant_kasa_error_uses_endpoint_alias_and_structured_details():
+    aliases = {
+        "endpoints": {
+            "192.168.103.35": {
+                "device": "HUB-01 | Hall Floor 1",
+            },
+        },
+    }
+
+    item = Parser(aliases=aliases).parse(kasa_log_fixture())
+
+    assert item.title == "HUB-01 | Hall Floor 1 error"
+    assert item.body == "Failed to query the TriggerLogs module."
+    assert item.metadata["service"] == "Tapo"
+    assert item.metadata["device"] == "HUB-01 | Hall Floor 1"
+    assert item.metadata["endpoint"] == "192.168.103.35"
+    assert item.metadata["error_code"] == "UNSPECIFIC_ERROR (-1001)"
+    assert "control_child" not in item.body
+
+
+def test_home_assistant_ipp_error_uses_component_alias_and_concise_details():
+    aliases = {
+        "components": {
+            "homeassistant.components.ipp.coordinator": {
+                "device": "PRT-01 | Floor 1",
+                "endpoint": "192.168.101.157",
+            },
+        },
+    }
+
+    item = Parser(aliases=aliases).parse(ipp_log_fixture())
+
+    assert item.title == "PRT-01 | Floor 1 error"
+    assert item.body == "Failed to communicate with the IPP server."
+    assert item.metadata["service"] == "Internet Printing Protocol"
+    assert item.metadata["device"] == "PRT-01 | Floor 1"
+    assert item.metadata["endpoint"] == "192.168.101.157"
+
+
+def test_home_assistant_aliases_are_loaded_from_application_config(monkeypatch):
+    monkeypatch.setitem(
+        config._data,
+        "home_assistant",
+        {
+            "aliases": {
+                "endpoints": {
+                    "192.168.103.35": {
+                        "device": "Configured hub",
+                    },
+                },
+            },
+        },
+    )
+
+    item = Parser().parse(kasa_log_fixture())
+
+    assert item.metadata["device"] == "Configured hub"
+
+
+def test_home_assistant_unknown_service_is_not_presented_as_a_device():
+    item = Parser().parse({
+        "schema": "notifinho.home_assistant.v1",
+        "title": "Home Assistant error",
+        "message": "Calendar synchronization failed.",
+        "severity": "error",
+        "status": "active",
+        "category": "system_error",
+        "event_type": "system_log",
+        "component": "homeassistant.components.calendar.worker",
+        "device": "Home Assistant",
+        "tags": ["home-assistant", "error"],
+    })
+
+    assert item.title == "Calendar error"
+    assert item.metadata["service"] == "Calendar"
+    assert item.metadata["device"] == ""
 
 
 @pytest.mark.parametrize(
@@ -190,3 +289,22 @@ def test_home_assistant_formatters_present_service_device_and_retry_separately()
     assert "/usr/local/lib" not in rendered
     assert "MDNSServiceInfo" not in rendered
     assert "BRAVIA-4K" not in rendered
+
+
+def test_home_assistant_formatters_present_structured_error_code():
+    aliases = {
+        "endpoints": {
+            "192.168.103.35": {
+                "device": "HUB-01 | Hall Floor 1",
+            },
+        },
+    }
+    item = Parser(aliases=aliases).parse(kasa_log_fixture())
+    rendered = json.dumps({
+        "discord": HomeAssistantDiscordFormatter().format(item),
+        "teams": HomeAssistantTeamsFormatter().format(item),
+    })
+
+    assert "UNSPECIFIC_ERROR (-1001)" in rendered
+    assert "192.168.103.35" in rendered
+    assert "control_child" not in rendered

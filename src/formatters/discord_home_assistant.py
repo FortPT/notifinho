@@ -26,6 +26,7 @@ class HomeAssistantDiscordFormatter(HardwareDiscordFormatter):
             self._field("📟 Device", device),
             self._field("🔌 Entity", entity),
             self._field("🌐 Endpoint", metadata.get("endpoint")),
+            self._field("🛑 Error", metadata.get("error_code")),
             self._field("📍 Area", metadata.get("area")),
             self._field("🔄 Retry", retry_text),
             self._field("🏷️ Tags", ", ".join(metadata.get("tags") or [])),

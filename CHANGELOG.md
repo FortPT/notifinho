@@ -6,6 +6,45 @@ No changes yet.
 
 ---
 
+## 1.9.1 - 2026-07-18
+
+### Fixed
+
+- Replaced the Xen Orchestra fallback used for unknown and authenticated API
+  event sources with dedicated generic Discord and Microsoft Teams
+  presentation, while retaining explicit Xen Orchestra formatting for `xo`.
+- Made Home Assistant cards concise and service-aware by deriving the
+  responsible integration, device, entity, endpoint, and retry information
+  from raw system-log events.
+- Removed Python source paths and verbose internal service-object text from
+  Home Assistant cards and bounded the remaining event summary.
+
+### Changed
+
+- Simplified the documented Home Assistant automation to a generic transport
+  contract so reusable presentation remains inside Notifinho and
+  deployment-specific exclusions remain in Home Assistant.
+
+### Compatibility
+
+- Preserves the v1.9.0 configuration schema, API tokens, routes, endpoints,
+  SMTP behavior, and existing source-specific formatter selection.
+- Existing Home Assistant `notifinho.home_assistant.v1` payloads remain
+  compatible; explicit fields from purpose-built automations still take
+  precedence over derived values.
+
+### Validation
+
+- Passed 506 automated parser, API, formatter, routing, security, and
+  backwards-compatibility tests.
+- Validated generic API, Chromecast, MQTT, and Calendar event presentation in
+  the dedicated VM-09 development environment with successful Discord
+  delivery and no formatter or delivery errors.
+- Covered equivalent generic and Home Assistant Microsoft Teams presentation
+  through the regression suite.
+
+---
+
 ## 1.9.0 - 2026-07-15
 
 ### Added

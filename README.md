@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.0-blue" alt="Stable release v1.9.0">
+  <img src="https://img.shields.io/badge/stable-v1.9.1-blue" alt="Stable release v1.9.1">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.0** |
+| **Current Stable Release** | **v1.9.1** |
 | **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,11 +57,11 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.0 adds a shared Redfish Event Service foundation, dedicated
-Supermicro BMC, HPE iLO, and Dell iDRAC adapters, Home Assistant ingestion,
-and the secure backend API foundation required by v2.0. It retains the v1.8.x
-presentation, Portainer, Proxmox VE, and Synology DSM work and the native
-UniFi Network, Protect, and Drive endpoints. Notifinho consumes
+Notifinho v1.9.1 is a backwards-compatible presentation patch for the v1.9
+event platform. It adds dedicated generic API event cards and concise,
+service-aware Home Assistant presentation while retaining the Redfish,
+Supermicro BMC, HPE iLO, Dell iDRAC, Portainer, Proxmox VE, Synology DSM, and
+native UniFi Network, Protect, and Drive integrations. Notifinho consumes
 emitted SMTP or webhook notifications; it
 does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
@@ -1537,6 +1537,24 @@ Hardware compatibility is fixture-validated and remains a synthetic candidate
 until representative Supermicro, HPE, and Dell systems complete live delivery
 tests. Full browser sessions, user-owned routes/destinations, CSRF protection,
 and the responsive WebUI remain explicitly scoped to v2.0.
+
+---
+
+## ✅ v1.9.1 — Generic API and Home Assistant presentation patch
+
+Notifinho v1.9.1 corrects two presentation regressions without changing the
+v1.9 configuration schema or endpoint contracts. See the
+[v1.9.1 release notes](docs/releases/v1.9.1.md).
+
+- Dedicated generic Discord and Microsoft Teams event formatters replace the
+  Xen Orchestra fallback for unknown and authenticated API sources
+- Xen Orchestra remains explicitly mapped to its existing formatters
+- Home Assistant cards derive concise Event, Service, Device, Entity,
+  Endpoint, and Retry information from raw system-log events
+- Python paths and verbose internal objects are omitted from cards
+- Existing explicit Home Assistant automation fields remain authoritative
+- Generic Home Assistant transport examples keep reusable presentation inside
+  Notifinho and deployment-specific exclusions in Home Assistant
 
 ---
 

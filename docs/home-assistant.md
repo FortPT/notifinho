@@ -59,6 +59,29 @@ rest_command:
       }
 ```
 
+Optional aliases can identify equipment when a raw Home Assistant error only
+contains an address or integration name. Keep these deployment-specific names
+in Notifinho instead of duplicating them across automations:
+
+```yaml
+home_assistant:
+  aliases:
+    endpoints:
+      "192.0.2.10":
+        device: "Building hub"
+        # Optional when the built-in integration label is not appropriate.
+        service: "Building automation"
+    components:
+      "homeassistant.components.ipp.coordinator":
+        device: "Office printer"
+        endpoint: "192.0.2.20"
+```
+
+Endpoint aliases match both a bare address and the host portion of an
+`address:port` endpoint. Component aliases use the exact component string sent
+by the Home Assistant automation. Explicit device and service fields in a
+purpose-built event still take priority.
+
 The following generic automation forwards Home Assistant errors without
 embedding presentation rules for individual integrations:
 
@@ -116,11 +139,13 @@ mode: queued
 max: 20
 ```
 
-The parser derives a concise event summary, service, device or entity,
-endpoint, and retry interval when those details are present. Discord and Teams
-formatters present them as separate fields. Internal Python paths and verbose
-object representations are not placed on the card. Explicit device, entity,
-area, and title values still take priority for purpose-built automations.
+The parser derives a concise event summary, service, real device, entity,
+endpoint, error code, and retry interval when those details are present.
+Discord and Teams formatters present them as separate fields. A service is not
+repeated as a device when no actual device is known. Internal Python paths,
+method names, and verbose object representations are not placed on the card.
+Explicit device, entity, area, and title values still take priority for
+purpose-built automations.
 
 Keep deployment-specific exclusions in the Home Assistant condition rather
 than in Notifinho's generic parser. For example, a site may suppress a known

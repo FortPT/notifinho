@@ -38,6 +38,18 @@ http:
 redfish:
   deduplication_window_seconds: 300
 
+# Optional site-local names for Home Assistant events. Keep equipment names
+# and addresses here so shared automations can stay generic.
+home_assistant:
+  aliases:
+    endpoints:
+      "192.0.2.10":
+        device: "Building hub"
+    components:
+      "homeassistant.components.ipp.coordinator":
+        device: "Office printer"
+        endpoint: "192.0.2.20"
+
 # v1.9 backend API. This is disabled by default. Publish it only on a trusted
 # network or behind an authenticated reverse proxy. Tokens must come from an
 # environment variable, a mode-0600 mounted file, or a precomputed SHA-256.

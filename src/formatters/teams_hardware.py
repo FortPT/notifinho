@@ -18,7 +18,7 @@ class HardwareTeamsFormatter(BaseFormatter):
         facts = [
             self._fact("State", state),
             self._fact("Severity", str(metadata.get("severity", "")).title()),
-            self._fact("System", metadata.get("system")),
+            self._fact("Host", metadata.get("system")),
             self._fact("Category", str(notification.category or "").title()),
             self._fact("Sensor", metadata.get("sensor")),
             self._fact("Registry", metadata.get("registry")),

@@ -2,6 +2,7 @@
   "@odata.type": "#Event.v1_11_0.Event",
   "Id": "synthetic-supermicro-envelope",
   "Name": "Supermicro Redfish Event",
+  "Context": "SRV-01",
   "Events": [
     {
       "EventId": "synthetic-smc-thermal-001",

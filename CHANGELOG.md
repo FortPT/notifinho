@@ -6,6 +6,33 @@ No changes yet.
 
 ---
 
+## 1.9.3 - 2026-07-20
+
+### Fixed
+
+- Presented the Redfish subscription `Context` as Host in Supermicro, HPE iLO,
+  and Dell iDRAC Discord and Microsoft Teams cards.
+- Scoped Redfish duplicate suppression by host and origin so identical event
+  identifiers from different systems do not collide.
+- Stopped treating an empty Redfish `MessageArgs` array as a recommended
+  action.
+
+### Compatibility
+
+- Existing Redfish endpoints, shared secrets, routes, output targets, and
+  payloads remain compatible.
+- Payloads without `Context` continue to work and simply omit the Host field.
+- Rollback requires only restoring the previous v1.9.2 image tag.
+
+### Validation
+
+- Passed 512 automated parser, API, formatter, routing, security, release, and
+  backwards-compatibility tests.
+- Added regression coverage for multi-host Redfish context, per-host
+  deduplication, Discord and Teams Host fields, and empty recommended actions.
+
+---
+
 ## 1.9.2 - 2026-07-18
 
 ### Added

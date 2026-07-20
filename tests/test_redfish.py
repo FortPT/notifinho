@@ -111,6 +111,30 @@ def test_generic_redfish_endpoint_detects_vendor_from_standard_fields():
     assert item.metadata["provider"] == "HPE iLO"
 
 
+def test_redfish_context_is_presented_as_host_and_scopes_deduplication():
+    srv_01_payload = payload("supermicro_thermal.json")
+    srv_02_payload = json.loads(json.dumps(srv_01_payload))
+    srv_02_payload["Context"] = "SRV-02"
+    srv_02_payload["Events"][0].pop("Resolution", None)
+    srv_02_payload["Events"][0]["MessageArgs"] = [""]
+
+    srv_01 = RedfishParser().parse(srv_01_payload, "supermicro")[0]
+    srv_02 = RedfishParser().parse(srv_02_payload, "supermicro")[0]
+    discord = SupermicroDiscordFormatter().format(srv_01)
+    teams = SupermicroTeamsFormatter().format(srv_01)
+    rendered = json.dumps({"discord": discord, "teams": teams})
+
+    assert srv_01.metadata["system"] == "SRV-01"
+    assert srv_02.metadata["system"] == "SRV-02"
+    assert srv_02.metadata["recommended_action"] == ""
+    assert srv_01.metadata["deduplication_key"] != srv_02.metadata["deduplication_key"]
+    assert "SRV-01" in rendered
+    assert '"title": "Host"' in rendered
+    assert "Recommended action" not in json.dumps(
+        SupermicroTeamsFormatter().format(srv_02)
+    )
+
+
 @pytest.mark.parametrize(
     ("fixture", "source", "system", "status"),
     (

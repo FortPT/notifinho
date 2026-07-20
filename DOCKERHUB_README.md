@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.9.2**.
+The current stable release is **v1.9.3**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -130,6 +130,10 @@ v1.9.2 adds optional Home Assistant endpoint/component aliases, bare IPv4
 endpoint extraction, structured integration error codes, and concise Tapo/Kasa
 and IPP cards. Existing configurations and Home Assistant payloads remain
 compatible; aliases are optional.
+
+v1.9.3 presents the Redfish subscription Context as Host, scopes duplicate
+suppression by host and origin, and omits empty recommended actions. Existing
+Redfish endpoints, tokens, routes, and payloads remain compatible.
 
 A shared Discord target can receive all three normalized UniFi sources:
 

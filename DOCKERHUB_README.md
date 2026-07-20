@@ -141,10 +141,13 @@ both Teams and Discord. Existing configuration, routes, endpoints, targets,
 and secrets remain compatible.
 
 v1.9.5 replaces generated initial badges with documented official vendor
-assets across all Teams integrations. It also omits missing Xen Orchestra
-Duration/Result facts, preserves infrastructure identifier casing, removes
-duplicated UniFi details, and rejects malformed Teams webhook placeholders
-before delivery. Existing valid webhooks and routing remain compatible.
+assets across all Teams and Discord integrations. It gives Discord the same
+device/event hierarchy, source-time metrics, and status semantics as Teams
+while retaining richer source details and enforcing Discord embed limits. It
+also omits missing Xen Orchestra Duration/Result facts, preserves identifier
+casing, removes duplicated UniFi details, and rejects malformed Teams webhook
+placeholders before delivery. Existing valid webhooks and routing remain
+compatible.
 
 A shared Discord target can receive all three normalized UniFi sources:
 

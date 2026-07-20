@@ -399,7 +399,8 @@ def test_missing_and_malformed_metadata_omits_empty_optional_values():
     )
 
     assert "Application" not in discord_text
-    assert "Event time" not in discord_text
+    assert "Event time" in discord_text
+    assert "\\u2014" in discord_text
     assert "Application" not in teams_text
     assert "Event time" in teams_text
     assert "\\u2014" in teams_text

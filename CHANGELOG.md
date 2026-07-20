@@ -21,6 +21,11 @@ No changes yet.
   `CPU`, and `VMID`.
 - Shortened the UniFi Network last-device label and removed duplicated UniFi
   state, source-area, and icon presentation.
+- Standardized all Discord integrations on the shared device/event, context,
+  message, Severity/Category/Event time, rich-detail, and official-thumbnail
+  hierarchy.
+- Added centralized Discord field-count and embed-text budgeting that protects
+  the event and three standard metrics before optional details are removed.
 
 ### Fixed
 
@@ -31,15 +36,17 @@ No changes yet.
 
 ### Compatibility
 
-- Existing valid Teams webhooks, routes, source payloads, endpoints, secrets,
-  Discord behavior, and source-time rules remain compatible.
+- Existing valid Teams and Discord webhooks, routes, source payloads,
+  endpoints, secrets, and source-time rules remain compatible.
 - No configuration migration or secret rotation is required.
 
 ### Validation
 
-- Passed 579 automated parser, API, formatter, routing, security, release, and
+- Passed 626 automated parser, API, formatter, routing, security, release, and
   backwards-compatibility tests.
 - Added exact product-asset assertions for all 17 Teams presentations.
+- Added cross-integration Discord hierarchy, exact-asset, source-time,
+  recovery-state, rich-detail, and platform-limit regressions.
 - Added transparent-PNG, asset-removal, Xen Orchestra optional-fact, identifier,
   UniFi duplication, and webhook-validation regressions.
 

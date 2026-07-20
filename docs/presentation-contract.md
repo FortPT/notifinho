@@ -14,9 +14,8 @@ The event source owns the visible timestamp.
 - Render recognized timestamps as `20 Jul 2026 • 18:09`.
 - If the source sends an epoch value, interpret it as the UTC instant encoded
   by that value, but still omit the `UTC` label.
-- If no source timestamp is available, show `—` in the Teams event-time metric
-  or omit the optional Discord time field. Never substitute Notifinho's
-  receipt time.
+- If no source timestamp is available, show `—` in the event-time metric.
+  Never substitute Notifinho's receipt time.
 
 Timezone conversion is intentionally deferred until a future WebUI can offer
 an explicit global or per-device policy. The current behavior is deterministic
@@ -40,6 +39,29 @@ The normalized card model lives in `src/formatters/teams_common.py`. New Teams
 formatters should inherit `TeamsCardFormatter`, create a `TeamsCardData`
 instance, and keep vendor parsing outside the renderer.
 
+## Discord hierarchy
+
+Every integration supplies the same normalized concepts to the shared Discord
+renderer while retaining more source-specific detail than the compact Teams
+layout:
+
+1. Header: `device • event`, with device and status icons, a severity-aware
+   embed color, and the official integration thumbnail.
+2. Context: `integration • state • source area`.
+3. Message: one full-width event body with an event icon.
+4. Metrics: Severity, Category, and Event time as the first three inline
+   fields.
+5. Details: optional icon-labelled integration-specific fields, links, and
+   bounded multi-item sections.
+6. Notifinho version footer.
+
+The normalized Discord model lives in `src/formatters/discord_common.py`. New
+Discord formatters should inherit `DiscordCardFormatter`, create a
+`DiscordCardData` instance, and keep source parsing outside the renderer. The
+renderer enforces Discord's 25-field and 6,000-character embed limits by
+dropping the lowest-priority optional details first; the event message and the
+three standard metrics are always retained.
+
 Optional facts whose source value is missing or represented by `-`, `—`,
 `N/A`, `None`, or `null` are omitted. Identifiers and acronyms such as
 `PVE-01`, `VMID`, and `CPU` retain their source casing.
@@ -48,12 +70,12 @@ Optional facts whose source value is missing or represented by `-`, `—`,
 
 The shared renderer maps normalized states to accessible icon and color pairs:
 
-| State family | Icon | Teams color |
-|---|---:|---|
-| Critical, disaster, failure | 🚨 | Attention |
-| Warning, degraded, average | ⚠️ | Warning |
-| Resolved, recovered, success | ✅ | Good |
-| Information or unknown | ℹ️ | Accent |
+| State family | Icon | Teams color | Discord color |
+|---|---:|---|---|
+| Critical, disaster, failure | 🚨 | Attention | Red |
+| Warning, degraded, average | ⚠️ | Warning | Orange |
+| Resolved, recovered, success | ✅ | Good | Green |
+| Information or unknown | ℹ️ | Accent | Blue |
 
 The icon remains part of the text so status is not communicated by color
 alone.
@@ -61,7 +83,7 @@ alone.
 ## Integration images
 
 Card images must be publicly reachable over HTTPS, render without
-authentication or redirects, and use a Teams-supported raster format.
+authentication or redirects, and use a Teams- and Discord-supported raster format.
 Notifinho stores normalized 256 px transparent PNGs in `assets/icons/` and
 serves them with the project documentation, avoiding a runtime dependency on
 vendor CDNs.

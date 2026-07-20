@@ -207,7 +207,7 @@ def test_discord_aggregate_payload_limits_retain_essential_fields():
     for essential in (
         "Essential TrueNAS message",
         "SYNTHETIC-TRUENAS",
-        "backup",
+        "Backup",
         "Failure",
         "Critical",
         "50",

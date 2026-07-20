@@ -214,7 +214,9 @@ def test_drive_alarm_rule_is_formatted_and_alarm_id_is_hidden():
     assert payload["alarm_id"] not in rendered
 
     assert discord_embed["title"].endswith("Settings")
-    assert discord_embed["description"] == "Settings alarm triggered"
+    assert discord_embed["description"] == (
+        "UniFi Drive • ℹ️ **Triggered** • 📍 Administration"
+    )
     assert discord_alarm_rule == {
         "name": "🚨 Alarm rule",
         "value": "Notifinho | Drive - Settings",

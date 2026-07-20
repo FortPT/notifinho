@@ -193,7 +193,8 @@ def test_missing_and_malformed_optional_metadata_is_omitted():
     serialized_teams = json.dumps(card)
 
     assert "Datasource" not in serialized_discord
-    assert "Event time" not in serialized_discord
+    assert "Event time" in serialized_discord
+    assert "\\u2014" in serialized_discord
     assert "Datasource" not in serialized_teams
     assert "Event time" in serialized_teams
     assert "\\u2014" in serialized_teams

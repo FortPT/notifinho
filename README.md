@@ -57,10 +57,11 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.5 completes the Microsoft Teams presentation contract with
-official vendor assets, exact asset regression coverage, and cleaner optional
-facts and identifiers. Source-machine timestamps remain unchanged in both
-Teams and Discord. Existing endpoints, parsers, routes, targets, secrets, and
+Notifinho v1.9.5 completes the Microsoft Teams and Discord presentation
+contract with official vendor assets, exact asset regression coverage, shared
+device/event hierarchy, protected platform limits, and richer optional facts.
+Source-machine timestamps remain unchanged in both outputs. Existing
+endpoints, parsers, routes, targets, secrets, and
 the Supermicro BMC, HPE iLO, Dell iDRAC, Home Assistant, Portainer, Proxmox VE,
 Synology DSM, and native UniFi integrations remain compatible. Notifinho consumes
 emitted SMTP or webhook notifications; it
@@ -1608,13 +1609,16 @@ See the [v1.9.4 release notes](docs/releases/v1.9.4.md).
 
 ---
 
-## ✅ v1.9.5 — Official Teams integration assets
+## ✅ v1.9.5 — Official Teams and Discord presentation
 
 Notifinho v1.9.5 replaces generated initial badges with official vendor assets
-for every Teams integration and closes issues found during the live v1.9.4
-office audit. See the [v1.9.5 release notes](docs/releases/v1.9.5.md).
+for every Teams and Discord integration and closes issues found during the
+live v1.9.4 office audit. See the
+[v1.9.5 release notes](docs/releases/v1.9.5.md).
 
-- Every Teams formatter is bound to an exact, official integration asset
+- Every Teams and Discord formatter is bound to an exact, official asset
+- Discord uses the same device/event, context, metric, and status contract
+  while retaining richer source-specific fields
 - Asset sources and mechanical transformations are documented
 - Xen Orchestra preserves backup names and omits missing Duration/Result facts
 - Identifiers such as `PVE-01`, `CPU`, and `VMID` retain their source casing

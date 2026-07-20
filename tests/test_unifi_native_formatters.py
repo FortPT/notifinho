@@ -123,7 +123,7 @@ def test_protect_card_does_not_list_configured_sources():
     serialized = json.dumps(payload)
     assert "SYNTHETIC-CAMERA" in serialized
     assert "configured_source_count" not in serialized
-    assert len(payload["embeds"][0]["fields"]) == 4
+    assert len(payload["embeds"][0]["fields"]) == 7
 
 
 def _protect_field_names(item):
@@ -272,8 +272,8 @@ def test_unifi_titles_have_one_application_and_status_icon(
             UniFiNetworkTeamsFormatter(),
             {
                 "🎛️ Controller",
-                "🗂️ Category",
-                "⚠️ Severity",
+                "🌐 Category",
+                "ℹ️ Severity",
                 "💻 Client",
                 "📶 Network / Wi-Fi",
                 "📍 Last device",
@@ -296,7 +296,7 @@ def test_unifi_titles_have_one_application_and_status_icon(
             "unifi_drive",
             UniFiDriveDiscordFormatter(),
             UniFiDriveTeamsFormatter(),
-            {"🖥️ System", "💾 Backup task", "🗂️ Category"},
+            {"🖥️ System", "💾 Backup task", "🔄 Category"},
         ),
     ],
 )
@@ -370,7 +370,9 @@ def test_missing_values_do_not_leave_icon_only_fields():
     teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
     facts = _teams_facts(teams)
 
-    assert discord["fields"] == []
+    assert [field["name"].split(" ", 1)[-1] for field in discord["fields"]] == [
+        "Event", "Severity", "Category", "Event time",
+    ]
     assert facts == []
 
 

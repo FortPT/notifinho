@@ -12,6 +12,7 @@ import pytest
 import outputs.discord as discord_output_module
 import outputs.teams as teams_output_module
 
+from formatters.discord_common import DiscordCardFormatter
 from formatters.presentation import PresentationMixin
 from formatters.teams_common import TeamsCardFormatter
 from models import Notification
@@ -142,6 +143,12 @@ def test_resolved_state_wins_over_previous_critical_severity():
         "Resolved",
     )
 
+    assert DiscordCardFormatter._discord_status("success", "disaster") == (
+        "✅",
+        0x2ECC71,
+        "Resolved",
+    )
+
 
 @pytest.mark.parametrize(
     "source",
@@ -169,6 +176,27 @@ def test_every_dedicated_discord_card_has_a_product_thumbnail(source):
 
     assert embed["thumbnail"]["url"].startswith("https://")
     assert embed["thumbnail"]["url"].endswith(".png")
+
+
+@pytest.mark.parametrize(
+    ("source", "filename"),
+    TEAMS_PRODUCT_ASSETS.items(),
+)
+def test_every_discord_integration_uses_its_exact_official_product_asset(
+    source,
+    filename,
+):
+    item = _notification("home_lab" if source == "generic" else source)
+    formatter = (
+        DiscordOutput().default_formatter
+        if source == "generic"
+        else DiscordOutput().source_formatters[source]
+    )
+    embed = formatter.format(item)["embeds"][0]
+
+    assert embed["thumbnail"]["url"] == (
+        f"{PresentationMixin.ICON_BASE_URL}/{filename}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -293,6 +321,11 @@ def test_xo_card_retains_real_duration_and_result_values():
     assert '"value": "5 min"' in rendered
     assert '"value": "✅ 3 of 3 VMs successful"' in rendered
 
+    discord = DiscordOutput().source_formatters["xo"].format(item)["embeds"][0]
+    discord_rendered = json.dumps(discord, ensure_ascii=False)
+    assert '"value": "5 min"' in discord_rendered
+    assert '"value": "✅ 3 of 3 VMs successful"' in discord_rendered
+
 
 def test_xo_result_explains_failed_and_skipped_counts():
     item = _notification("xo")
@@ -384,6 +417,82 @@ def test_every_teams_card_uses_the_shared_information_hierarchy(source):
         if source != "xo"
         else "15 Jul 2026 • 01:20"
     )
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "xo",
+        "zabbix",
+        "qnap",
+        "grafana",
+        "truenas",
+        "unifi_network",
+        "unifi_protect",
+        "unifi_drive",
+        "portainer",
+        "proxmox",
+        "synology",
+        "redfish",
+        "supermicro",
+        "hpe_ilo",
+        "dell_idrac",
+        "home_assistant",
+    ],
+)
+def test_every_discord_card_uses_the_shared_information_hierarchy(source):
+    formatter = DiscordOutput().source_formatters[source]
+    embed = formatter.format(_notification(source))["embeds"][0]
+
+    assert " • " in embed["title"]
+    assert embed["description"].count(" • ") == 2
+    assert [field["name"].split(" ", 1)[-1] for field in embed["fields"][:4]] == [
+        "Event",
+        "Severity",
+        "Category",
+        "Event time",
+    ]
+    assert embed["fields"][0]["inline"] is False
+    assert all(field["inline"] is True for field in embed["fields"][1:4])
+    assert embed["fields"][3]["value"] == (
+        "15 Jul 2026 • 01:20"
+        if source == "xo"
+        else "15 Jul 2026 • 01:15"
+    )
+    assert len(embed["fields"]) <= 25
+    assert formatter._embed_text_size(embed) <= formatter.EMBED_TEXT_BUDGET
+
+
+def test_discord_preserves_source_wall_clock_and_never_invents_receipt_time():
+    item = _notification("generic")
+    item.start_time = ""
+    item.metadata["event_time"] = "2026-07-20T18:09:00+05:00"
+    embed = DiscordOutput().default_formatter.format(item)["embeds"][0]
+
+    assert embed["fields"][3]["value"] == "20 Jul 2026 • 18:09"
+    assert "UTC" not in json.dumps(embed)
+
+    item.metadata["event_time"] = ""
+    missing = DiscordOutput().default_formatter.format(item)["embeds"][0]
+    assert missing["fields"][3]["value"] == "—"
+
+
+def test_discord_rich_details_survive_the_shared_renderer():
+    item = _notification("proxmox")
+    item.metadata.update({
+        "vmid": 101,
+        "guest": "APP-01",
+        "job_id": "vzdump-nightly",
+        "storage": "backup-nfs",
+    })
+    item.duration = "4 min 31 sec"
+    rendered = json.dumps(
+        DiscordOutput().source_formatters["proxmox"].format(item),
+        ensure_ascii=False,
+    )
+
+    for value in ("VMID", "101", "APP-01", "vzdump-nightly", "backup-nfs", "4 min 31 sec"):
+        assert value in rendered
 
 
 def test_xo_and_generic_formatters_are_selected_explicitly():

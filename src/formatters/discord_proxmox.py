@@ -2,105 +2,47 @@
 
 from __future__ import annotations
 
-from formatters.base import BaseFormatter
+from formatters.discord_common import DiscordCardData, DiscordCardFormatter, DiscordFact
 from models import Notification
-from version import VERSION
 
 
-class ProxmoxDiscordFormatter(BaseFormatter):
-    CATEGORY_ICONS = {
-        "backup": "💾",
-        "replication": "🔁",
-        "storage": "🗄️",
-        "cluster": "🧩",
-        "availability": "📡",
-        "security": "🔐",
-        "guest": "🖥️",
-        "system": "⚙️",
-        "generic": "🔔",
-    }
-
+class ProxmoxDiscordFormatter(DiscordCardFormatter):
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
-        icon, color, state = self._status(notification.status)
-        category = notification.category or metadata.get("category") or "generic"
         title = notification.title or "Proxmox VE notification"
-        fields = [
-            self._field("📣 Event", notification.body or title, False),
-            self._field("📌 State", state),
-            self._field("⚠️ Severity", self._label(metadata.get("severity"))),
-            self._field("🖧 Node", metadata.get("node") or metadata.get("host")),
-            self._field("🔢 VMID", metadata.get("vmid")),
-            self._field("🖥️ Guest", metadata.get("guest")),
-            self._field("🧰 Job", metadata.get("job_id")),
-            self._field("🗄️ Storage", metadata.get("storage")),
-            self._field(
-                "🕒 Event time",
-                self._format_datetime(
-                    metadata.get("event_time") or notification.start_time
-                ),
-            ),
-            self._field("⏱️ Duration", notification.duration),
+        details = [
+            DiscordFact("🆔", "VMID", metadata.get("vmid")),
+            DiscordFact("💻", "Guest", metadata.get("guest")),
+            DiscordFact("🧰", "Job", metadata.get("job_id")),
+            DiscordFact("💾", "Storage", metadata.get("storage")),
+            DiscordFact("⏱️", "Duration", notification.duration),
         ]
         if notification.vm_total:
-            fields.extend(
-                (
-                    self._field("✅ Guests OK", notification.vm_success),
-                    self._field("❌ Guests failed", notification.vm_failed),
-                )
-            )
+            details.extend((
+                DiscordFact("✅", "Guests OK", notification.vm_success),
+                DiscordFact("❌", "Guests failed", notification.vm_failed),
+            ))
         if notification.failed_vms:
-            fields.append(
-                self._field(
-                    "❌ Failed guests",
-                    "\n".join(notification.failed_vms),
-                    False,
-                )
-            )
+            details.append(DiscordFact("❌", "Failed guests", "\n".join(notification.failed_vms), False))
         if notification.errors:
-            fields.append(
-                self._field(
-                    "🚨 Error details",
-                    "\n".join(notification.errors),
-                    False,
-                )
-            )
+            details.append(DiscordFact("🧯", "Error details", "\n".join(notification.errors), False))
         if notification.successful_vms:
-            fields.append(
-                self._field(
-                    "✅ Successful guests",
-                    "\n".join(notification.successful_vms),
-                    False,
-                )
+            details.append(DiscordFact("✅", "Successful guests", "\n".join(notification.successful_vms), False))
+        device = metadata.get("node") or metadata.get("host") or metadata.get("guest") or "Proxmox"
+        return self._render_discord_card(
+            DiscordCardData(
+                source="proxmox",
+                integration="Proxmox VE",
+                device=device,
+                event=title,
+                message=notification.body or title,
+                status=notification.status,
+                severity=metadata.get("severity") or notification.status,
+                category=notification.category or "virtualization",
+                source_area=metadata.get("node") or "Virtualization",
+                event_time=metadata.get("event_time") or notification.start_time,
+                device_icon="🟧",
+                source_area_icon="🖥️",
+                details=tuple(details),
             )
-        embed = {
-            "title": self._truncate(f"🟧 {icon} {title}", 256),
-            "description": self._truncate(
-                f"Proxmox VE • **{state}** • "
-                f"{self.CATEGORY_ICONS.get(category, '🔔')} {self._label(category)}",
-                1024,
-            ),
-            "color": color,
-            "fields": [field for field in fields if field["value"]][:25],
-            "footer": {"text": f"FortPT Labs\nNotifinho v{VERSION}"},
-        }
-        self._set_discord_thumbnail(embed, "proxmox")
-        return {"embeds": [embed]}
-
-    def _field(self, name: str, value, inline: bool = True) -> dict:
-        return {"name": name, "value": self._truncate(value, 1024), "inline": inline}
-
-    @staticmethod
-    def _status(value: str) -> tuple[str, int, str]:
-        status = str(value or "").casefold()
-        if status == "failure":
-            return "🚨", 0xE74C3C, "Failed"
-        if status == "warning":
-            return "⚠️", 0xF39C12, "Warning"
-        if status == "success":
-            return "✅", 0x2ECC71, "Success"
-        return "ℹ️", 0x3498DB, "Information"
-
-    @staticmethod
-    def _label(value) -> str:
-        return str(value or "").replace("_", " ").strip().title()
+        )

@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.3-blue" alt="Stable release v1.9.3">
+  <img src="https://img.shields.io/badge/stable-v1.9.4-blue" alt="Stable release v1.9.4">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.3** |
+| **Current Stable Release** | **v1.9.4** |
 | **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,12 +57,11 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.3 is a backwards-compatible Redfish presentation patch for the
-v1.9 event platform. It shows the subscription Context as the hardware Host,
-scopes duplicate suppression by host and origin, and omits empty recommended
-actions while retaining the Supermicro BMC, HPE iLO, Dell iDRAC, Home
-Assistant, Portainer, Proxmox VE, Synology DSM, and native UniFi Network,
-Protect, and Drive integrations. Notifinho consumes
+Notifinho v1.9.4 standardizes Microsoft Teams cards across all integrations and
+preserves the wall-clock timestamp emitted by each source machine in both
+Teams and Discord. Existing endpoints, parsers, routes, targets, secrets, and
+the Supermicro BMC, HPE iLO, Dell iDRAC, Home Assistant, Portainer, Proxmox VE,
+Synology DSM, and native UniFi integrations remain compatible. Notifinho consumes
 emitted SMTP or webhook notifications; it
 does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
@@ -1589,6 +1588,22 @@ the endpoint or configuration schema. See the
 - Duplicate suppression is scoped by source, host, and Redfish origin
 - Empty `MessageArgs` arrays no longer produce bogus recommended actions
 - Existing Redfish destinations, routes, tokens, and payloads remain compatible
+
+---
+
+## ✅ v1.9.4 — Shared Teams presentation and source time
+
+Notifinho v1.9.4 gives every Microsoft Teams integration the same information
+hierarchy and makes source timestamps deterministic for worldwide deployments.
+See the [v1.9.4 release notes](docs/releases/v1.9.4.md).
+
+- Headers show `device • event` with status color and integration image
+- Context, message, Severity/Category/Event time metrics, and icon-labelled
+  details follow one shared layout
+- Source wall-clock timestamps render as `20 Jul 2026 • 18:09`
+- Available source times are never replaced with Notifinho receipt time
+- Teams and Discord omit visible UTC or offset suffixes
+- Existing configuration, routing, endpoints, and secrets remain compatible
 
 ---
 

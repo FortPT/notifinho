@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+No changes yet.
+
+---
+
+## 1.9.4 - 2026-07-20
+
 ### Changed
 
 - Standardized every Microsoft Teams formatter on one shared hierarchy:

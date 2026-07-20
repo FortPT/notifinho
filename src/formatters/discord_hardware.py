@@ -19,7 +19,7 @@ class HardwareDiscordFormatter(BaseFormatter):
             self._field("🚨 Event", notification.body or title, False),
             self._field("📌 State", state),
             self._field("⚠️ Severity", str(metadata.get("severity", "")).title()),
-            self._field("🖥️ System", metadata.get("system")),
+            self._field("🖥️ Host", metadata.get("system")),
             self._field("📁 Category", str(notification.category or "").title()),
             self._field("🌡️ Sensor", metadata.get("sensor")),
             self._field("📚 Registry", metadata.get("registry")),

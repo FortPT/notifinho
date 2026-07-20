@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.2-blue" alt="Stable release v1.9.2">
+  <img src="https://img.shields.io/badge/stable-v1.9.3-blue" alt="Stable release v1.9.3">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.2** |
+| **Current Stable Release** | **v1.9.3** |
 | **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,11 +57,12 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.2 is a backwards-compatible Home Assistant presentation patch
-for the v1.9 event platform. It adds optional device aliases, structured error
-codes, and concise Tapo/Kasa and IPP presentation while retaining the Redfish,
-Supermicro BMC, HPE iLO, Dell iDRAC, Portainer, Proxmox VE, Synology DSM, and
-native UniFi Network, Protect, and Drive integrations. Notifinho consumes
+Notifinho v1.9.3 is a backwards-compatible Redfish presentation patch for the
+v1.9 event platform. It shows the subscription Context as the hardware Host,
+scopes duplicate suppression by host and origin, and omits empty recommended
+actions while retaining the Supermicro BMC, HPE iLO, Dell iDRAC, Home
+Assistant, Portainer, Proxmox VE, Synology DSM, and native UniFi Network,
+Protect, and Drive integrations. Notifinho consumes
 emitted SMTP or webhook notifications; it
 does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
@@ -1573,6 +1574,19 @@ changing the existing event contract. See the
 - Service names are no longer repeated as devices when no real device is known
 - Existing Home Assistant payloads and explicit automation fields remain
   compatible
+
+---
+
+## ✅ v1.9.3 — Redfish host identity and deduplication
+
+Notifinho v1.9.3 makes multi-server Redfish cards unambiguous without changing
+the endpoint or configuration schema. See the
+[v1.9.3 release notes](docs/releases/v1.9.3.md).
+
+- Subscription Context is shown as Host in Discord and Microsoft Teams cards
+- Duplicate suppression is scoped by source, host, and Redfish origin
+- Empty `MessageArgs` arrays no longer produce bogus recommended actions
+- Existing Redfish destinations, routes, tokens, and payloads remain compatible
 
 ---
 

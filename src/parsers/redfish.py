@@ -139,6 +139,10 @@ class RedfishParser:
         notifications = []
         for event in payload["Events"]:
             source, vendor_name = _vendor(payload, event, vendor_hint)
+            system = _clean(
+                payload.get("Context") or event.get("Context"),
+                256,
+            )
             message_id = _clean(event.get("MessageId"), 256)
             registry = _clean(
                 event.get("RegistryPrefix")
@@ -154,8 +158,7 @@ class RedfishParser:
             origin_path = _safe_origin(origin.get("@odata.id"))
             action = _clean(
                 event.get("Resolution")
-                or event.get("RecommendedAction")
-                or event.get("MessageArgs", ""),
+                or event.get("RecommendedAction"),
                 1000,
             )
             event_id = _clean(
@@ -169,7 +172,15 @@ class RedfishParser:
                 128,
             )
             fingerprint_source = "|".join(
-                (source, event_id, message_id, message, timestamp)
+                (
+                    source,
+                    system,
+                    origin_path,
+                    event_id,
+                    message_id,
+                    message,
+                    timestamp,
+                )
             )
             fingerprint = hashlib.sha256(
                 fingerprint_source.encode("utf-8")
@@ -187,6 +198,7 @@ class RedfishParser:
                 "provider": vendor_name,
                 "vendor": vendor_name,
                 "severity": severity_label,
+                "system": system,
                 "registry": registry,
                 "message_id": message_id,
                 "origin": origin_path,

@@ -47,7 +47,7 @@ class DiscordCardFormatter(BaseFormatter):
     EMBED_TEXT_BUDGET = 5900
     MAX_FIELDS = 25
     ESSENTIAL_FIELDS = 4
-    SEPARATOR = "────────────────────────────────────"
+    SEPARATOR = "────────────────────────────────────────────────────"
 
     def _render_discord_card(self, data: DiscordCardData) -> dict[str, Any]:
         status_icon, color, default_state = self._discord_status(
@@ -65,8 +65,8 @@ class DiscordCardFormatter(BaseFormatter):
 
         fields = [
             self._discord_field(
-                data.event_icon,
-                "Event",
+                "",
+                "",
                 self._discord_highlight(message),
                 inline=False,
             ),
@@ -99,26 +99,69 @@ class DiscordCardFormatter(BaseFormatter):
 
         detail_fields = self._discord_detail_fields(data.details)
         if detail_fields:
-            embed["fields"].append(self._discord_separator())
             embed["fields"].extend(detail_fields)
-
-        # Discord has no content below the embed footer, so only the upper
-        # footer divider is needed. This mirrors the Teams hierarchy without
-        # adding a redundant final rule.
-        embed["fields"].append(self._discord_separator())
 
         if data.url:
             embed["url"] = self._truncate(data.url, 2000)
 
         self._set_discord_thumbnail(embed, data.source)
         self._enforce_discord_budget(embed)
+        self._finish_discord_footer(embed)
         return {"embeds": [embed]}
 
     def _discord_highlight(self, value: Any) -> str:
         """Render the event message as a full-width Discord code block."""
 
         text = self._truncate(value, 1014).replace("```", "'''")
-        return f"```\n{text or '—'}\n```"
+        return (
+            f"```\n{text or '—'}\n```\n\u200b\n{self.SEPARATOR}"
+        )
+
+    def _finish_discord_footer(self, embed: dict[str, Any]) -> None:
+        """Place one full-width rule immediately above the footer."""
+
+        fields = embed.get("fields", [])
+        if not fields:
+            return
+        last = fields[-1]
+        if last.get("value") == self.SEPARATOR:
+            self._trim_discord_event_for_footer(embed)
+            return
+        if last.get("name") in {"📋 Event details", "\u200b"} and not last.get(
+            "inline",
+            True,
+        ):
+            value = str(last.get("value") or "").rstrip()
+            maximum = 1024 - len(self.SEPARATOR) - 1
+            last["value"] = (
+                f"{self._truncate(value, maximum).rstrip()}\n{self.SEPARATOR}"
+            )
+        elif len(fields) < self.MAX_FIELDS:
+            fields.append(self._discord_separator())
+        self._trim_discord_event_for_footer(embed)
+
+    def _trim_discord_event_for_footer(self, embed: dict[str, Any]) -> None:
+        """Keep the mandatory rules without exceeding Discord's text limit."""
+
+        excess = self._discord_text_size(embed) - self.EMBED_TEXT_BUDGET
+        if excess <= 0:
+            return
+        fields = embed.get("fields", [])
+        if not fields:
+            return
+        event = fields[0]
+        value = str(event.get("value") or "")
+        suffix = f"\n```\n\u200b\n{self.SEPARATOR}"
+        if value.endswith(suffix):
+            body = value[: -len(suffix)]
+            event["value"] = (
+                f"{self._truncate(body, max(len(body) - excess, 1))}{suffix}"
+            )
+            return
+        event["value"] = self._truncate(
+            value,
+            max(len(value) - excess, 1),
+        )
 
     def _discord_detail_fields(
         self,
@@ -176,8 +219,9 @@ class DiscordCardFormatter(BaseFormatter):
         value: Any,
         inline: bool = True,
     ) -> dict[str, Any]:
+        name = f"{icon} {label}".strip() or "\u200b"
         return {
-            "name": self._truncate(f"{icon} {label}", 256),
+            "name": self._truncate(name, 256),
             "value": self._truncate(value, 1024) or "—",
             "inline": inline,
         }

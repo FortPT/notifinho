@@ -26,11 +26,13 @@ No changes yet.
   hierarchy.
 - Added centralized Discord field-count and embed-text budgeting that protects
   the event and three standard metrics before optional details are removed.
-- Refined Discord cards with Teams-like spacing, a dark event highlight,
-  separated vertical details, and a single-line footer.
-- Added an IANA `presentation.timezone` policy for epoch-based source times,
-  falling back to container `TZ` and then UTC. Explicit source wall clocks
-  remain unchanged and missing source times are omitted.
+- Refined Discord cards with Teams-like spacing, an unlabelled dark event
+  highlight, full-width rules in the correct hierarchy, separated vertical
+  details, and a single-line footer.
+- Changed the shared Teams/Discord time policy so timezone-aware source values
+  and epochs display in the Notifinho machine/container local time by default.
+  Naive values remain source-local, missing source times remain omitted, and
+  an optional IANA override is available for the future WebUI.
 - Preserved native UniFi Network and Protect epochs until shared Teams and
   Discord presentation applies the configured timezone.
 
@@ -41,20 +43,24 @@ No changes yet.
 - Teams output and configuration validation now reject placeholder, malformed,
   credential-bearing, and non-HTTPS webhook values before attempting delivery.
 - Home Assistant string tags no longer render character by character.
-- Trusted Dell iDRAC `USR0030` and `USR0032` IPMI-over-LAN session audit
-  records can be suppressed by exact client address while failed logins and
-  all other security events remain routed.
+- Trusted Dell iDRAC `USR0030` and `USR0032` session audit records can be
+  suppressed by exact client address across REDFISH/IPMI transports while
+  failed logins and all other security events remain routed.
+- Dell session events use concise titles such as `User Login` and normalize
+  legacy contexts such as `NotifinhoAlfaCompat` to the device name `ALFA`.
 
 ### Compatibility
 
 - Existing valid Teams and Discord webhooks, routes, source payloads,
-  endpoints, secrets, and source-time rules remain compatible.
+  endpoints, and secrets remain compatible. Timezone-aware source instants now
+  deliberately render in the local Notifinho machine clock.
 - No configuration migration or secret rotation is required.
 
 ### Validation
 
-- Passed 626 automated parser, API, formatter, routing, security, release, and
-  backwards-compatibility tests.
+- Expanded automated parser, API, formatter, routing, security, release, and
+  backwards-compatibility coverage for local-machine time and trusted Dell
+  session filtering.
 - Added exact product-asset assertions for all 17 Teams presentations.
 - Added cross-integration Discord hierarchy, exact-asset, source-time,
   recovery-state, rich-detail, and platform-limit regressions.

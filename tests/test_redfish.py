@@ -157,8 +157,38 @@ def test_dell_ipmi_session_event_extracts_source_ip():
     )
 
 
-@pytest.mark.parametrize("message_id", ["USR0030", "USR0032"])
-def test_trusted_dell_ipmi_session_audit_is_suppressed(monkeypatch, message_id):
+def test_dell_legacy_context_and_audit_title_are_readable():
+    value = payload("dell_storage.json")
+    value["Context"] = "NotifinhoAlfaCompat"
+    value["Events"][0].update({
+        "MessageId": "USR0030",
+        "Message": (
+            "Successfully logged in using root, from 192.168.0.251 "
+            "and REDFISH."
+        ),
+    })
+
+    item = RedfishParser().parse(value, "dell")[0]
+
+    assert item.metadata["system"] == "ALFA"
+    assert item.title == "User Login"
+    assert item.body.startswith("Successfully logged in")
+
+
+@pytest.mark.parametrize(
+    ("message_id", "transport"),
+    [
+        ("USR0030", "IPMI over LAN"),
+        ("USR0030", "REDFISH"),
+        ("USR0032", "IPMI over LAN"),
+        ("USR0032", "REDFISH"),
+    ],
+)
+def test_trusted_dell_session_audit_is_suppressed(
+    monkeypatch,
+    message_id,
+    transport,
+):
     monkeypatch.setitem(
         config._data["notifications"],
         "dell_idrac",
@@ -174,7 +204,7 @@ def test_trusted_dell_ipmi_session_audit_is_suppressed(monkeypatch, message_id):
         "MessageId": message_id,
         "Message": (
             "Successfully logged in using root, from 192.168.0.164 "
-            "and IPMI over LAN."
+            f"and {transport}."
         ),
     })
     item = RedfishParser().parse(value, "dell")[0]
@@ -187,7 +217,6 @@ def test_trusted_dell_ipmi_session_audit_is_suppressed(monkeypatch, message_id):
     [
         ("USR0030", "192.168.0.99", "IPMI over LAN"),
         ("USR0031", "192.168.0.164", "IPMI over LAN login failed"),
-        ("USR0030", "192.168.0.164", "Web console login"),
     ],
 )
 def test_dell_suppression_preserves_untrusted_and_other_security_events(

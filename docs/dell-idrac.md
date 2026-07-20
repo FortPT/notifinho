@@ -24,9 +24,9 @@ routing:
 ```
 
 Trusted management systems can generate routine `USR0030` and `USR0032`
-login/logout audit records whenever they use IPMI over LAN. These successful
-session records can be acknowledged without delivery by listing only the
-trusted client addresses:
+login/logout audit records over REDFISH, IPMI over LAN, or another management
+transport. These successful session records can be handled without delivery
+by listing only the trusted client addresses:
 
 ```yaml
 notifications:
@@ -37,10 +37,10 @@ notifications:
 ```
 
 The filter requires all three signals: a Dell iDRAC notification, message ID
-`USR0030` or `USR0032`, and an IPMI-over-LAN message from an exact configured
-address. Failed logins, untrusted addresses, and all other security events
-continue through normal routing. Suppressed events are logged as handled so
-the BMC does not retry them.
+`USR0030` or `USR0032`, and an exact configured source address. Transport text
+is deliberately irrelevant. Failed logins, untrusted addresses, and all other
+security events continue through normal routing. Suppressed events are logged
+as handled so the BMC does not retry them.
 
 Notifinho does not call the iDRAC API, poll Lifecycle Controller data, or need
 permanent administrative credentials. Real validation across iDRAC releases

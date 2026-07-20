@@ -38,11 +38,12 @@ http:
 redfish:
   deduplication_window_seconds: 300
 
-# Source timestamps with an explicit wall clock are displayed unchanged.
-# Epoch timestamps have no timezone of their own and are rendered in this
-# IANA timezone. If omitted, Notifinho uses the container's TZ, then UTC.
-presentation:
-  timezone: "Europe/Lisbon"
+# Notifinho displays source timestamps in the machine/container local time.
+# Naive source timestamps are assumed to be local already, and missing source
+# timestamps remain omitted. A future WebUI can set this optional IANA-zone
+# override without changing the default machine-local behavior:
+# presentation:
+#   timezone: "Europe/Lisbon"
 
 # Optional site-local names for Home Assistant events. Keep equipment names
 # and addresses here so shared automations can stay generic.
@@ -405,7 +406,8 @@ notifications:
     show_ids: false
 
   dell_idrac:
-    # Optional trusted management clients whose successful IPMI-over-LAN
-    # login/logout audit records (USR0030/USR0032) should be acknowledged
-    # without delivery. Other authentication and security events are kept.
+    # Optional trusted management clients whose successful session login or
+    # logout audit records (USR0030/USR0032) should be acknowledged without
+    # delivery, regardless of REDFISH/IPMI transport. Failed authentication
+    # and unrelated security events are always kept.
     suppress_ipmi_session_audit_from: []

@@ -8,6 +8,8 @@ import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from tzlocal import get_localzone
+
 from config import config
 
 
@@ -174,9 +176,10 @@ class PresentationMixin:
     def _format_datetime(self, value: Any) -> str:
         """Render source time without ever substituting receipt time.
 
-        Source strings that carry their own wall clock retain it exactly.
-        Epoch values encode an instant rather than a wall clock, so they are
-        rendered in the configured presentation timezone (or ``TZ``).
+        Timezone-aware values and epochs are converted to the Notifinho
+        machine's local timezone. Naive values are treated as source-local
+        wall clocks. An optional presentation timezone overrides the machine
+        default for the future WebUI without changing the event-time source.
         """
 
         if value is None or value == "":
@@ -215,22 +218,27 @@ class PresentationMixin:
                 if parsed is None:
                     return self._sanitize_text(raw)
 
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(self._presentation_timezone())
+
         return parsed.strftime("%d %b %Y • %H:%M")
 
     def _presentation_timezone(self):
-        """Return the validated IANA zone used only for epoch timestamps."""
+        """Return an override or the Notifinho machine's local timezone."""
 
-        zone_name = str(
-            config.get("presentation", "timezone")
-            or os.environ.get("TZ")
-            or "UTC"
-        ).strip()
+        configured = config.get("presentation", "timezone")
+        zone_name = str(configured or os.environ.get("TZ") or "").strip()
         if zone_name.startswith(":"):
             zone_name = zone_name[1:]
+        if zone_name:
+            try:
+                return ZoneInfo(zone_name)
+            except (ZoneInfoNotFoundError, ValueError):
+                pass
         try:
-            return ZoneInfo(zone_name)
-        except (ZoneInfoNotFoundError, ValueError):
-            return timezone.utc
+            return get_localzone()
+        except Exception:
+            return datetime.now().astimezone().tzinfo or timezone.utc
 
     def _parse_datetime_text(self, value: str) -> tuple[datetime | None, bool]:
         cleaned = re.sub(r"(?<=\d)(?:st|nd|rd|th)\b", "", value)

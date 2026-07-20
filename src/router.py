@@ -167,7 +167,7 @@ class Router:
         self,
         notification: Notification,
     ) -> bool:
-        """Suppress explicitly trusted Dell IPMI session audit noise."""
+        """Suppress trusted Dell session login/logout audit noise."""
 
         if notification.source != "dell_idrac":
 
@@ -191,21 +191,10 @@ class Router:
         metadata = notification.metadata or {}
         message_id = str(metadata.get("message_id") or "").strip().upper()
 
-        # USR0030 and USR0032 are the iDRAC login and logout audit records.
-        # Never suppress failed logins or other security events.
+        # USR0030 and USR0032 are iDRAC login and logout audit records across
+        # REDFISH, IPMI-over-LAN, and other session transports. Never suppress
+        # failed logins or unrelated security events.
         if message_id not in {"USR0030", "USR0032"}:
-
-            return False
-
-        message = " ".join(
-            str(value or "")
-            for value in (
-                notification.title,
-                notification.body,
-            )
-        ).casefold()
-
-        if "ipmi over lan" not in message:
 
             return False
 
@@ -238,7 +227,7 @@ class Router:
             return False
 
         log.info(
-            "Suppressed trusted Dell iDRAC IPMI session audit event "
+            "Suppressed trusted Dell iDRAC session audit event "
             "%s from %s",
             message_id,
             source_ip,

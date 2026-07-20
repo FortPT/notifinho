@@ -124,7 +124,11 @@ def test_protect_card_does_not_list_configured_sources():
     serialized = json.dumps(payload)
     assert "SYNTHETIC-CAMERA" in serialized
     assert "configured_source_count" not in serialized
-    assert len(payload["embeds"][0]["fields"]) == 7
+    assert len(payload["embeds"][0]["fields"]) == 5
+    assert payload["embeds"][0]["fields"][0]["name"] == "\u200b"
+    assert payload["embeds"][0]["fields"][-1]["value"].endswith(
+        DiscordCardFormatter.SEPARATOR
+    )
 
 
 def _protect_field_names(item):
@@ -203,7 +207,7 @@ def test_protect_private_or_opaque_device_is_omitted_without_empty_field(device_
         (datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp(), "13 Jul 2026 • 01:16"),
         (datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp() * 1000, "13 Jul 2026 • 01:16"),
         ("2026-07-13T01:16:35.108000+00:00", "13 Jul 2026 • 01:16"),
-        ("2026-07-13T02:16:35.108000+01:00", "13 Jul 2026 • 02:16"),
+        ("2026-07-13T02:16:35.108000+01:00", "13 Jul 2026 • 01:16"),
     ],
 )
 def test_protect_event_time_formats_seconds_milliseconds_and_iso(event_time, expected):
@@ -375,7 +379,7 @@ def test_missing_values_do_not_leave_icon_only_fields():
     facts = _teams_facts(teams)
 
     assert [field["name"].split(" ", 1)[-1] for field in discord["fields"][:3]] == [
-        "Event", "Severity", "Category",
+        "\u200b", "Severity", "Category",
     ]
     assert "Event time" not in json.dumps(discord)
     assert "Event time" not in json.dumps(teams)

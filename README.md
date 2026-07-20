@@ -60,7 +60,9 @@ and integrations remain planned with backwards compatibility as a priority.
 Notifinho v1.9.5 completes the Microsoft Teams and Discord presentation
 contract with official vendor assets, exact asset regression coverage, shared
 device/event hierarchy, protected platform limits, and richer optional facts.
-Source-machine timestamps remain unchanged in both outputs. Existing
+Timezone-aware source timestamps are displayed in the Notifinho machine's
+local clock in both outputs; naive source values remain local and missing
+times are omitted. Existing
 endpoints, parsers, routes, targets, secrets, and
 the Supermicro BMC, HPE iLO, Dell iDRAC, Home Assistant, Portainer, Proxmox VE,
 Synology DSM, and native UniFi integrations remain compatible. Notifinho consumes
@@ -628,16 +630,19 @@ Edit the configuration file:
 nano config/config.yaml
 ```
 
-Set the IANA timezone used to render epoch timestamps. Explicit source
-wall-clock timestamps keep their original hour; missing source timestamps are
-never replaced with Notifinho receipt time.
+By default, Notifinho renders timezone-aware source timestamps and epochs in
+the machine/container local timezone. Naive source timestamps are treated as
+already local. Missing source timestamps are never replaced with Notifinho's
+receipt time.
 
 ```yaml
+# Optional future-WebUI-style override:
 presentation:
   timezone: Europe/Lisbon
 ```
 
-If omitted, Notifinho uses the container's `TZ` environment value, then UTC.
+Leave the override out to follow the machine/container local clock. Set it
+only when the displayed timezone must intentionally differ from that clock.
 
 Configure your Discord webhook:
 
@@ -992,9 +997,10 @@ notifications:
     show_ids: false
 
   dell_idrac:
-    # Optional exact client addresses whose successful iDRAC IPMI-over-LAN
-    # login/logout audit records (USR0030/USR0032) are routine and should be
-    # acknowledged without delivery. Other security alerts are never hidden.
+    # Optional exact client addresses whose successful iDRAC session login or
+    # logout audit records (USR0030/USR0032) are routine and should be handled
+    # without delivery, regardless of REDFISH/IPMI transport. Failed logins
+    # and unrelated security alerts are never hidden.
     suppress_ipmi_session_audit_from: []
 ```
 
@@ -1640,6 +1646,10 @@ live v1.9.4 office audit. See the
 - Xen Orchestra preserves backup names and omits missing Duration/Result facts
 - Identifiers such as `PVE-01`, `CPU`, and `VMID` retain their source casing
 - UniFi cards remove duplicated state/icons and shorten the last-device label
+- Teams and Discord use the Notifinho machine's local clock by default, with
+  no visible timezone suffix and no receipt-time substitution
+- Trusted Dell session login/logout audit noise can be suppressed by exact
+  source IP across REDFISH and IPMI transports
 - Placeholder, malformed, and non-HTTPS Teams webhooks fail before delivery
 - Existing valid webhooks, routes, endpoints, and secrets remain compatible
 

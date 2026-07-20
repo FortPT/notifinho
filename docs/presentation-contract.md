@@ -8,26 +8,28 @@ the existing Discord embeds and Microsoft Teams Adaptive Cards.
 The event source owns the visible timestamp.
 
 - Use the timestamp emitted by the source machine or service.
-- Preserve its date and wall-clock hour. Do not convert an ISO timestamp to
-  the Notifinho container timezone, UTC, or the output recipient's timezone.
+- Convert timezone-aware source timestamps and epoch instants to the
+  Notifinho machine/container local timezone before display.
+- Treat a source timestamp without timezone information as an already-local
+  wall clock. Do not reinterpret it as UTC.
 - Do not append `UTC` or a numeric timezone suffix to the card.
 - Render recognized timestamps as `20 Jul 2026 • 18:09`.
-- If the source sends an epoch value, render that instant in the configured
-  `presentation.timezone`. Epoch values contain no source wall-clock timezone.
 - If no source timestamp is available, omit the Event time metric. Never
   substitute Notifinho's receipt time.
 
-Configure an IANA timezone for epoch-based sources:
+The default is the machine/container local clock. An optional IANA-zone
+override is reserved for installations—and the future WebUI—that intentionally
+need a different display timezone:
 
 ```yaml
 presentation:
   timezone: Europe/Lisbon
 ```
 
-If this setting is absent, Notifinho uses the container's `TZ` value and then
-falls back to UTC. The packaged `tzdata` database makes IANA zones available
-in worldwide container deployments. A future WebUI can expose the same
-setting without changing the card contract.
+If this setting is absent, Notifinho discovers the container's local timezone.
+The packaged `tzdata` database and local-zone discovery support worldwide
+deployments. The selected timezone affects presentation only; it never replaces
+the source event timestamp with Notifinho's receipt time.
 
 ## Microsoft Teams hierarchy
 
@@ -56,7 +58,7 @@ layout:
 1. Header: `device • event`, with device and status icons, a severity-aware
    embed color, and the official integration thumbnail.
 2. Context: `integration • state • source area`.
-3. Message: one full-width event body with an event icon.
+3. Message: one full-width highlighted event body without a redundant label.
 4. Metrics: Severity, Category, and Event time as the first three inline
    fields.
 5. Details: optional icon-labelled integration-specific fields, links, and
@@ -64,10 +66,11 @@ layout:
 6. Notifinho version footer.
 
 The shared renderer separates the context line from the title, presents the
-event message in a dark full-width highlight, keeps Severity, Category, and
-Event time on one row, then places source-specific facts in a vertical list.
-Thin rules divide the metrics, detail list, and one-line footer. There is no
-rule after the footer because Discord has no card content below it.
+unlabelled event message in a dark full-width highlight, places a full-width
+rule directly below it, keeps Severity, Category, and Event time on one row,
+then places source-specific facts in a vertical list. A final full-width rule
+immediately follows the last detail and separates the one-line footer. There
+is no rule after the footer because Discord has no card content below it.
 
 The normalized Discord model lives in `src/formatters/discord_common.py`. New
 Discord formatters should inherit `DiscordCardFormatter`, create a

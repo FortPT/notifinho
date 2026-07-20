@@ -6,6 +6,7 @@ import json
 import struct
 
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -129,7 +130,7 @@ def _header_image(header: dict) -> dict:
     ("value", "expected"),
     [
         ("2026-07-15T01:15:00Z", "15 Jul 2026 • 01:15"),
-        ("2026-07-20T18:09:00+05:00", "20 Jul 2026 • 18:09"),
+        ("2026-07-20T18:09:00+05:00", "20 Jul 2026 • 13:09"),
         ("2026-07-15 16:39:00", "15 Jul 2026 • 16:39"),
         ("12th July 2026 06:00", "12 Jul 2026 • 06:00"),
     ],
@@ -151,7 +152,7 @@ def test_epoch_uses_configured_iana_timezone(monkeypatch, value):
     )
 
 
-def test_explicit_offset_keeps_source_wall_clock(monkeypatch):
+def test_explicit_offset_converts_to_local_presentation_time(monkeypatch):
     monkeypatch.setitem(
         config._data,
         "presentation",
@@ -160,7 +161,20 @@ def test_explicit_offset_keeps_source_wall_clock(monkeypatch):
 
     assert PresentationMixin()._format_datetime(
         "2026-07-20T18:09:00+05:00"
-    ) == "20 Jul 2026 • 18:09"
+    ) == "20 Jul 2026 • 14:09"
+
+
+def test_machine_local_timezone_is_the_default(monkeypatch):
+    monkeypatch.setitem(config._data, "presentation", {})
+    monkeypatch.delenv("TZ", raising=False)
+    monkeypatch.setattr(
+        "formatters.presentation.get_localzone",
+        lambda: ZoneInfo("Europe/Lisbon"),
+    )
+
+    assert PresentationMixin()._format_datetime(
+        "2026-07-20T22:47:00Z"
+    ) == "20 Jul 2026 • 23:47"
 
 
 def test_resolved_state_wins_over_previous_critical_severity():
@@ -475,14 +489,16 @@ def test_every_discord_card_uses_the_shared_information_hierarchy(source):
     assert embed["description"].startswith("\u200b\n")
     assert embed["description"].count(" • ") == 2
     assert [field["name"].split(" ", 1)[-1] for field in embed["fields"][:4]] == [
-        "Event",
+        "\u200b",
         "Severity",
         "Category",
         "Event time",
     ]
     assert embed["fields"][0]["inline"] is False
     assert embed["fields"][0]["value"].startswith("```\n")
-    assert embed["fields"][0]["value"].endswith("\n```")
+    assert embed["fields"][0]["value"].endswith(
+        f"\n```\n\u200b\n{formatter.SEPARATOR}"
+    )
     assert all(field["inline"] is True for field in embed["fields"][1:4])
     assert embed["fields"][3]["value"] == (
         "15 Jul 2026 • 01:20"
@@ -491,15 +507,11 @@ def test_every_discord_card_uses_the_shared_information_hierarchy(source):
     )
     assert len(embed["fields"]) <= 25
     assert formatter._embed_text_size(embed) <= formatter.EMBED_TEXT_BUDGET
-    assert embed["fields"][-1] == {
-        "name": "\u200b",
-        "value": formatter.SEPARATOR,
-        "inline": False,
-    }
+    assert embed["fields"][-1]["value"].endswith(formatter.SEPARATOR)
     assert embed["footer"]["text"] == f"FortPT Labs • Notifinho v{VERSION}"
 
 
-def test_discord_details_are_a_separated_vertical_list():
+def test_discord_details_follow_metrics_and_end_at_the_footer_rule():
     item = _notification("proxmox")
     item.metadata.update({
         "vmid": 101,
@@ -516,24 +528,23 @@ def test_discord_details_are_a_separated_vertical_list():
     )
     details = embed["fields"][details_index]
 
-    assert embed["fields"][details_index - 1]["value"] == (
-        DiscordCardFormatter.SEPARATOR
-    )
+    assert embed["fields"][details_index - 1]["name"].endswith("Event time")
     assert details["inline"] is False
     assert "🆔 **VMID:** 101" in details["value"]
     assert "💻 **Guest:** APP-01" in details["value"]
-    assert embed["fields"][details_index + 1]["value"] == (
-        DiscordCardFormatter.SEPARATOR
+    assert details["value"].endswith(DiscordCardFormatter.SEPARATOR)
+    assert not details["value"].endswith(
+        f"\n\n{DiscordCardFormatter.SEPARATOR}"
     )
 
 
-def test_discord_preserves_source_wall_clock_and_never_invents_receipt_time():
+def test_discord_converts_source_time_and_never_invents_receipt_time():
     item = _notification("generic")
     item.start_time = ""
     item.metadata["event_time"] = "2026-07-20T18:09:00+05:00"
     embed = DiscordOutput().default_formatter.format(item)["embeds"][0]
 
-    assert embed["fields"][3]["value"] == "20 Jul 2026 • 18:09"
+    assert embed["fields"][3]["value"] == "20 Jul 2026 • 13:09"
     assert "UTC" not in json.dumps(embed)
 
     item.metadata["event_time"] = ""

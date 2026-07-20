@@ -111,6 +111,39 @@ def _source_ip(message: str) -> str:
     return ""
 
 
+def _system_name(value: str) -> str:
+    """Normalize legacy subscription contexts into a device identity."""
+
+    system = _clean(value, 256)
+    compatibility = re.fullmatch(
+        r"notifinho[\s_-]*(.+?)[\s_-]*compat",
+        system,
+        re.IGNORECASE,
+    )
+    if compatibility:
+        name = re.sub(
+            r"(?<=[a-z0-9])(?=[A-Z])",
+            " ",
+            compatibility.group(1),
+        )
+        return _clean(name, 128).upper()
+    return system
+
+
+def _event_name(source: str, message_id: str, message: str) -> str:
+    """Return a concise event label while retaining the full body message."""
+
+    known = {
+        ("dell_idrac", "USR0030"): "User Login",
+        ("dell_idrac", "USR0031"): "Login Failed",
+        ("dell_idrac", "USR0032"): "User Logout",
+    }
+    return known.get(
+        (source, message_id.upper()),
+        _clean(message or message_id or "Hardware event", 180),
+    )
+
+
 def _vendor(payload: dict, event: dict, hint: str = "") -> tuple[str, str]:
     normalized_hint = _clean(hint, 32).casefold()
     if normalized_hint in _VENDORS:
@@ -154,9 +187,8 @@ class RedfishParser:
         notifications = []
         for event in payload["Events"]:
             source, vendor_name = _vendor(payload, event, vendor_hint)
-            system = _clean(
+            system = _system_name(
                 payload.get("Context") or event.get("Context"),
-                256,
             )
             message_id = _clean(event.get("MessageId"), 256)
             registry = _clean(
@@ -204,7 +236,7 @@ class RedfishParser:
                 source=source,
                 category=_category(message_id, message, origin_path),
                 status=status,
-                title=_clean(event.get("Message") or message_id or "Hardware event", 180),
+                title=_event_name(source, message_id, message),
                 subject=message_id,
                 body=message,
                 start_time=timestamp,

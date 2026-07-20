@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.4-blue" alt="Stable release v1.9.4">
+  <img src="https://img.shields.io/badge/stable-v1.9.5-blue" alt="Stable release v1.9.5">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.4** |
+| **Current Stable Release** | **v1.9.5** |
 | **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,8 +57,9 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.4 standardizes Microsoft Teams cards across all integrations and
-preserves the wall-clock timestamp emitted by each source machine in both
+Notifinho v1.9.5 completes the Microsoft Teams presentation contract with
+official vendor assets, exact asset regression coverage, and cleaner optional
+facts and identifiers. Source-machine timestamps remain unchanged in both
 Teams and Discord. Existing endpoints, parsers, routes, targets, secrets, and
 the Supermicro BMC, HPE iLO, Dell iDRAC, Home Assistant, Portainer, Proxmox VE,
 Synology DSM, and native UniFi integrations remain compatible. Notifinho consumes
@@ -1604,6 +1605,22 @@ See the [v1.9.4 release notes](docs/releases/v1.9.4.md).
 - Available source times are never replaced with Notifinho receipt time
 - Teams and Discord omit visible UTC or offset suffixes
 - Existing configuration, routing, endpoints, and secrets remain compatible
+
+---
+
+## ✅ v1.9.5 — Official Teams integration assets
+
+Notifinho v1.9.5 replaces generated initial badges with official vendor assets
+for every Teams integration and closes issues found during the live v1.9.4
+office audit. See the [v1.9.5 release notes](docs/releases/v1.9.5.md).
+
+- Every Teams formatter is bound to an exact, official integration asset
+- Asset sources and mechanical transformations are documented
+- Xen Orchestra preserves backup names and omits missing Duration/Result facts
+- Identifiers such as `PVE-01`, `CPU`, and `VMID` retain their source casing
+- UniFi cards remove duplicated state/icons and shorten the last-device label
+- Placeholder, malformed, and non-HTTPS Teams webhooks fail before delivery
+- Existing valid webhooks, routes, endpoints, and secrets remain compatible
 
 ---
 

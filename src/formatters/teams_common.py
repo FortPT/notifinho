@@ -113,7 +113,7 @@ class TeamsCardFormatter(BaseFormatter):
                 "value": self._truncate(fact.value, 1000),
             }
             for fact in data.details
-            if self._truncate(fact.value, 1000)
+            if self._meaningful_fact(fact.value)
         ]
         if facts:
             body.append(
@@ -247,10 +247,25 @@ class TeamsCardFormatter(BaseFormatter):
 
     @staticmethod
     def _label(value: Any) -> str:
-        return (
-            str(value or "")
-            .replace("_", " ")
-            .replace("-", " ")
-            .strip()
-            .title()
-        )
+        text = str(value or "").replace("_", " ").strip()
+        if not text:
+            return ""
+
+        def label_token(token: str) -> str:
+            parts = token.split("-")
+            return "-".join(
+                part
+                if part.isupper() or any(character.isdigit() for character in part)
+                else part.capitalize()
+                for part in parts
+            )
+
+        return " ".join(label_token(token) for token in text.split())
+
+    def _meaningful_fact(self, value: Any) -> bool:
+        """Reject empty and formatter-sentinel values without hiding zero."""
+
+        if value is None:
+            return False
+        text = self._sanitize_text(value).strip()
+        return text.casefold() not in {"", "-", "—", "n/a", "none", "null"}

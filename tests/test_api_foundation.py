@@ -184,6 +184,27 @@ def test_configuration_validation_rejects_plain_tokens_and_bad_routes():
     assert "outputs must be a non-empty list" in rendered
 
 
+@pytest.mark.parametrize(
+    "webhook",
+    ["PASTE_HERE", "http://example.invalid/hook", "not-a-url", ""],
+)
+def test_configuration_validation_rejects_invalid_teams_webhooks(webhook):
+    errors = validate_config({
+        "outputs": {"teams": {"default": {"webhook": webhook}}},
+        "routing": {
+            "generic": {
+                "outputs": [{"output": "teams", "target": "default"}],
+            }
+        },
+    })
+    rendered = "; ".join(errors)
+
+    if webhook:
+        assert "must be a valid HTTPS URL" in rendered
+    else:
+        assert "webhook is required" in rendered
+
+
 def test_generic_event_api_enforces_source_scope_and_returns_delivery_state():
     secret = "synthetic-event-secret"
     config = Configuration(token_config(hash_token(secret)))

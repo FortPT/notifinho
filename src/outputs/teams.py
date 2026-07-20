@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import requests
 
+from urllib.parse import urlsplit
+
 from config import config
 from formatters.teams import TeamsFormatter
 from formatters.teams_generic import GenericTeamsFormatter
@@ -34,6 +36,27 @@ from formatters.teams_unifi import (
 from formatters.teams_zabbix import ZabbixTeamsFormatter
 from logger import log
 from models import Notification
+
+
+def valid_teams_webhook(value) -> bool:
+    """Return whether value is a complete, credential-free HTTPS URL."""
+
+    webhook = str(value or "").strip()
+    lowered = webhook.casefold()
+
+    if not webhook or "paste_here" in lowered or webhook == "<configured>":
+        return False
+
+    try:
+        parsed = urlsplit(webhook)
+        return (
+            parsed.scheme.casefold() == "https"
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+        )
+    except ValueError:
+        return False
 
 
 class TeamsOutput:
@@ -74,10 +97,11 @@ class TeamsOutput:
             "webhook",
         )
 
-        if not webhook:
+        if not valid_teams_webhook(webhook):
 
             log.error(
-                "Teams webhook not configured for '%s'.",
+                "Teams webhook for '%s' is missing or invalid; "
+                "configure a complete HTTPS URL.",
                 target,
             )
 

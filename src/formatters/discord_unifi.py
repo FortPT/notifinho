@@ -95,7 +95,7 @@ class UniFiNetworkDiscordFormatter(_UniFiDiscordFormatter):
             self._field("⚠️ Severity", str(metadata.get("severity", "")).title()),
             self._field("💻 Client", client),
             self._field("📶 Network / Wi-Fi", network),
-            self._field("📍 Last connected device", last_device),
+            self._field("📍 Last device", last_device),
             self._field("⏱️ Duration", metadata.get("duration")),
             self._field("📡 Wireless", wifi_detail, False),
         ]

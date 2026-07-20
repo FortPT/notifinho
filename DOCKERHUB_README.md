@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.9.4**.
+The current stable release is **v1.9.5**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -139,6 +139,12 @@ v1.9.4 standardizes every Microsoft Teams formatter on one shared card
 hierarchy and preserves the wall-clock timestamp emitted by each source in
 both Teams and Discord. Existing configuration, routes, endpoints, targets,
 and secrets remain compatible.
+
+v1.9.5 replaces generated initial badges with documented official vendor
+assets across all Teams integrations. It also omits missing Xen Orchestra
+Duration/Result facts, preserves infrastructure identifier casing, removes
+duplicated UniFi details, and rejects malformed Teams webhook placeholders
+before delivery. Existing valid webhooks and routing remain compatible.
 
 A shared Discord target can receive all three normalized UniFi sources:
 

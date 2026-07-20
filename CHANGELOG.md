@@ -6,6 +6,45 @@ No changes yet.
 
 ---
 
+## 1.9.5 - 2026-07-20
+
+### Changed
+
+- Replaced generated initial badges with official vendor assets across all 17
+  Microsoft Teams integration presentations, including the generic Notifinho
+  card.
+- Normalized all locally served header assets to transparent 256 px PNGs and
+  documented each official source and mechanical transformation.
+- Added an optional `NOTIFINHO_ICON_BASE_URL` override for immutable branch
+  previews and installations that mirror the same official assets.
+- Preserved source casing for identifiers and acronyms such as `PVE-01`,
+  `CPU`, and `VMID`.
+- Shortened the UniFi Network last-device label and removed duplicated UniFi
+  state, source-area, and icon presentation.
+
+### Fixed
+
+- Xen Orchestra cards now omit unavailable Duration and Result facts while
+  retaining real values and the triggered backup name when supplied.
+- Teams output and configuration validation now reject placeholder, malformed,
+  credential-bearing, and non-HTTPS webhook values before attempting delivery.
+
+### Compatibility
+
+- Existing valid Teams webhooks, routes, source payloads, endpoints, secrets,
+  Discord behavior, and source-time rules remain compatible.
+- No configuration migration or secret rotation is required.
+
+### Validation
+
+- Passed 579 automated parser, API, formatter, routing, security, release, and
+  backwards-compatibility tests.
+- Added exact product-asset assertions for all 17 Teams presentations.
+- Added transparent-PNG, asset-removal, Xen Orchestra optional-fact, identifier,
+  UniFi duplication, and webhook-validation regressions.
+
+---
+
 ## 1.9.4 - 2026-07-20
 
 ### Changed

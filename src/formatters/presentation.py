@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 import re
 from typing import Any
 
@@ -10,20 +11,24 @@ from typing import Any
 class PresentationMixin:
     """Keep presentation, safety, and product branding consistent."""
 
-    ICON_BASE_URL = (
-        "https://raw.githubusercontent.com/FortPT/notifinho/"
-        "main/assets/icons"
-    )
+    ICON_BASE_URL = os.environ.get(
+        "NOTIFINHO_ICON_BASE_URL",
+        (
+            "https://raw.githubusercontent.com/FortPT/notifinho/"
+            "main/assets/icons"
+        ),
+    ).rstrip("/")
 
     PRODUCT_ICONS = {
+        "xo": "xen-orchestra.png",
         "zabbix": "zabbix.png",
         "qnap": "qnap.png",
         "grafana": "grafana.png",
         "truenas": "truenas.png",
-        "unifi": "unifi.png",
-        "unifi_network": "unifi.png",
-        "unifi_protect": "unifi.png",
-        "unifi_drive": "unifi.png",
+        "unifi": "unifi-network.png",
+        "unifi_network": "unifi-network.png",
+        "unifi_protect": "unifi-protect.png",
+        "unifi_drive": "unifi-drive.png",
         "portainer": "portainer.png",
         "proxmox": "proxmox.png",
         "synology": "synology.png",
@@ -32,9 +37,8 @@ class PresentationMixin:
         "hpe_ilo": "hpe-ilo.png",
         "dell_idrac": "dell-idrac.png",
         "home_assistant": "home-assistant.png",
+        "notifinho": "notifinho.png",
     }
-
-    XO_ICON_URL = "https://content.vates.tech/assets/xologoname.png"
 
     _SECRET_ASSIGNMENT = re.compile(
         r"(?i)\b(authorization|api[_ -]?key|password|secret|session[_ -]?id|"
@@ -87,8 +91,6 @@ class PresentationMixin:
 
     def _product_icon_url(self, source: str) -> str:
         normalized = str(source or "").strip().casefold()
-        if normalized == "xo":
-            return self.XO_ICON_URL
         filename = self.PRODUCT_ICONS.get(normalized)
         return f"{self.ICON_BASE_URL}/{filename}" if filename else ""
 

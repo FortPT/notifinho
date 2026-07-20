@@ -181,7 +181,7 @@ class TeamsFormatter(TeamsCardFormatter):
 
             parts.append(f"⚠️ {skipped}")
 
-        return " • ".join(parts) if parts else "-"
+        return " • ".join(parts)
 
     def _add_vm_section(
         self,
@@ -289,7 +289,7 @@ class TeamsFormatter(TeamsCardFormatter):
 
         if not value:
 
-            return "-"
+            return ""
 
         value = str(value).strip()
 

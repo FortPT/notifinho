@@ -30,8 +30,6 @@ class DiscordFormatter(BaseFormatter):
         "December": "Dec",
     }
 
-    XO_THUMBNAIL = "https://content.vates.tech/assets/xologoname.png"
-
     def format(
         self,
         notification: Notification,
@@ -58,14 +56,13 @@ class DiscordFormatter(BaseFormatter):
             "title": f"{icon} {notification.job_name}",
             "description": f"Xen Orchestra • **{status_text}**",
             "color": color,
-            "thumbnail": {
-                "url": self.XO_THUMBNAIL,
-            },
             "fields": [],
             "footer": {
                 "text": f"FortPT Labs\nNotifinho v{VERSION}",
             },
         }
+
+        self._set_discord_thumbnail(embed, "xo")
 
         #
         # Main backup info

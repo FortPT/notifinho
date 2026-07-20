@@ -276,7 +276,7 @@ def test_unifi_titles_have_one_application_and_status_icon(
                 "⚠️ Severity",
                 "💻 Client",
                 "📶 Network / Wi-Fi",
-                "📍 Last connected device",
+                "📍 Last device",
                 "⏱️ Duration",
                 "📡 Wireless",
             },
@@ -296,7 +296,7 @@ def test_unifi_titles_have_one_application_and_status_icon(
             "unifi_drive",
             UniFiDriveDiscordFormatter(),
             UniFiDriveTeamsFormatter(),
-            {"🖥️ System", "💾 Backup task", "📌 State", "🗂️ Category"},
+            {"🖥️ System", "💾 Backup task", "🗂️ Category"},
         ),
     ],
 )
@@ -318,6 +318,23 @@ def test_unifi_discord_and_teams_labels_have_readable_icons(
         else:
             assert label in teams_text
     assert all(any(character.isalpha() for character in label) for label in expected_labels)
+
+
+@pytest.mark.parametrize("source", ["unifi_network", "unifi_protect", "unifi_drive"])
+def test_unifi_teams_cards_do_not_repeat_icons_or_event_state(source):
+    item = notification(source)
+    card = UniFiNetworkTeamsFormatter().format(item) if source == "unifi_network" else (
+        UniFiProtectTeamsFormatter().format(item)
+        if source == "unifi_protect"
+        else UniFiDriveTeamsFormatter().format(item)
+    )
+    rendered = json.dumps(card, ensure_ascii=False)
+    facts = _teams_facts(card)
+
+    assert "📌 📌" not in rendered
+    assert all(fact["title"].count("📌") <= 1 for fact in facts)
+    if source == "unifi_drive":
+        assert not any(fact["title"].endswith(" State:") for fact in facts)
 
 
 @pytest.mark.parametrize(

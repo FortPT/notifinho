@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import struct
+
+from pathlib import Path
 
 import pytest
 
@@ -14,6 +17,29 @@ from formatters.teams_common import TeamsCardFormatter
 from models import Notification
 from outputs.discord import DiscordOutput
 from outputs.teams import TeamsOutput
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+TEAMS_PRODUCT_ASSETS = {
+    "xo": "xen-orchestra.png",
+    "grafana": "grafana.png",
+    "portainer": "portainer.png",
+    "proxmox": "proxmox.png",
+    "qnap": "qnap.png",
+    "synology": "synology.png",
+    "truenas": "truenas.png",
+    "unifi_network": "unifi-network.png",
+    "unifi_protect": "unifi-protect.png",
+    "unifi_drive": "unifi-drive.png",
+    "zabbix": "zabbix.png",
+    "redfish": "redfish.png",
+    "supermicro": "supermicro.png",
+    "hpe_ilo": "hpe-ilo.png",
+    "dell_idrac": "dell-idrac.png",
+    "home_assistant": "home-assistant.png",
+    "generic": "notifinho.png",
+}
 
 
 def _notification(source: str) -> Notification:
@@ -76,6 +102,20 @@ def _contains_image(value) -> bool:
     if isinstance(value, list):
         return any(_contains_image(item) for item in value)
     return False
+
+
+def _image_urls(value) -> list[str]:
+    if isinstance(value, dict):
+        urls = [value["url"]] if value.get("type") == "Image" else []
+        for item in value.values():
+            urls.extend(_image_urls(item))
+        return urls
+    if isinstance(value, list):
+        urls = []
+        for item in value:
+            urls.extend(_image_urls(item))
+        return urls
+    return []
 
 
 @pytest.mark.parametrize(
@@ -155,13 +195,79 @@ def test_every_dedicated_teams_card_has_a_top_right_product_icon(source):
     assert _contains_image(card["body"][0])
 
 
+@pytest.mark.parametrize(
+    ("source", "filename"),
+    TEAMS_PRODUCT_ASSETS.items(),
+)
+def test_every_teams_integration_uses_its_exact_product_asset(source, filename):
+    item = _notification("home_lab" if source == "generic" else source)
+    formatter = (
+        TeamsOutput().default_formatter
+        if source == "generic"
+        else TeamsOutput().source_formatters[source]
+    )
+    header = _teams_content(formatter.format(item))["body"][0]
+
+    assert _image_urls(header) == [
+        f"{PresentationMixin.ICON_BASE_URL}/{filename}"
+    ]
+
+
+@pytest.mark.parametrize("filename", TEAMS_PRODUCT_ASSETS.values())
+def test_every_teams_product_asset_is_256px_transparent_png(filename):
+    data = (ROOT / "assets" / "icons" / filename).read_bytes()
+    assert data.startswith(b"\x89PNG\r\n\x1a\n")
+    width, height, _depth, color_type, _compression, _filter, _interlace = (
+        struct.unpack(">IIBBBBB", data[16:29])
+    )
+    assert (width, height) == (256, 256)
+    assert color_type in {4, 6}
+
+
+def test_placeholder_unifi_badge_and_generated_sources_are_removed():
+    assert not (ROOT / "assets" / "icons" / "unifi.png").exists()
+    assert not (ROOT / "assets" / "icons" / "source").exists()
+
+
 def test_xo_cards_keep_the_xen_orchestra_branding():
     item = _notification("xo")
     discord = DiscordOutput().source_formatters["xo"].format(item)["embeds"][0]
     teams = _teams_content(TeamsOutput().source_formatters["xo"].format(item))
 
-    assert "xologoname.png" in discord["thumbnail"]["url"]
+    assert discord["thumbnail"]["url"].endswith("/xen-orchestra.png")
     assert _contains_image(teams["body"][0])
+
+
+def test_xo_card_uses_backup_name_and_omits_missing_duration_and_result():
+    item = _notification("xo")
+    item.job_name = "Nightly Production Backup"
+    item.duration = ""
+    item.vm_success = 0
+    item.vm_failed = 0
+    item.vm_skipped = 0
+    card = _teams_content(TeamsOutput().source_formatters["xo"].format(item))
+    rendered = json.dumps(card, ensure_ascii=False)
+
+    assert "Nightly Production Backup" in card["body"][0]["text"]
+    assert "Duration" not in rendered
+    assert "Result" not in rendered
+
+
+def test_xo_card_retains_real_duration_and_result_values():
+    item = _notification("xo")
+    item.duration = "5 min"
+    item.vm_success = 3
+    card = _teams_content(TeamsOutput().source_formatters["xo"].format(item))
+    rendered = json.dumps(card, ensure_ascii=False)
+
+    assert '"value": "5 min"' in rendered
+    assert '"value": "✅ 3"' in rendered
+
+
+def test_identifier_labels_preserve_source_acronyms_and_hyphens():
+    assert TeamsCardFormatter._label("PVE-01") == "PVE-01"
+    assert TeamsCardFormatter._label("CPU usage") == "CPU Usage"
+    assert TeamsCardFormatter._label("VMID") == "VMID"
 
 
 def test_generic_events_do_not_fall_back_to_xen_orchestra_cards():
@@ -188,6 +294,7 @@ def test_generic_events_do_not_fall_back_to_xen_orchestra_cards():
     assert "Xen Orchestra" not in rendered
     assert "Backup Successful" not in rendered
     assert "xologoname.png" not in rendered
+    assert "notifinho.png" in rendered
 
 
 @pytest.mark.parametrize(
@@ -290,3 +397,28 @@ def test_outputs_recursively_redact_credentials_before_delivery(
     assert "private-bearer" not in serialized
     assert "private-webhook" not in serialized
     assert serialized.count("<redacted>") >= 4
+
+
+@pytest.mark.parametrize(
+    "webhook",
+    ["PASTE_HERE", "http://example.invalid/hook", "not-a-url", ""],
+)
+def test_teams_rejects_placeholder_or_insecure_webhooks_before_delivery(
+    monkeypatch,
+    webhook,
+):
+    calls = []
+
+    class Config:
+        def get(self, *keys, default=None):
+            return webhook if keys[-1:] == ("webhook",) else default
+
+    monkeypatch.setattr(teams_output_module, "config", Config())
+    monkeypatch.setattr(
+        teams_output_module.requests,
+        "post",
+        lambda *args, **kwargs: calls.append((args, kwargs)),
+    )
+
+    assert not TeamsOutput().send(_notification("truenas"), target="truenas")
+    assert calls == []

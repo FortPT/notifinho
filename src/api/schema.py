@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from copy import deepcopy
+from urllib.parse import urlsplit
 
 
 _SECRET_KEY = re.compile(
@@ -135,6 +136,12 @@ def validate_config(data) -> list[str]:
                     errors.append(f"{prefix} references missing {output}.{target}")
                 elif not str(target_settings.get("webhook") or "").strip():
                     errors.append(f"outputs.{output}.{target}.webhook is required")
+                elif output == "teams" and not _valid_https_url(
+                    target_settings.get("webhook")
+                ):
+                    errors.append(
+                        f"outputs.teams.{target}.webhook must be a valid HTTPS URL"
+                    )
     return errors
 
 
@@ -148,3 +155,20 @@ def _integer_range(value, minimum: int, maximum: int) -> bool:
     except (TypeError, ValueError):
         return False
     return minimum <= number <= maximum
+
+
+def _valid_https_url(value) -> bool:
+    text = str(value or "").strip()
+    lowered = text.casefold()
+    if not text or "paste_here" in lowered or text == "<configured>":
+        return False
+    try:
+        parsed = urlsplit(text)
+        return (
+            parsed.scheme.casefold() == "https"
+            and bool(parsed.hostname)
+            and parsed.username is None
+            and parsed.password is None
+        )
+    except ValueError:
+        return False

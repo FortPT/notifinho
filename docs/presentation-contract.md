@@ -40,6 +40,10 @@ The normalized card model lives in `src/formatters/teams_common.py`. New Teams
 formatters should inherit `TeamsCardFormatter`, create a `TeamsCardData`
 instance, and keep vendor parsing outside the renderer.
 
+Optional facts whose source value is missing or represented by `-`, `—`,
+`N/A`, `None`, or `null` are omitted. Identifiers and acronyms such as
+`PVE-01`, `VMID`, and `CPU` retain their source casing.
+
 ## Status semantics
 
 The shared renderer maps normalized states to accessible icon and color pairs:
@@ -57,12 +61,18 @@ alone.
 ## Integration images
 
 Card images must be publicly reachable over HTTPS, render without
-authentication or redirects, and use a Teams-supported raster format. The
-current self-hosted PNG badges satisfy that delivery contract and avoid a
-runtime dependency on vendor CDNs. Product names and marks are used only to
-identify the event source.
+authentication or redirects, and use a Teams-supported raster format.
+Notifinho stores normalized 256 px transparent PNGs in `assets/icons/` and
+serves them with the project documentation, avoiding a runtime dependency on
+vendor CDNs.
 
-If an image is replaced with an official vendor asset, keep it unmodified,
-verify the vendor's current brand/trademark terms, commit a raster PNG to
-`assets/icons/`, and retain a compact transparent or square-safe variant for
-the 48 px Teams header slot.
+Production uses the repository's `main/assets/icons` URL. Preview builds and
+installations that mirror the official assets can set
+`NOTIFINHO_ICON_BASE_URL` to another public HTTPS directory; the filenames and
+asset contract remain unchanged.
+
+Product-specific images must originate from an official vendor page or source
+repository. Record the source and any mechanical transformation in
+`assets/icons/README.md`. Do not introduce generated initials or lookalike
+artwork as a product logo. Product names and marks are used only to identify
+the event source.

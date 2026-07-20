@@ -118,6 +118,10 @@ def _image_urls(value) -> list[str]:
     return []
 
 
+def _header_image(header: dict) -> dict:
+    return header["columns"][1]["items"][0]
+
+
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
@@ -213,6 +217,32 @@ def test_every_teams_integration_uses_its_exact_product_asset(source, filename):
     ]
 
 
+@pytest.mark.parametrize(
+    ("source", "pixels"),
+    [
+        ("grafana", 48),
+        ("proxmox", 64),
+        ("qnap", 72),
+        ("synology", 64),
+        ("unifi_network", 80),
+        ("unifi_protect", 80),
+        ("unifi_drive", 64),
+        ("redfish", 56),
+        ("supermicro", 64),
+        ("hpe_ilo", 64),
+        ("dell_idrac", 80),
+    ],
+)
+def test_teams_product_assets_use_legible_aspect_safe_sizes(source, pixels):
+    header = _teams_content(
+        TeamsOutput().source_formatters[source].format(_notification(source))
+    )["body"][0]
+    image = _header_image(header)
+
+    assert image["width"] == f"{pixels}px"
+    assert image["height"] == f"{pixels}px"
+
+
 @pytest.mark.parametrize("filename", TEAMS_PRODUCT_ASSETS.values())
 def test_every_teams_product_asset_is_256px_transparent_png(filename):
     data = (ROOT / "assets" / "icons" / filename).read_bytes()
@@ -261,7 +291,22 @@ def test_xo_card_retains_real_duration_and_result_values():
     rendered = json.dumps(card, ensure_ascii=False)
 
     assert '"value": "5 min"' in rendered
-    assert '"value": "✅ 3"' in rendered
+    assert '"value": "✅ 3 of 3 VMs successful"' in rendered
+
+
+def test_xo_result_explains_failed_and_skipped_counts():
+    item = _notification("xo")
+    item.vm_total = 4
+    item.vm_success = 2
+    item.vm_failed = 1
+    item.vm_skipped = 1
+    card = _teams_content(TeamsOutput().source_formatters["xo"].format(item))
+    rendered = json.dumps(card, ensure_ascii=False)
+
+    assert (
+        '"value": "✅ 2 of 4 VMs successful • '
+        '❌ 1 failed • ⚠️ 1 skipped"'
+    ) in rendered
 
 
 def test_identifier_labels_preserve_source_acronyms_and_hyphens():

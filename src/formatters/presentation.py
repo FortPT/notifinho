@@ -40,6 +40,22 @@ class PresentationMixin:
         "notifinho": "notifinho.png",
     }
 
+    # Wide vendor wordmarks need a larger square render area than compact
+    # product marks. Keeping both dimensions equal preserves the official
+    # artwork's aspect ratio while making thin lockups legible in Teams.
+    TEAMS_ICON_PIXELS = {
+        "proxmox": 64,
+        "qnap": 72,
+        "synology": 64,
+        "unifi_network": 80,
+        "unifi_protect": 80,
+        "unifi_drive": 64,
+        "redfish": 56,
+        "supermicro": 64,
+        "hpe_ilo": 64,
+        "dell_idrac": 80,
+    }
+
     _SECRET_ASSIGNMENT = re.compile(
         r"(?i)\b(authorization|api[_ -]?key|password|secret|session[_ -]?id|"
         r"token)\b(\s*[:=]\s*)([^\s,;)}\]]+)"
@@ -118,6 +134,9 @@ class PresentationMixin:
         icon_url = self._product_icon_url(source)
         if not icon_url:
             return title_block
+        normalized_source = str(source or "").strip().casefold()
+        icon_pixels = self.TEAMS_ICON_PIXELS.get(normalized_source, 48)
+        icon_size = f"{icon_pixels}px"
         return {
             "type": "ColumnSet",
             # Keep the legacy title metadata for downstream card tests and
@@ -141,8 +160,8 @@ class PresentationMixin:
                             "url": icon_url,
                             "altText": f"{source} icon",
                             "size": "Small",
-                            "width": "48px",
-                            "height": "48px",
+                            "width": icon_size,
+                            "height": icon_size,
                         }
                     ],
                 },

@@ -10,20 +10,17 @@ from __future__ import annotations
 
 import re
 
-from typing import Any
-
-from formatters.base import BaseFormatter
+from formatters.teams_common import TeamsCardData, TeamsCardFormatter, TeamsFact
 from models import Notification
-from version import VERSION
 
 
-class GrafanaTeamsFormatter(BaseFormatter):
+class GrafanaTeamsFormatter(TeamsCardFormatter):
     """Format Grafana alerts as Microsoft Teams Adaptive Cards."""
 
     def format(
         self,
         notification: Notification,
-    ) -> dict[str, Any]:
+    ) -> dict:
 
         metadata = notification.metadata or {}
 
@@ -33,12 +30,6 @@ class GrafanaTeamsFormatter(BaseFormatter):
 
         severity = self._text(
             metadata.get("severity")
-        )
-
-        icon, color, status_text = self._status_meta(
-            notification.status,
-            state,
-            severity,
         )
 
         alert_name = self._text(
@@ -62,330 +53,101 @@ class GrafanaTeamsFormatter(BaseFormatter):
             or notification.start_time
         )
 
-        body: list[dict[str, Any]] = [
-            self._teams_header(
-                f"{icon} {alert_name}",
-                color,
-                "grafana",
-            ),
-            {
-                "type": "TextBlock",
-                "text": f"Grafana • **{status_text}**"
-                + (f" • {state}" if state else ""),
-                "isSubtle": True,
-                "spacing": "Small",
-                "wrap": True,
-            },
-            {
-                "type": "Container",
-                "style": "emphasis",
-                "spacing": "Medium",
-                "separator": True,
-                "items": [
-                    {
-                        "type": "TextBlock",
-                        "text": "🚨 Grafana alert",
-                        "weight": "Bolder",
-                        "color": color,
-                        "wrap": True,
-                    },
-                    {
-                        "type": "TextBlock",
-                        "text": message,
-                        "weight": "Bolder",
-                        "size": "Medium",
-                        "spacing": "Small",
-                        "wrap": True,
-                    },
-                ],
-            },
-        ]
+        details = []
 
-        metrics = []
-
-        self._add_metric(
-            metrics,
-            "📌",
-            "State",
-            state,
-        )
-
-        self._add_metric(
-            metrics,
-            "⚠️",
-            "Severity",
-            severity,
-        )
-
-        if event_time:
-
-            self._add_metric(
-                metrics,
-                "🕒",
-                "Event time",
-                self._format_datetime(
-                    event_time,
-                ),
-            )
-
-        self._add_metric(
-            metrics,
-            "🔢",
-            "Alert count",
-            metadata.get("alert_count"),
-        )
-
-        if metrics:
-
-            body.append(
-                {
-                    "type": "ColumnSet",
-                    "spacing": "Medium",
-                    "columns": metrics,
-                }
-            )
-
-        facts = []
-
-        for title, key in (
+        for icon, title, key in (
             (
+                "📏",
                 "Alert rule",
                 "alert_rule",
             ),
             (
+                "📁",
                 "Folder",
                 "folder",
             ),
             (
+                "📊",
                 "Dashboard",
                 "dashboard",
             ),
             (
+                "🧩",
                 "Panel",
                 "panel",
             ),
             (
+                "🗄️",
                 "Datasource",
                 "datasource",
             ),
             (
+                "🏢",
                 "Organization",
                 "organization",
             ),
             (
+                "🏷️",
                 "Labels",
                 "labels",
             ),
             (
+                "🔢",
                 "Values",
                 "values",
             ),
-            (
-                "Dashboard link",
-                "dashboard_url",
-            ),
-            (
-                "Panel link",
-                "panel_url",
-            ),
-            (
-                "Silence link",
-                "silence_url",
-            ),
-            (
-                "Rule link",
-                "rule_url",
-            ),
         ):
+            value = self._text(metadata.get(key))
+            if value:
+                details.append(TeamsFact(icon, title, value))
 
-            self._add_fact(
-                facts,
-                title,
-                metadata.get(key),
-            )
+        alert_count = self._text(metadata.get("alert_count"))
+        if alert_count and alert_count != "0":
+            details.append(TeamsFact("🔢", "Alert count", alert_count))
 
         for title, value in self._unknown_facts(
             metadata,
         ):
+            if len(details) >= 20:
+                break
+            details.append(TeamsFact("📌", title, value))
 
-            self._add_fact(
-                facts,
-                title,
-                value,
-            )
+        actions = []
+        for title, key in (
+            ("Open dashboard", "dashboard_url"),
+            ("Open panel", "panel_url"),
+            ("Silence alert", "silence_url"),
+            ("Open rule", "rule_url"),
+        ):
+            url = self._text(metadata.get(key))
+            if url:
+                actions.append({"type": "Action.OpenUrl", "title": title, "url": url})
 
-        if facts:
-
-            body.append(
-                {
-                    "type": "Container",
-                    "spacing": "Medium",
-                    "separator": True,
-                    "items": [
-                        {
-                            "type": "TextBlock",
-                            "text": "📋 Alert details",
-                            "weight": "Bolder",
-                            "wrap": True,
-                        },
-                        {
-                            "type": "FactSet",
-                            "spacing": "Small",
-                            "facts": facts[:20],
-                        },
-                    ],
-                }
-            )
-
-        body.append(
-            {
-                "type": "TextBlock",
-                "text": f"FortPT Labs • Notifinho v{VERSION}",
-                "isSubtle": True,
-                "size": "Small",
-                "spacing": "Medium",
-                "separator": True,
-                "wrap": True,
-            }
+        device = self._text(
+            metadata.get("instance")
+            or metadata.get("host")
+            or metadata.get("dashboard")
+            or "Grafana"
         )
-
-        card = {
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "msteams": {
-                "width": "Full",
-            },
-            "body": body,
-        }
-
-        return {
-            "type": "message",
-            "attachments": [
-                {
-                    "contentType": (
-                        "application/vnd.microsoft.card.adaptive"
-                    ),
-                    "content": card,
-                }
-            ],
-        }
-
-    def _status_meta(
-        self,
-        status: str,
-        state: str,
-        severity: str,
-    ) -> tuple[str, str, str]:
-
-        status_value = self._normalized(status)
-        state_value = self._normalized(state)
-        severity_value = self._normalized(severity)
-
-        if status_value == "failure":
-
-            return "🚨", "Attention", "Failure"
-
-        if status_value == "warning":
-
-            return "⚠️", "Warning", "Warning"
-
-        if status_value == "success":
-
-            return "✅", "Good", "Resolved"
-
-        if status_value == "information":
-
-            return "ℹ️", "Accent", "Information"
-
-        combined = {
-            state_value,
-            severity_value,
-        }
-
-        if combined & {
-            "critical",
-            "error",
-            "failed",
-            "failure",
-            "firing",
-        }:
-
-            return "🚨", "Attention", "Failure"
-
-        if combined & {
-            "alert",
-            "no data",
-            "pending",
-            "warning",
-        }:
-
-            return "⚠️", "Warning", "Warning"
-
-        if combined & {
-            "normal",
-            "recovered",
-            "resolved",
-        }:
-
-            return "✅", "Good", "Resolved"
-
-        return "ℹ️", "Accent", "Information"
-
-    def _add_metric(
-        self,
-        metrics: list[dict[str, Any]],
-        icon: str,
-        label: str,
-        value,
-    ) -> None:
-
-        value_text = self._text(value)
-
-        if not value_text or value_text == "0":
-
-            return
-
-        metrics.append(
-            {
-                "type": "Column",
-                "width": "stretch",
-                "items": [
-                    {
-                        "type": "TextBlock",
-                        "text": f"{icon} {label}",
-                        "weight": "Bolder",
-                        "size": "Small",
-                        "wrap": True,
-                    },
-                    {
-                        "type": "TextBlock",
-                        "text": value_text,
-                        "spacing": "Small",
-                        "wrap": True,
-                    },
-                ],
-            }
-        )
-
-    def _add_fact(
-        self,
-        facts: list[dict[str, str]],
-        title: str,
-        value,
-    ) -> None:
-
-        value_text = self._text(value)
-
-        if not value_text:
-
-            return
-
-        facts.append(
-            {
-                "title": f"{title}:",
-                "value": value_text,
-            }
+        return self._render_teams_card(
+            TeamsCardData(
+                source="grafana",
+                integration="Grafana",
+                device=device,
+                event=alert_name,
+                message=message,
+                status=notification.status or state,
+                state=state or notification.status,
+                severity=severity or notification.status,
+                category=notification.category or "monitoring",
+                source_area=metadata.get("panel") or metadata.get("folder") or "Monitoring",
+                event_time=event_time,
+                device_icon="📊",
+                source_area_icon="📈",
+                event_icon="🚨",
+                details=tuple(details[:20]),
+                actions=tuple(actions),
+            )
         )
 
     def _unknown_facts(
@@ -460,26 +222,6 @@ class GrafanaTeamsFormatter(BaseFormatter):
                 )
 
         return values
-
-    def _format_datetime(
-        self,
-        value: str,
-    ) -> str:
-        return super()._format_datetime(value)
-
-    def _normalized(self, value) -> str:
-
-        return re.sub(
-            r"\s+",
-            " ",
-            str(value or "").casefold().replace(
-                "_",
-                " ",
-            ).replace(
-                "-",
-                " ",
-            ),
-        ).strip()
 
     def _normalize_key(self, value) -> str:
 

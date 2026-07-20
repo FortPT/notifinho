@@ -11,12 +11,11 @@ from __future__ import annotations
 from typing import Any
 
 from config import config
-from formatters.base import BaseFormatter
+from formatters.teams_common import TeamsCardData, TeamsCardFormatter, TeamsFact
 from models import Notification
-from version import VERSION
 
 
-class TeamsFormatter(BaseFormatter):
+class TeamsFormatter(TeamsCardFormatter):
     """
     Format notifications as Microsoft Teams Adaptive Cards.
     """
@@ -27,120 +26,44 @@ class TeamsFormatter(BaseFormatter):
         self,
         notification: Notification,
     ) -> dict[str, Any]:
-
-        icon, color, status_text = self._status_meta(
+        _icon, _color, status_text = self._status_meta(
             notification.status,
         )
-
-        title = (
+        job_name = (
             notification.job_name
             or notification.title
             or notification.subject
             or "Notification"
         )
-
         source_name = self._source_name(
             notification.source,
         )
-
-        body = [
-            self._teams_header(f"{icon} {title}", color, "xo"),
-            {
-                "type": "TextBlock",
-                "text": f"{source_name} • **{status_text}**",
-                "isSubtle": True,
-                "spacing": "Small",
-                "wrap": True,
-            },
+        details = [
+            TeamsFact("🧰", "Mode", notification.mode),
+            TeamsFact("⏱️", "Duration", self._short_duration(notification.duration)),
+            TeamsFact("📦", "Transfer size", notification.transfer_size),
+            TeamsFact("💾", "Repository", notification.repository),
+            TeamsFact("🚀", "Speed", notification.transfer_speed),
+            TeamsFact("📊", "Result", self._result_text(notification)),
+            TeamsFact("▶️", "Started", self._format_datetime(notification.start_time)),
+            TeamsFact("🏁", "Finished", self._format_datetime(notification.end_time)),
         ]
-
-        facts = []
-
-        self._add_fact(
-            facts,
-            "Mode",
-            notification.mode,
-        )
-
-        self._add_fact(
-            facts,
-            "Duration",
-            self._short_duration(notification.duration),
-        )
-
-        self._add_fact(
-            facts,
-            "Transfer Size",
-            notification.transfer_size,
-        )
-
-        self._add_fact(
-            facts,
-            "Repository",
-            notification.repository,
-        )
-
-        self._add_fact(
-            facts,
-            "Speed",
-            notification.transfer_speed,
-        )
-
-        self._add_fact(
-            facts,
-            "Result",
-            self._result_text(notification),
-        )
-
-        if notification.start_time:
-
-            self._add_fact(
-                facts,
-                "Started",
-                self._format_datetime(notification.start_time),
-            )
-
-        if notification.end_time:
-
-            self._add_fact(
-                facts,
-                "Finished",
-                self._format_datetime(notification.end_time),
-            )
-
         show_ids = config.get(
             "notifications",
             "xo",
             "show_ids",
             default=False,
         )
-
         if show_ids:
-
-            self._add_fact(
-                facts,
-                "Run ID",
-                notification.run_id,
+            details.extend(
+                (
+                    TeamsFact("🆔", "Run ID", notification.run_id),
+                    TeamsFact("🆔", "Job ID", notification.job_id),
+                )
             )
-
-            self._add_fact(
-                facts,
-                "Job ID",
-                notification.job_id,
-            )
-
-        if facts:
-
-            body.append(
-                {
-                    "type": "FactSet",
-                    "spacing": "Medium",
-                    "facts": facts,
-                }
-            )
-
+        extra_body = []
         self._add_vm_section(
-            body,
+            extra_body,
             singular="❌ Failed VM",
             plural="❌ Failed VMs",
             icon="❌",
@@ -149,9 +72,8 @@ class TeamsFormatter(BaseFormatter):
             include_error=True,
             separator=True,
         )
-
         self._add_vm_section(
-            body,
+            extra_body,
             singular="⚠️ Skipped VM",
             plural="⚠️ Skipped VMs",
             icon="⚠️",
@@ -160,9 +82,8 @@ class TeamsFormatter(BaseFormatter):
             include_error=True,
             separator=True,
         )
-
         self._add_vm_section(
-            body,
+            extra_body,
             singular="✅ Successful VM",
             plural="✅ Successful VMs",
             icon="✅",
@@ -171,30 +92,27 @@ class TeamsFormatter(BaseFormatter):
             include_error=False,
             separator=True,
         )
-
-        self._add_footer(
-            body,
+        message = notification.body or notification.title or notification.subject or status_text
+        return self._render_teams_card(
+            TeamsCardData(
+                source="xo",
+                integration=source_name,
+                device=job_name,
+                event=status_text,
+                message=message,
+                status=notification.status,
+                state=status_text,
+                severity=notification.status,
+                category=notification.category or "backup",
+                source_area=notification.repository or "Backup",
+                event_time=notification.end_time or notification.start_time,
+                device_icon="🗄️",
+                source_area_icon="💾",
+                event_icon="📋",
+                details=tuple(details),
+                extra_body=tuple(extra_body),
+            )
         )
-
-        card = {
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "msteams": {
-                "width": "Full",
-            },
-            "body": body,
-        }
-
-        return {
-            "type": "message",
-            "attachments": [
-                {
-                    "contentType": "application/vnd.microsoft.card.adaptive",
-                    "content": card,
-                }
-            ],
-        }
 
     def _status_meta(
         self,
@@ -237,30 +155,6 @@ class TeamsFormatter(BaseFormatter):
             return "Proxmox"
 
         return source or "Notifinho"
-
-    def _add_fact(
-        self,
-        facts: list[dict[str, str]],
-        title: str,
-        value,
-    ) -> None:
-
-        if value is None:
-
-            return
-
-        value = str(value).strip()
-
-        if not value or value == "-":
-
-            return
-
-        facts.append(
-            {
-                "title": f"{title}:",
-                "value": value,
-            }
-        )
 
     def _result_text(
         self,
@@ -388,23 +282,6 @@ class TeamsFormatter(BaseFormatter):
 
         return "\n".join(lines) if lines else "-"
 
-    def _add_footer(
-        self,
-        body: list[dict[str, Any]],
-    ) -> None:
-
-        body.append(
-            {
-                "type": "TextBlock",
-                "text": f"FortPT Labs • Notifinho v{VERSION}",
-                "isSubtle": True,
-                "size": "Small",
-                "spacing": "Medium",
-                "separator": True,
-                "wrap": True,
-            }
-        )
-
     def _short_duration(
         self,
         value: str,
@@ -430,25 +307,3 @@ class TeamsFormatter(BaseFormatter):
             value = value.replace(old, new)
 
         return value
-
-    def _remove_ordinal_suffixes(
-        self,
-        value: str,
-    ) -> str:
-
-        for day in range(1, 32):
-
-            for suffix in ("st", "nd", "rd", "th"):
-
-                value = value.replace(
-                    f"{day}{suffix}",
-                    str(day),
-                )
-
-        return value
-
-    def _format_datetime(
-        self,
-        value: str,
-    ) -> str:
-        return super()._format_datetime(value)

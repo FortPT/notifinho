@@ -129,8 +129,27 @@ def test_protect_card_does_not_list_configured_sources():
 def _protect_field_names(item):
     discord = UniFiProtectDiscordFormatter().format(item)["embeds"][0]["fields"]
     teams = UniFiProtectTeamsFormatter().format(item)["attachments"][0]["content"]
-    facts = next(block["facts"] for block in teams["body"] if block["type"] == "FactSet")
-    return [field["name"] for field in discord], [fact["title"] for fact in facts]
+    facts = _teams_facts(teams)
+    return [field["name"] for field in discord], [fact["title"].rstrip(":") for fact in facts]
+
+
+def _teams_facts(card):
+    def visit(value):
+        if isinstance(value, dict):
+            if value.get("type") == "FactSet":
+                return value.get("facts", [])
+            for nested in value.values():
+                found = visit(nested)
+                if found is not None:
+                    return found
+        elif isinstance(value, list):
+            for nested in value:
+                found = visit(nested)
+                if found is not None:
+                    return found
+        return None
+
+    return visit(card) or []
 
 
 def test_protect_human_readable_camera_name_is_retained_on_both_platforms():
@@ -178,16 +197,15 @@ def test_protect_private_or_opaque_device_is_omitted_without_empty_field(device_
 
 
 @pytest.mark.parametrize(
-    "event_time",
+    ("event_time", "expected"),
     [
-        datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp(),
-        datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp() * 1000,
-        "2026-07-13T01:16:35.108000+00:00",
-        "2026-07-13T02:16:35.108000+01:00",
+        (datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp(), "13 Jul 2026 • 01:16"),
+        (datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp() * 1000, "13 Jul 2026 • 01:16"),
+        ("2026-07-13T01:16:35.108000+00:00", "13 Jul 2026 • 01:16"),
+        ("2026-07-13T02:16:35.108000+01:00", "13 Jul 2026 • 02:16"),
     ],
 )
-def test_protect_event_time_formats_seconds_milliseconds_and_iso(event_time):
-    expected = "13 Jul 2026 • 01:16 UTC"
+def test_protect_event_time_formats_seconds_milliseconds_and_iso(event_time, expected):
     item = notification("unifi_protect")
     item.metadata["event_time"] = event_time
 
@@ -288,12 +306,17 @@ def test_unifi_discord_and_teams_labels_have_readable_icons(
     item = notification(source)
     discord_fields = discord_formatter.format(item)["embeds"][0]["fields"]
     teams_card = teams_formatter.format(item)["attachments"][0]["content"]
-    teams_facts = next(
-        block["facts"] for block in teams_card["body"] if block["type"] == "FactSet"
-    )
+    teams_text = json.dumps(teams_card, ensure_ascii=False)
 
     assert expected_labels <= {field["name"] for field in discord_fields}
-    assert expected_labels <= {fact["title"] for fact in teams_facts}
+    standard_metrics = {"Category", "Severity", "Event time", "State"}
+    for label in expected_labels:
+        plain_label = label.split(" ", 1)[-1]
+        if plain_label in standard_metrics:
+            if plain_label != "State":
+                assert plain_label in teams_text
+        else:
+            assert label in teams_text
     assert all(any(character.isalpha() for character in label) for label in expected_labels)
 
 
@@ -328,7 +351,7 @@ def test_missing_values_do_not_leave_icon_only_fields():
     )
     discord = UniFiNetworkDiscordFormatter().format(item)["embeds"][0]
     teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
-    facts = next(block["facts"] for block in teams["body"] if block["type"] == "FactSet")
+    facts = _teams_facts(teams)
 
     assert discord["fields"] == []
     assert facts == []
@@ -346,14 +369,14 @@ def test_unifi_formatter_field_and_text_limits_remain_enforced():
 
     discord = UniFiNetworkDiscordFormatter().format(item)["embeds"][0]
     teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
-    facts = next(block["facts"] for block in teams["body"] if block["type"] == "FactSet")
+    facts = _teams_facts(teams)
 
     assert len(discord["title"]) <= 256
     assert len(discord["description"]) <= 2048
     assert len(discord["fields"]) <= 25
     assert all(len(field["value"]) <= 1024 for field in discord["fields"])
     assert len(teams["body"][0]["text"]) <= 512
-    assert len(teams["body"][1]["text"]) <= 4000
+    assert len(teams["body"][2]["items"][0]["text"]) <= 4000
     assert all(len(fact["value"]) <= 1000 for fact in facts)
 
 

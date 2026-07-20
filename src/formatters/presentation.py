@@ -148,14 +148,21 @@ class PresentationMixin:
         }
 
     def _format_datetime(self, value: Any) -> str:
-        """Render timestamps as ``DD Mon YYYY • HH:MM [timezone]``."""
+        """Render the wall-clock value emitted by the event source."""
 
         if value is None or value == "":
             return ""
 
         if isinstance(value, datetime):
             parsed = value
-            explicit_zone = parsed.tzinfo is not None
+        elif isinstance(value, (int, float)):
+            numeric = float(value)
+            if abs(numeric) > 10_000_000_000:
+                numeric /= 1000
+            try:
+                parsed = datetime.fromtimestamp(numeric, tz=timezone.utc)
+            except (OSError, OverflowError, ValueError):
+                return self._sanitize_text(value)
         else:
             raw = str(value).strip()
             if not raw:
@@ -163,30 +170,14 @@ class PresentationMixin:
 
             if re.fullmatch(r"\d{10}(?:\.\d+)?", raw):
                 parsed = datetime.fromtimestamp(float(raw), tz=timezone.utc)
-                explicit_zone = True
             elif re.fullmatch(r"\d{13}", raw):
                 parsed = datetime.fromtimestamp(int(raw) / 1000, tz=timezone.utc)
-                explicit_zone = True
             else:
-                parsed, explicit_zone = self._parse_datetime_text(raw)
+                parsed, _explicit_zone = self._parse_datetime_text(raw)
                 if parsed is None:
                     return self._sanitize_text(raw)
 
-        suffix = ""
-        if explicit_zone and parsed.tzinfo is not None:
-            offset = parsed.utcoffset()
-            if offset is not None:
-                seconds = int(offset.total_seconds())
-                if seconds == 0:
-                    suffix = " UTC"
-                else:
-                    sign = "+" if seconds >= 0 else "-"
-                    seconds = abs(seconds)
-                    hours, remainder = divmod(seconds, 3600)
-                    minutes = remainder // 60
-                    suffix = f" UTC{sign}{hours:02d}:{minutes:02d}"
-
-        return parsed.strftime("%d %b %Y • %H:%M") + suffix
+        return parsed.strftime("%d %b %Y • %H:%M")
 
     def _parse_datetime_text(self, value: str) -> tuple[datetime | None, bool]:
         cleaned = re.sub(r"(?<=\d)(?:st|nd|rd|th)\b", "", value)

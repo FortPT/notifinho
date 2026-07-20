@@ -2,19 +2,17 @@
 
 from __future__ import annotations
 
-from formatters.base import BaseFormatter
+from formatters.teams_common import TeamsCardData, TeamsCardFormatter, TeamsFact
 from formatters.unifi import (
     format_protect_event_time,
     humanize_unifi_identifier,
-    notification_status_icon,
     protect_condition_display,
     protect_device_display,
 )
 from models import Notification
-from version import VERSION
 
 
-class _UniFiTeamsFormatter(BaseFormatter):
+class _UniFiTeamsFormatter(TeamsCardFormatter):
     label = "UniFi"
     application_icon = "ℹ️"
     source_name = "unifi"
@@ -27,76 +25,53 @@ class _UniFiTeamsFormatter(BaseFormatter):
         action_title: str = "Open event",
     ) -> dict:
         metadata = notification.metadata or {}
-        title = " ".join(
-            (
-                self.application_icon,
-                notification_status_icon(
-                    notification.status,
-                    metadata.get("severity"),
+        device = (
+            metadata.get("system")
+            or metadata.get("controller")
+            or metadata.get("client_display_name")
+            or protect_device_display(metadata.get("trigger_device"))
+            or self.label
+        )
+        details = []
+        for fact in facts:
+            value = fact.get("value")
+            if not value:
+                continue
+            title = str(fact.get("title") or "Detail").strip()
+            parts = title.split(maxsplit=1)
+            icon = parts[0] if parts and not parts[0][0].isalnum() else "📌"
+            label = parts[1] if len(parts) > 1 and icon != "📌" else title
+            if label.casefold() in {"category", "severity", "event time"}:
+                continue
+            details.append(TeamsFact(icon, label, value))
+        title = notification.title or f"{self.label} notification"
+        return self._render_teams_card(
+            TeamsCardData(
+                source=self.source_name,
+                integration=self.label,
+                device=device,
+                event=title,
+                message=notification.body or title,
+                status=notification.status,
+                state=metadata.get("event_state") or notification.status,
+                severity=metadata.get("severity") or notification.status,
+                category=notification.category or "system",
+                source_area=metadata.get("alarm_name") or notification.category or "System",
+                event_time=metadata.get("event_time") or notification.start_time,
+                device_icon=self.application_icon,
+                source_area_icon="📍",
+                event_icon="🔔",
+                details=tuple(details),
+                actions=(
+                    ({"type": "Action.OpenUrl", "title": action_title, "url": url},)
+                    if url
+                    else ()
                 ),
-                notification.title or f"{self.label} notification",
             )
         )
-        body = [
-            self._teams_header(
-                title,
-                self._color(notification.status),
-                self.source_name,
-            ),
-            {
-                "type": "TextBlock",
-                "text": self._truncate(notification.body or notification.title, 4000),
-                "wrap": True,
-            },
-            {
-                "type": "FactSet",
-                "facts": [fact for fact in facts if fact.get("value")],
-            },
-            {
-                "type": "TextBlock",
-                "text": f"FortPT Labs - Notifinho v{VERSION}",
-                "isSubtle": True,
-                "size": "Small",
-                "separator": True,
-                "wrap": True,
-            },
-        ]
-        card = {
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "msteams": {"width": "Full"},
-            "body": body,
-        }
-        if url:
-            card["actions"] = [
-                {
-                    "type": "Action.OpenUrl",
-                    "title": action_title,
-                    "url": url,
-                }
-            ]
-        return {
-            "type": "message",
-            "attachments": [
-                {
-                    "contentType": "application/vnd.microsoft.card.adaptive",
-                    "contentUrl": None,
-                    "content": card,
-                }
-            ],
-        }
 
     def _fact(self, title: str, value) -> dict:
         return {"title": title, "value": self._truncate(value, 1000)}
-
-    def _color(self, status: str) -> str:
-        return {
-            "failure": "Attention",
-            "warning": "Warning",
-            "success": "Good",
-            "information": "Accent",
-        }.get(str(status or "").casefold(), "Accent")
 
     def _text(self, value) -> str:
         return "" if value is None else str(value).strip()

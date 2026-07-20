@@ -10,6 +10,7 @@ import outputs.discord as discord_output_module
 import outputs.teams as teams_output_module
 
 from formatters.presentation import PresentationMixin
+from formatters.teams_common import TeamsCardFormatter
 from models import Notification
 from outputs.discord import DiscordOutput
 from outputs.teams import TeamsOutput
@@ -80,13 +81,22 @@ def _contains_image(value) -> bool:
 @pytest.mark.parametrize(
     ("value", "expected"),
     [
-        ("2026-07-15T01:15:00Z", "15 Jul 2026 • 01:15 UTC"),
+        ("2026-07-15T01:15:00Z", "15 Jul 2026 • 01:15"),
+        ("2026-07-20T18:09:00+05:00", "20 Jul 2026 • 18:09"),
         ("2026-07-15 16:39:00", "15 Jul 2026 • 16:39"),
         ("12th July 2026 06:00", "12 Jul 2026 • 06:00"),
     ],
 )
 def test_shared_datetime_contract(value, expected):
     assert PresentationMixin()._format_datetime(value) == expected
+
+
+def test_resolved_state_wins_over_previous_critical_severity():
+    assert TeamsCardFormatter._teams_status("success", "disaster") == (
+        "✅",
+        "Good",
+        "Resolved",
+    )
 
 
 @pytest.mark.parametrize(
@@ -173,10 +183,55 @@ def test_generic_events_do_not_fall_back_to_xen_orchestra_cards():
     assert "Synthetic presentation warning" in rendered
     assert "Synthetic presentation event." in rendered
     assert "home_lab" in rendered
-    assert "15 Jul 2026 • 01:15 UTC" in rendered
+    assert "15 Jul 2026 • 01:15" in rendered
+    assert "UTC" not in rendered
     assert "Xen Orchestra" not in rendered
     assert "Backup Successful" not in rendered
     assert "xologoname.png" not in rendered
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "xo",
+        "zabbix",
+        "qnap",
+        "grafana",
+        "truenas",
+        "unifi_network",
+        "unifi_protect",
+        "unifi_drive",
+        "portainer",
+        "proxmox",
+        "synology",
+        "redfish",
+        "supermicro",
+        "hpe_ilo",
+        "dell_idrac",
+        "home_assistant",
+    ],
+)
+def test_every_teams_card_uses_the_shared_information_hierarchy(source):
+    card = _teams_content(
+        TeamsOutput().source_formatters[source].format(_notification(source))
+    )
+
+    assert card["body"][0]["type"] == "ColumnSet"
+    assert " • " in card["body"][0]["text"]
+    assert card["body"][1]["type"] == "TextBlock"
+    assert card["body"][2]["type"] == "Container"
+    assert card["body"][2]["style"] == "emphasis"
+    metrics = card["body"][3]
+    assert metrics["type"] == "ColumnSet"
+    assert [
+        column["items"][0]["text"].split(" ", 1)[1]
+        for column in metrics["columns"]
+    ] == ["Severity", "Category", "Event time"]
+    assert metrics["columns"][2]["items"][1]["text"] == (
+        "15 Jul 2026 • 01:15"
+        if source != "xo"
+        else "15 Jul 2026 • 01:20"
+    )
 
 
 def test_xo_and_generic_formatters_are_selected_explicitly():

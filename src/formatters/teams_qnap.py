@@ -5,12 +5,15 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from formatters.base import BaseFormatter
+from formatters.teams_common import (
+    TeamsCardData,
+    TeamsCardFormatter,
+    TeamsFact,
+)
 from models import Notification
-from version import VERSION
 
 
-class QNAPTeamsFormatter(BaseFormatter):
+class QNAPTeamsFormatter(TeamsCardFormatter):
     """Format QNAP events as polished Microsoft Teams Adaptive Cards."""
 
     NAS_ICON = "🗄️"
@@ -146,8 +149,12 @@ class QNAPTeamsFormatter(BaseFormatter):
             category_key,
             self.CATEGORY_ICONS["generic"],
         )
-        severity = self._text(metadata.get("severity"))
-        status_icon, accent_color, status_text = self._status_meta(
+        severity = self._text(
+            metadata.get("severity")
+            or notification.status
+            or "information"
+        )
+        _status_icon, _accent_color, status_text = self._status_meta(
             notification.status,
             severity,
         )
@@ -166,154 +173,44 @@ class QNAPTeamsFormatter(BaseFormatter):
         )
         event_type = self._text(metadata.get("event_type"))
         event_label = self._label(event_type) if event_type else "QNAP event"
+        event = (
+            application
+            if category_key == "update" and application
+            else event_label
+        )
         event_icon = self._event_icon(
-            event_type,
+            event_type or event,
             category_key,
             notification.status,
             severity,
         )
 
-        body: list[dict[str, Any]] = [
-            self._teams_header(
-                f"{self.NAS_ICON} {status_icon} {nas_name}",
-                accent_color,
-                "qnap",
-            ),
-            {
-                "type": "TextBlock",
-                "text": (
-                    f"QNAP • {status_icon} **{status_text}** • "
-                    f"{category_icon} {category}"
-                ),
-                "isSubtle": True,
-                "spacing": "Small",
-                "wrap": True,
-            },
-            {
-                "type": "Container",
-                "style": "emphasis",
-                "spacing": "Medium",
-                "separator": True,
-                "items": [
-                    {
-                        "type": "TextBlock",
-                        "text": f"{event_icon} {event_label}",
-                        "weight": "Bolder",
-                        "color": accent_color,
-                        "wrap": True,
-                    },
-                    {
-                        "type": "TextBlock",
-                        "text": message,
-                        "weight": "Bolder",
-                        "size": "Medium",
-                        "spacing": "Small",
-                        "wrap": True,
-                    },
-                ],
-            },
-        ]
-
-        metric_columns: list[dict[str, Any]] = []
-        if severity:
-            metric_columns.append(
-                self._metric_column(status_icon, "Severity", severity)
-            )
-        metric_columns.append(
-            self._metric_column(category_icon, "Category", category)
-        )
-        if event_time:
-            metric_columns.append(
-                self._metric_column(
-                    "🕒",
-                    "Event time",
-                    self._format_datetime(event_time),
-                )
-            )
-        body.append(
-            {
-                "type": "ColumnSet",
-                "spacing": "Medium",
-                "columns": metric_columns,
-            }
-        )
-
-        facts: list[dict[str, str]] = []
-        self._add_fact(facts, "📦 Application", application)
+        details: list[TeamsFact] = []
+        if application and application.casefold() != event.casefold():
+            details.append(TeamsFact("📦", "Application", application))
         for label, value in self._operational_fields(metadata)[:15]:
-            self._add_fact(facts, label, value)
+            icon, clean_label = self._split_icon_label(label)
+            details.append(TeamsFact(icon, clean_label, value))
 
-        if facts:
-            body.append(
-                {
-                    "type": "Container",
-                    "spacing": "Medium",
-                    "separator": True,
-                    "items": [
-                        {
-                            "type": "TextBlock",
-                            "text": "🧾 Event details",
-                            "weight": "Bolder",
-                            "wrap": True,
-                        },
-                        {
-                            "type": "FactSet",
-                            "spacing": "Small",
-                            "facts": facts,
-                        },
-                    ],
-                }
+        return self._render_teams_card(
+            TeamsCardData(
+                source="qnap",
+                integration="QNAP",
+                device=nas_name,
+                event=event,
+                message=message,
+                status=notification.status,
+                state=status_text,
+                severity=severity,
+                category=category,
+                source_area=category,
+                source_area_icon=category_icon,
+                event_time=event_time,
+                device_icon=self.NAS_ICON,
+                event_icon=event_icon,
+                details=tuple(details),
             )
-
-        body.append(
-            {
-                "type": "TextBlock",
-                "text": f"FortPT Labs • Notifinho v{VERSION}",
-                "isSubtle": True,
-                "size": "Small",
-                "spacing": "Medium",
-                "separator": True,
-                "wrap": True,
-            }
         )
-
-        card = {
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "msteams": {"width": "Full"},
-            "body": body,
-        }
-        return {
-            "type": "message",
-            "attachments": [
-                {
-                    "contentType": "application/vnd.microsoft.card.adaptive",
-                    "content": card,
-                }
-            ],
-        }
-
-    def _metric_column(self, icon: str, label: str, value) -> dict[str, Any]:
-        return {
-            "type": "Column",
-            "width": "stretch",
-            "items": [
-                {
-                    "type": "TextBlock",
-                    "text": f"{icon} {label}",
-                    "weight": "Bolder",
-                    "size": "Small",
-                    "wrap": True,
-                },
-                {
-                    "type": "TextBlock",
-                    "text": str(value),
-                    "spacing": "Small",
-                    "wrap": True,
-                },
-            ],
-        }
 
     def _status_meta(self, status: str, severity: str) -> tuple[str, str, str]:
         status_value = str(status or "").strip().lower()
@@ -381,16 +278,6 @@ class QNAPTeamsFormatter(BaseFormatter):
         status_icon, _, _ = self._status_meta(status, severity)
         return self.CATEGORY_ICONS.get(category_key, status_icon)
 
-    def _add_fact(
-        self,
-        facts: list[dict[str, str]],
-        title: str,
-        value,
-    ) -> None:
-        value = self._text(value)
-        if value:
-            facts.append({"title": f"{title}:", "value": value})
-
     def _operational_fields(self, metadata: dict) -> list[tuple[str, str]]:
         values: list[tuple[str, str]] = []
         seen: set[str] = set()
@@ -424,6 +311,11 @@ class QNAPTeamsFormatter(BaseFormatter):
         normalized_key = self._normalize_key(key)
         icon = self.FIELD_ICONS.get(normalized_key, "🔹")
         return f"{icon} {self._label(key)}"
+
+    @staticmethod
+    def _split_icon_label(value: str) -> tuple[str, str]:
+        icon, separator, label = str(value or "").partition(" ")
+        return (icon or "🔹", label if separator else icon)
 
     def _category_key(self, value) -> str:
         normalized = self._normalize_key(value)
@@ -483,9 +375,5 @@ class QNAPTeamsFormatter(BaseFormatter):
                 if (text := self._text(item))
             )
         return str(value).strip()
-
-    def _format_datetime(self, value: str) -> str:
-        return super()._format_datetime(value)
-
 
 QnapTeamsFormatter = QNAPTeamsFormatter

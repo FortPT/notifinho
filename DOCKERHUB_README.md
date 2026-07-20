@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.9.3**.
+The current stable release is **v1.9.4**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -134,6 +134,11 @@ compatible; aliases are optional.
 v1.9.3 presents the Redfish subscription Context as Host, scopes duplicate
 suppression by host and origin, and omits empty recommended actions. Existing
 Redfish endpoints, tokens, routes, and payloads remain compatible.
+
+v1.9.4 standardizes every Microsoft Teams formatter on one shared card
+hierarchy and preserves the wall-clock timestamp emitted by each source in
+both Teams and Discord. Existing configuration, routes, endpoints, targets,
+and secrets remain compatible.
 
 A shared Discord target can receive all three normalized UniFi sources:
 

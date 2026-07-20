@@ -233,7 +233,9 @@ The v1.9.0 backend adds:
   private audit logs, and atomic configuration backups
 
 See the [API](docs/api.md), [Redfish](docs/redfish.md),
-[Home Assistant](docs/home-assistant.md), and vendor integration guides.
+[Home Assistant](docs/home-assistant.md),
+[notification presentation contract](docs/presentation-contract.md), and
+vendor integration guides.
 
 ---
 

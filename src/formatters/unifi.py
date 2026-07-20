@@ -103,7 +103,7 @@ def protect_device_display(value) -> str:
 
 
 def format_protect_event_time(value) -> str:
-    """Render seconds, milliseconds, or ISO values as UTC without fractions."""
+    """Render the source wall clock without converting its timezone."""
 
     text = "" if value is None else str(value).strip()
     if not text:
@@ -119,13 +119,9 @@ def format_protect_event_time(value) -> str:
             parsed = datetime.fromtimestamp(numeric, tz=timezone.utc)
         else:
             parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
-            else:
-                parsed = parsed.astimezone(timezone.utc)
     except (TypeError, ValueError, OSError, OverflowError):
         return text
-    return parsed.strftime("%d %b %Y • %H:%M UTC")
+    return parsed.strftime("%d %b %Y • %H:%M")
 
 
 def notification_status_icon(status, severity="") -> str:

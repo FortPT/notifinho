@@ -2,100 +2,41 @@
 
 from __future__ import annotations
 
-from formatters.base import BaseFormatter
+from formatters.teams_common import TeamsCardData, TeamsCardFormatter, TeamsFact
 from models import Notification
-from version import VERSION
 
 
-class PortainerTeamsFormatter(BaseFormatter):
+class PortainerTeamsFormatter(TeamsCardFormatter):
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
-        icon, color, state_text = self._status_meta(
-            notification.status,
-            metadata.get("state"),
-        )
         title = notification.title or "Portainer alert"
-        facts = [
-            self._fact("State", str(metadata.get("state", "")).title()),
-            self._fact("Severity", str(metadata.get("severity", "")).title()),
-            self._fact("Instance", metadata.get("instance")),
-            self._fact("Source", metadata.get("alert_source")),
-            self._fact("Authentication", metadata.get("authentication_method")),
-            self._fact("Username", metadata.get("username")),
-            self._fact("Started", self._format_datetime(notification.start_time)),
-            self._fact("Resolved", self._format_datetime(notification.end_time)),
-        ]
-        body = [
-            self._teams_header(f"🐳 {icon} {title}", color, "portainer"),
-            {
-                "type": "TextBlock",
-                "text": f"Portainer • **{state_text}**",
-                "isSubtle": True,
-                "spacing": "Small",
-                "wrap": True,
-            },
-            {
-                "type": "Container",
-                "style": "emphasis",
-                "spacing": "Medium",
-                "separator": True,
-                "items": [
-                    {
-                        "type": "TextBlock",
-                        "text": self._truncate(notification.body or title, 4000),
-                        "weight": "Bolder",
-                        "wrap": True,
-                    }
-                ],
-            },
-        ]
-        facts = [fact for fact in facts if fact["value"]]
-        if facts:
-            body.append(
-                {
-                    "type": "FactSet",
-                    "spacing": "Medium",
-                    "facts": facts,
-                }
-            )
-        body.append(
-            {
-                "type": "TextBlock",
-                "text": f"FortPT Labs • Notifinho v{VERSION}",
-                "isSubtle": True,
-                "size": "Small",
-                "separator": True,
-                "wrap": True,
-            }
+        state = metadata.get("state") or notification.status
+        event_time = (
+            notification.end_time
+            if str(state).casefold() == "resolved" and notification.end_time
+            else notification.start_time
         )
-        card = {
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "msteams": {"width": "Full"},
-            "body": body,
-        }
-        return {
-            "type": "message",
-            "attachments": [
-                {
-                    "contentType": "application/vnd.microsoft.card.adaptive",
-                    "content": card,
-                }
-            ],
-        }
-
-    def _fact(self, title: str, value) -> dict:
-        return {"title": title, "value": self._truncate(value, 1000)}
-
-    @staticmethod
-    def _status_meta(status, state) -> tuple[str, str, str]:
-        normalized = str(status or "").casefold()
-        state_text = str(state or "").casefold()
-        if normalized == "success" or state_text == "resolved":
-            return "✅", "Good", "Resolved"
-        if normalized == "failure":
-            return "🚨", "Attention", "Firing"
-        if normalized == "warning":
-            return "⚠️", "Warning", "Firing"
-        return "ℹ️", "Accent", state_text.title() or "Information"
+        return self._render_teams_card(
+            TeamsCardData(
+                source="portainer",
+                integration="Portainer",
+                device=metadata.get("instance") or "Portainer",
+                event=title,
+                message=notification.body or title,
+                status=notification.status,
+                state=state,
+                severity=metadata.get("severity") or notification.status,
+                category=notification.category or "containers",
+                source_area=metadata.get("alert_source") or "Containers",
+                event_time=event_time,
+                device_icon="🐳",
+                source_area_icon="📦",
+                event_icon="🔔",
+                details=(
+                    TeamsFact("🔐", "Authentication", metadata.get("authentication_method")),
+                    TeamsFact("👤", "Username", metadata.get("username")),
+                    TeamsFact("🕒", "Started", self._format_datetime(notification.start_time)),
+                    TeamsFact("🏁", "Resolved", self._format_datetime(notification.end_time)),
+                ),
+            )
+        )

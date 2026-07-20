@@ -36,9 +36,9 @@ def test_qnap_teams_test_message_uses_rich_icons_and_clean_labels():
         ensure_ascii=False,
     )
 
-    assert card["body"][0]["text"] == "🗄️ ℹ️ NAS-01"
+    assert card["body"][0]["text"] == "🗄️ ℹ️ NAS-01 • Test Message"
     assert "⚙️ System" in card["body"][1]["text"]
-    assert "🧪 Test Message" in serialized
+    assert "🧪 [NAS-01] Test Message" in serialized
     assert "ℹ️ Severity" in serialized
     assert "⚙️ Category" in serialized
     assert "📦 Application:" in serialized

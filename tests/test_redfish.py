@@ -129,7 +129,7 @@ def test_redfish_context_is_presented_as_host_and_scopes_deduplication():
     assert srv_02.metadata["recommended_action"] == ""
     assert srv_01.metadata["deduplication_key"] != srv_02.metadata["deduplication_key"]
     assert "SRV-01" in rendered
-    assert '"title": "Host"' in rendered
+    assert "SRV-01 \\u2022 CPU 1 temperature exceeded" in rendered
     assert "Recommended action" not in json.dumps(
         SupermicroTeamsFormatter().format(srv_02)
     )

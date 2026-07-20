@@ -2,7 +2,32 @@
 
 ## Unreleased
 
-No changes yet.
+### Changed
+
+- Standardized every Microsoft Teams formatter on one shared hierarchy:
+  device and event header, integration/state/source context, event message,
+  horizontal Severity/Category/Event time metrics, icon-labelled details,
+  optional actions, and the Notifinho footer.
+- Standardized Discord and Teams timestamps as `DD Mon YYYY • HH:MM` while
+  preserving the wall-clock time emitted by the source machine.
+- Removed visible UTC and numeric-offset suffixes and stopped timezone
+  conversion in the shared and UniFi Protect presentation helpers.
+- Documented the presentation contract for future integrations and the
+  planned WebUI timezone policy.
+
+### Compatibility
+
+- Existing parsers, routes, output targets, webhooks, and product-image URLs
+  remain compatible.
+- If an event has no source timestamp, Teams displays `—` and Discord omits
+  the optional time field; Notifinho does not invent a receipt timestamp.
+
+### Validation
+
+- Passed 530 automated parser, API, formatter, routing, security, release, and
+  backwards-compatibility tests.
+- Added cross-integration checks for the Teams hierarchy and source-wall-clock
+  timestamp behavior, including offset-bearing ISO and epoch inputs.
 
 ---
 

@@ -26,6 +26,22 @@ FIXTURE = (
 )
 
 
+def _teams_facts(value):
+    if isinstance(value, dict):
+        if value.get("type") == "FactSet":
+            return value.get("facts", [])
+        for nested in value.values():
+            facts = _teams_facts(nested)
+            if facts:
+                return facts
+    elif isinstance(value, list):
+        for nested in value:
+            facts = _teams_facts(nested)
+            if facts:
+                return facts
+    return []
+
+
 def drive_payload() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
 
@@ -191,8 +207,8 @@ def test_drive_alarm_rule_is_formatted_and_alarm_id_is_hidden():
     teams_card = teams["attachments"][0]["content"]
     teams_alarm_rule = next(
         fact
-        for fact in teams_card["body"][2]["facts"]
-        if fact["title"] == "🚨 Alarm rule"
+        for fact in _teams_facts(teams_card)
+        if fact["title"] == "🚨 Alarm rule:"
     )
 
     assert payload["alarm_id"] not in rendered
@@ -206,8 +222,8 @@ def test_drive_alarm_rule_is_formatted_and_alarm_id_is_hidden():
     }
 
     assert teams_card["body"][0]["text"].endswith("Settings")
-    assert teams_card["body"][1]["text"] == "Settings alarm triggered"
+    assert teams_card["body"][2]["items"][0]["text"] == "🔔 Settings alarm triggered"
     assert teams_alarm_rule == {
-        "title": "🚨 Alarm rule",
+        "title": "🚨 Alarm rule:",
         "value": "Notifinho | Drive - Settings",
     }

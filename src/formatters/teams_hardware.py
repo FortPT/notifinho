@@ -2,99 +2,67 @@
 
 from __future__ import annotations
 
-from formatters.base import BaseFormatter
+from formatters.teams_common import (
+    TeamsCardData,
+    TeamsCardFormatter,
+    TeamsFact,
+)
 from models import Notification
-from version import VERSION
 
 
-class HardwareTeamsFormatter(BaseFormatter):
+class HardwareTeamsFormatter(TeamsCardFormatter):
     provider = "Hardware management"
 
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
-        icon, color, state = self._status_meta(notification.status)
-        provider = metadata.get("provider") or self.provider
-        title = notification.title or f"{provider} event"
-        facts = [
-            self._fact("State", state),
-            self._fact("Severity", str(metadata.get("severity", "")).title()),
-            self._fact("Host", metadata.get("system")),
-            self._fact("Category", str(notification.category or "").title()),
-            self._fact("Sensor", metadata.get("sensor")),
-            self._fact("Registry", metadata.get("registry")),
-            self._fact("Message ID", metadata.get("message_id")),
-            self._fact("Origin", metadata.get("origin")),
-            self._fact("Event time", self._format_datetime(notification.start_time)),
-        ]
-        body = [
-            self._teams_header(f"🖥️ {icon} {title}", color, notification.source),
-            {
-                "type": "TextBlock",
-                "text": f"{provider} • **{state}** • {str(notification.category or 'hardware').title()}",
-                "isSubtle": True,
-                "spacing": "Small",
-                "wrap": True,
-            },
-            {
-                "type": "Container",
-                "style": "emphasis",
-                "spacing": "Medium",
-                "separator": True,
-                "items": [{
-                    "type": "TextBlock",
-                    "text": self._truncate(notification.body or title, 4000),
-                    "weight": "Bolder",
-                    "wrap": True,
-                }],
-            },
-        ]
-        facts = [fact for fact in facts if fact["value"]]
-        if facts:
-            body.append({"type": "FactSet", "spacing": "Medium", "facts": facts})
+        provider = str(metadata.get("provider") or self.provider)
+        category = str(notification.category or "hardware")
+        event = str(notification.title or f"{provider} event")
+        severity = str(metadata.get("severity") or notification.status)
         action = self._truncate(metadata.get("recommended_action"), 2000)
+        extra_body = ()
         if action:
-            body.append({
-                "type": "TextBlock",
-                "text": f"🛠️ **Recommended action**\n{action}",
-                "wrap": True,
-                "separator": True,
-            })
-        body.append({
-            "type": "TextBlock",
-            "text": f"FortPT Labs • Notifinho v{VERSION}",
-            "isSubtle": True,
-            "size": "Small",
-            "separator": True,
-            "wrap": True,
-        })
-        card = {
-            "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-            "type": "AdaptiveCard",
-            "version": "1.4",
-            "msteams": {"width": "Full"},
-            "body": body,
-        }
-        return {
-            "type": "message",
-            "attachments": [{
-                "contentType": "application/vnd.microsoft.card.adaptive",
-                "content": card,
-            }],
-        }
+            extra_body = (
+                {
+                    "type": "TextBlock",
+                    "text": f"🛠️ **Recommended action**\n{action}",
+                    "wrap": True,
+                    "separator": True,
+                },
+            )
 
-    def _fact(self, title: str, value) -> dict:
-        return {"title": title, "value": self._truncate(value, 1000)}
+        return self._render_teams_card(
+            TeamsCardData(
+                source=notification.source,
+                integration=provider,
+                device=str(metadata.get("system") or provider),
+                event=event,
+                message=str(notification.body or event),
+                status=notification.status,
+                severity=severity,
+                category=category,
+                source_area=category,
+                source_area_icon=self._category_icon(category),
+                event_time=notification.start_time or notification.end_time,
+                device_icon="🖥️",
+                event_icon=self._event_icon(category, notification.status),
+                details=tuple(
+                    fact
+                    for fact in (
+                        TeamsFact("🌡️", "Sensor", metadata.get("sensor")),
+                        TeamsFact("📚", "Registry", metadata.get("registry")),
+                        TeamsFact("🏷️", "Message ID", metadata.get("message_id")),
+                        TeamsFact("📍", "Origin", metadata.get("origin")),
+                    )
+                    if fact.value
+                ),
+                extra_body=extra_body,
+            )
+        )
 
-    @staticmethod
-    def _status_meta(status: str) -> tuple[str, str, str]:
-        normalized = str(status or "").casefold()
-        if normalized == "success":
-            return "✅", "Good", "Resolved"
-        if normalized == "failure":
-            return "🚨", "Attention", "Critical"
-        if normalized == "warning":
-            return "⚠️", "Warning", "Warning"
-        return "ℹ️", "Accent", "Information"
+    def _event_icon(self, category: str, status: str) -> str:
+        status_icon, _color, _state = self._teams_status(status)
+        return self._category_icon(category) or status_icon
 
 
 class RedfishTeamsFormatter(HardwareTeamsFormatter):

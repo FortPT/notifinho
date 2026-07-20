@@ -198,10 +198,10 @@ def test_drive_alarm_rule_is_formatted_and_alarm_id_is_hidden():
     rendered = json.dumps({"discord": discord, "teams": teams})
 
     discord_embed = discord["embeds"][0]
-    discord_alarm_rule = next(
+    discord_details = next(
         field
         for field in discord_embed["fields"]
-        if field["name"] == "🚨 Alarm rule"
+        if field["name"] == "📋 Event details"
     )
 
     teams_card = teams["attachments"][0]["content"]
@@ -214,14 +214,13 @@ def test_drive_alarm_rule_is_formatted_and_alarm_id_is_hidden():
     assert payload["alarm_id"] not in rendered
 
     assert discord_embed["title"].endswith("Settings")
-    assert discord_embed["description"] == (
+    assert discord_embed["description"].endswith(
         "UniFi Drive • ℹ️ **Triggered** • 📍 Administration"
     )
-    assert discord_alarm_rule == {
-        "name": "🚨 Alarm rule",
-        "value": "Notifinho | Drive - Settings",
-        "inline": False,
-    }
+    assert "🚨 **Alarm rule:** Notifinho | Drive - Settings" in (
+        discord_details["value"]
+    )
+    assert discord_details["inline"] is False
 
     assert teams_card["body"][0]["text"].endswith("Settings")
     assert teams_card["body"][2]["items"][0]["text"] == "🔔 Settings alarm triggered"

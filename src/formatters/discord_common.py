@@ -47,6 +47,7 @@ class DiscordCardFormatter(BaseFormatter):
     EMBED_TEXT_BUDGET = 5900
     MAX_FIELDS = 25
     ESSENTIAL_FIELDS = 4
+    SEPARATOR = "────────────────────────────────────"
 
     def _render_discord_card(self, data: DiscordCardData) -> dict[str, Any]:
         status_icon, color, default_state = self._discord_status(
@@ -60,7 +61,26 @@ class DiscordCardFormatter(BaseFormatter):
         device = self._truncate(data.device or data.integration, 120)
         event = self._truncate(data.event or "Notification", 180)
         message = self._truncate(data.message or event, 1024)
-        event_time = self._format_datetime(data.event_time) or "—"
+        event_time = self._format_datetime(data.event_time)
+
+        fields = [
+            self._discord_field(
+                data.event_icon,
+                "Event",
+                self._discord_highlight(message),
+                inline=False,
+            ),
+            self._discord_field(status_icon, "Severity", severity),
+            self._discord_field(
+                self._category_icon(data.category),
+                "Category",
+                category,
+            ),
+        ]
+        if event_time:
+            fields.append(
+                self._discord_field("🕒", "Event time", event_time)
+            )
 
         embed: dict[str, Any] = {
             "title": self._truncate(
@@ -68,40 +88,24 @@ class DiscordCardFormatter(BaseFormatter):
                 256,
             ),
             "description": self._truncate(
-                f"{data.integration} • {status_icon} **{state}** • "
+                f"\u200b\n{data.integration} • {status_icon} **{state}** • "
                 f"{data.source_area_icon} {source_area}",
                 4096,
             ),
             "color": color,
-            "fields": [
-                self._discord_field(
-                    data.event_icon,
-                    "Event",
-                    message,
-                    inline=False,
-                ),
-                self._discord_field(status_icon, "Severity", severity),
-                self._discord_field(
-                    self._category_icon(data.category),
-                    "Category",
-                    category,
-                ),
-                self._discord_field("🕒", "Event time", event_time),
-            ],
-            "footer": {"text": f"FortPT Labs\nNotifinho v{VERSION}"},
+            "fields": fields,
+            "footer": {"text": f"FortPT Labs • Notifinho v{VERSION}"},
         }
 
-        for fact in data.details:
-            if not self._meaningful_fact(fact.value):
-                continue
-            embed["fields"].append(
-                self._discord_field(
-                    fact.icon,
-                    fact.label,
-                    fact.value,
-                    inline=fact.inline,
-                )
-            )
+        detail_fields = self._discord_detail_fields(data.details)
+        if detail_fields:
+            embed["fields"].append(self._discord_separator())
+            embed["fields"].extend(detail_fields)
+
+        # Discord has no content below the embed footer, so only the upper
+        # footer divider is needed. This mirrors the Teams hierarchy without
+        # adding a redundant final rule.
+        embed["fields"].append(self._discord_separator())
 
         if data.url:
             embed["url"] = self._truncate(data.url, 2000)
@@ -109,6 +113,61 @@ class DiscordCardFormatter(BaseFormatter):
         self._set_discord_thumbnail(embed, data.source)
         self._enforce_discord_budget(embed)
         return {"embeds": [embed]}
+
+    def _discord_highlight(self, value: Any) -> str:
+        """Render the event message as a full-width Discord code block."""
+
+        text = self._truncate(value, 1014).replace("```", "'''")
+        return f"```\n{text or '—'}\n```"
+
+    def _discord_detail_fields(
+        self,
+        details: tuple[DiscordFact, ...],
+    ) -> list[dict[str, Any]]:
+        """Group integration-specific details into readable vertical lists."""
+
+        entries: list[str] = []
+        for fact in details:
+            if not self._meaningful_fact(fact.value):
+                continue
+            label = self._truncate(fact.label, 120)
+            value = self._truncate(fact.value, 880)
+            if "\n" in value:
+                entries.append(f"{fact.icon} **{label}:**\n{value}")
+            else:
+                entries.append(f"{fact.icon} **{label}:** {value}")
+
+        if not entries:
+            return []
+
+        chunks: list[str] = []
+        current = ""
+        for entry in entries:
+            candidate = f"{current}\n{entry}" if current else entry
+            if len(candidate) <= 1024:
+                current = candidate
+                continue
+            if current:
+                chunks.append(current)
+            current = self._truncate(entry, 1024)
+        if current:
+            chunks.append(current)
+
+        fields = []
+        for index, chunk in enumerate(chunks):
+            fields.append({
+                "name": "📋 Event details" if index == 0 else "\u200b",
+                "value": chunk,
+                "inline": False,
+            })
+        return fields
+
+    def _discord_separator(self) -> dict[str, Any]:
+        return {
+            "name": "\u200b",
+            "value": self.SEPARATOR,
+            "inline": False,
+        }
 
     def _discord_field(
         self,

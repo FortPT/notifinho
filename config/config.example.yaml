@@ -38,6 +38,12 @@ http:
 redfish:
   deduplication_window_seconds: 300
 
+# Source timestamps with an explicit wall clock are displayed unchanged.
+# Epoch timestamps have no timezone of their own and are rendered in this
+# IANA timezone. If omitted, Notifinho uses the container's TZ, then UTC.
+presentation:
+  timezone: "Europe/Lisbon"
+
 # Optional site-local names for Home Assistant events. Keep equipment names
 # and addresses here so shared automations can stay generic.
 home_assistant:
@@ -397,3 +403,9 @@ notifications:
   zabbix:
     # Include the Zabbix problem ID in notifications.
     show_ids: false
+
+  dell_idrac:
+    # Optional trusted management clients whose successful IPMI-over-LAN
+    # login/logout audit records (USR0030/USR0032) should be acknowledged
+    # without delivery. Other authentication and security events are kept.
+    suppress_ipmi_session_audit_from: []

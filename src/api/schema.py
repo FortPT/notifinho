@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
 import re
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from copy import deepcopy
 from urllib.parse import urlsplit
@@ -60,7 +62,15 @@ def validate_config(data) -> list[str]:
     errors = []
     if not isinstance(data, dict):
         return ["configuration must be an object"]
-    for section in ("smtp", "http", "outputs", "routing", "notifications", "api"):
+    for section in (
+        "smtp",
+        "http",
+        "outputs",
+        "routing",
+        "notifications",
+        "presentation",
+        "api",
+    ):
         if section in data and not isinstance(data[section], dict):
             errors.append(f"{section} must be an object")
     http = data.get("http") or {}
@@ -70,6 +80,17 @@ def validate_config(data) -> list[str]:
         http.get("max_body_bytes"), 1, 16 * 1024 * 1024
     ):
         errors.append("http.max_body_bytes must be between 1 and 16777216")
+    presentation = data.get("presentation") or {}
+    if isinstance(presentation, dict) and "timezone" in presentation:
+        zone_name = str(presentation.get("timezone") or "").strip()
+        try:
+            if not zone_name:
+                raise ZoneInfoNotFoundError
+            ZoneInfo(zone_name)
+        except (ZoneInfoNotFoundError, ValueError):
+            errors.append(
+                "presentation.timezone must be a valid IANA timezone"
+            )
     api = data.get("api") or {}
     tokens = api.get("tokens") or {}
     if not isinstance(tokens, dict):
@@ -107,6 +128,31 @@ def validate_config(data) -> list[str]:
         ):
             errors.append(f"{prefix}.rate_limit_per_minute must be between 1 and 10000")
     routing = data.get("routing") or {}
+    notifications = data.get("notifications") or {}
+    if isinstance(notifications, dict) and "dell_idrac" in notifications:
+        dell_idrac = notifications.get("dell_idrac")
+        if not isinstance(dell_idrac, dict):
+            errors.append("notifications.dell_idrac must be an object")
+        else:
+            trusted = dell_idrac.get(
+                "suppress_ipmi_session_audit_from",
+                [],
+            )
+            if not isinstance(trusted, list):
+                errors.append(
+                    "notifications.dell_idrac."
+                    "suppress_ipmi_session_audit_from must be a list"
+                )
+            else:
+                for index, value in enumerate(trusted):
+                    try:
+                        ipaddress.ip_address(str(value).strip())
+                    except ValueError:
+                        errors.append(
+                            "notifications.dell_idrac."
+                            "suppress_ipmi_session_audit_from."
+                            f"{index} must be an IP address"
+                        )
     outputs = data.get("outputs") or {}
     if isinstance(routing, dict):
         for source, route in routing.items():

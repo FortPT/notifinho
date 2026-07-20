@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 import os
 import re
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from config import config
 
 
 class PresentationMixin:
@@ -169,7 +172,12 @@ class PresentationMixin:
         }
 
     def _format_datetime(self, value: Any) -> str:
-        """Render the wall-clock value emitted by the event source."""
+        """Render source time without ever substituting receipt time.
+
+        Source strings that carry their own wall clock retain it exactly.
+        Epoch values encode an instant rather than a wall clock, so they are
+        rendered in the configured presentation timezone (or ``TZ``).
+        """
 
         if value is None or value == "":
             return ""
@@ -181,7 +189,10 @@ class PresentationMixin:
             if abs(numeric) > 10_000_000_000:
                 numeric /= 1000
             try:
-                parsed = datetime.fromtimestamp(numeric, tz=timezone.utc)
+                parsed = datetime.fromtimestamp(
+                    numeric,
+                    tz=self._presentation_timezone(),
+                )
             except (OSError, OverflowError, ValueError):
                 return self._sanitize_text(value)
         else:
@@ -190,15 +201,36 @@ class PresentationMixin:
                 return ""
 
             if re.fullmatch(r"\d{10}(?:\.\d+)?", raw):
-                parsed = datetime.fromtimestamp(float(raw), tz=timezone.utc)
+                parsed = datetime.fromtimestamp(
+                    float(raw),
+                    tz=self._presentation_timezone(),
+                )
             elif re.fullmatch(r"\d{13}", raw):
-                parsed = datetime.fromtimestamp(int(raw) / 1000, tz=timezone.utc)
+                parsed = datetime.fromtimestamp(
+                    int(raw) / 1000,
+                    tz=self._presentation_timezone(),
+                )
             else:
                 parsed, _explicit_zone = self._parse_datetime_text(raw)
                 if parsed is None:
                     return self._sanitize_text(raw)
 
         return parsed.strftime("%d %b %Y • %H:%M")
+
+    def _presentation_timezone(self):
+        """Return the validated IANA zone used only for epoch timestamps."""
+
+        zone_name = str(
+            config.get("presentation", "timezone")
+            or os.environ.get("TZ")
+            or "UTC"
+        ).strip()
+        if zone_name.startswith(":"):
+            zone_name = zone_name[1:]
+        try:
+            return ZoneInfo(zone_name)
+        except (ZoneInfoNotFoundError, ValueError):
+            return timezone.utc
 
     def _parse_datetime_text(self, value: str) -> tuple[datetime | None, bool]:
         cleaned = re.sub(r"(?<=\d)(?:st|nd|rd|th)\b", "", value)

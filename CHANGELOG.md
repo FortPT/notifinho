@@ -26,6 +26,13 @@ No changes yet.
   hierarchy.
 - Added centralized Discord field-count and embed-text budgeting that protects
   the event and three standard metrics before optional details are removed.
+- Refined Discord cards with Teams-like spacing, a dark event highlight,
+  separated vertical details, and a single-line footer.
+- Added an IANA `presentation.timezone` policy for epoch-based source times,
+  falling back to container `TZ` and then UTC. Explicit source wall clocks
+  remain unchanged and missing source times are omitted.
+- Preserved native UniFi Network and Protect epochs until shared Teams and
+  Discord presentation applies the configured timezone.
 
 ### Fixed
 
@@ -33,6 +40,10 @@ No changes yet.
   retaining real values and the triggered backup name when supplied.
 - Teams output and configuration validation now reject placeholder, malformed,
   credential-bearing, and non-HTTPS webhook values before attempting delivery.
+- Home Assistant string tags no longer render character by character.
+- Trusted Dell iDRAC `USR0030` and `USR0032` IPMI-over-LAN session audit
+  records can be suppressed by exact client address while failed logins and
+  all other security events remain routed.
 
 ### Compatibility
 

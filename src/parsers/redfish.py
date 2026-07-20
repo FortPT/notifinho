@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import json
 import re
 
@@ -94,6 +95,20 @@ def _category(*values: str) -> str:
         if any(marker in text for marker in markers):
             return category
     return "hardware"
+
+
+def _source_ip(message: str) -> str:
+    """Return the first valid address emitted in a hardware event message."""
+
+    for candidate in re.findall(r"[0-9A-Fa-f:.]+", _clean(message)):
+        if "." not in candidate and ":" not in candidate:
+            continue
+        candidate = candidate.rstrip(".")
+        try:
+            return str(ipaddress.ip_address(candidate))
+        except ValueError:
+            continue
+    return ""
 
 
 def _vendor(payload: dict, event: dict, hint: str = "") -> tuple[str, str]:
@@ -201,6 +216,7 @@ class RedfishParser:
                 "system": system,
                 "registry": registry,
                 "message_id": message_id,
+                "source_ip": _source_ip(message),
                 "origin": origin_path,
                 "recommended_action": action,
                 "event_state": "resolved" if status == "success" else "active",

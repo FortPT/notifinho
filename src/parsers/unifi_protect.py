@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 from formatters.unifi import (
@@ -109,12 +108,15 @@ class Parser:
         return [item for item in value if isinstance(item, dict)]
 
     def _timestamp(self, value) -> str:
+        """Validate and preserve the source epoch for presentation policy."""
+
+        text = self._text(value)
+        if not text:
+            return ""
         try:
-            numeric = float(value)
-            if numeric > 10_000_000_000:
-                numeric /= 1000
-            return datetime.fromtimestamp(numeric, tz=timezone.utc).isoformat()
-        except (TypeError, ValueError, OSError, OverflowError):
+            float(text)
+            return text
+        except (TypeError, ValueError):
             return ""
 
     def _valid_url(self, value) -> str:

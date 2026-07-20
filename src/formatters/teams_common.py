@@ -56,7 +56,20 @@ class TeamsCardFormatter(BaseFormatter):
         device = self._truncate(data.device or data.integration, 160)
         event = self._truncate(data.event or "Notification", 280)
         message = self._truncate(data.message or event, 4000)
-        event_time = self._format_datetime(data.event_time) or "—"
+        event_time = self._format_datetime(data.event_time)
+
+        metrics = [
+            self._teams_metric(status_icon, "Severity", severity),
+            self._teams_metric(
+                self._category_icon(data.category),
+                "Category",
+                category,
+            ),
+        ]
+        if event_time:
+            metrics.append(
+                self._teams_metric("🕒", "Event time", event_time)
+            )
 
         body: list[dict[str, Any]] = [
             self._teams_header(
@@ -95,15 +108,7 @@ class TeamsCardFormatter(BaseFormatter):
             {
                 "type": "ColumnSet",
                 "spacing": "Medium",
-                "columns": [
-                    self._teams_metric(status_icon, "Severity", severity),
-                    self._teams_metric(
-                        self._category_icon(data.category),
-                        "Category",
-                        category,
-                    ),
-                    self._teams_metric("🕒", "Event time", event_time),
-                ],
+                "columns": metrics,
             },
         ]
 

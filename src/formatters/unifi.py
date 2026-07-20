@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from datetime import datetime, timezone
+from formatters.presentation import PresentationMixin
 
 
 _MAC_RE = re.compile(
@@ -103,25 +103,9 @@ def protect_device_display(value) -> str:
 
 
 def format_protect_event_time(value) -> str:
-    """Render the source wall clock without converting its timezone."""
+    """Render Protect time through the shared source-time contract."""
 
-    text = "" if value is None else str(value).strip()
-    if not text:
-        return ""
-    try:
-        if isinstance(value, (int, float)) or re.fullmatch(
-            r"-?\d+(?:\.\d+)?",
-            text,
-        ):
-            numeric = float(value)
-            if abs(numeric) > 10_000_000_000:
-                numeric /= 1000
-            parsed = datetime.fromtimestamp(numeric, tz=timezone.utc)
-        else:
-            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except (TypeError, ValueError, OSError, OverflowError):
-        return text
-    return parsed.strftime("%d %b %Y • %H:%M")
+    return PresentationMixin()._format_datetime(value)
 
 
 def notification_status_icon(status, severity="") -> str:

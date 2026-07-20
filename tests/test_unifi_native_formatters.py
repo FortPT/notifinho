@@ -10,6 +10,7 @@ import pytest
 
 import router as router_module
 
+from formatters.discord_common import DiscordCardFormatter
 from formatters.discord_unifi import (
     UniFiDriveDiscordFormatter,
     UniFiNetworkDiscordFormatter,
@@ -305,18 +306,21 @@ def test_unifi_discord_and_teams_labels_have_readable_icons(
 ):
     item = notification(source)
     discord_fields = discord_formatter.format(item)["embeds"][0]["fields"]
+    discord_text = json.dumps(discord_fields, ensure_ascii=False)
     teams_card = teams_formatter.format(item)["attachments"][0]["content"]
     teams_text = json.dumps(teams_card, ensure_ascii=False)
 
-    assert expected_labels <= {field["name"] for field in discord_fields}
     standard_metrics = {"Category", "Severity", "Event time", "State"}
     for label in expected_labels:
-        plain_label = label.split(" ", 1)[-1]
+        icon, plain_label = label.split(" ", 1)
         if plain_label in standard_metrics:
             if plain_label != "State":
                 assert plain_label in teams_text
+                assert label in {field["name"] for field in discord_fields}
         else:
             assert label in teams_text
+            assert icon in discord_text
+            assert f"**{plain_label}:**" in discord_text
     assert all(any(character.isalpha() for character in label) for label in expected_labels)
 
 
@@ -370,9 +374,12 @@ def test_missing_values_do_not_leave_icon_only_fields():
     teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
     facts = _teams_facts(teams)
 
-    assert [field["name"].split(" ", 1)[-1] for field in discord["fields"]] == [
-        "Event", "Severity", "Category", "Event time",
+    assert [field["name"].split(" ", 1)[-1] for field in discord["fields"][:3]] == [
+        "Event", "Severity", "Category",
     ]
+    assert "Event time" not in json.dumps(discord)
+    assert "Event time" not in json.dumps(teams)
+    assert discord["fields"][-1]["value"] == DiscordCardFormatter.SEPARATOR
     assert facts == []
 
 

@@ -32,6 +32,9 @@ class TestConfig:
     def __init__(self):
 
         self._data = {
+            "presentation": {
+                "timezone": "UTC",
+            },
             "notifications": {
                 "xo": {
                     "show_ids": False,

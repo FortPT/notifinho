@@ -628,6 +628,17 @@ Edit the configuration file:
 nano config/config.yaml
 ```
 
+Set the IANA timezone used to render epoch timestamps. Explicit source
+wall-clock timestamps keep their original hour; missing source timestamps are
+never replaced with Notifinho receipt time.
+
+```yaml
+presentation:
+  timezone: Europe/Lisbon
+```
+
+If omitted, Notifinho uses the container's `TZ` environment value, then UTC.
+
 Configure your Discord webhook:
 
 ```yaml
@@ -979,6 +990,12 @@ notifications:
   zabbix:
     # Include the Zabbix problem ID in notifications.
     show_ids: false
+
+  dell_idrac:
+    # Optional exact client addresses whose successful iDRAC IPMI-over-LAN
+    # login/logout audit records (USR0030/USR0032) are routine and should be
+    # acknowledged without delivery. Other security alerts are never hidden.
+    suppress_ipmi_session_audit_from: []
 ```
 
 The complete documented configuration is available in

@@ -12,14 +12,22 @@ The event source owns the visible timestamp.
   the Notifinho container timezone, UTC, or the output recipient's timezone.
 - Do not append `UTC` or a numeric timezone suffix to the card.
 - Render recognized timestamps as `20 Jul 2026 • 18:09`.
-- If the source sends an epoch value, interpret it as the UTC instant encoded
-  by that value, but still omit the `UTC` label.
-- If no source timestamp is available, show `—` in the event-time metric.
-  Never substitute Notifinho's receipt time.
+- If the source sends an epoch value, render that instant in the configured
+  `presentation.timezone`. Epoch values contain no source wall-clock timezone.
+- If no source timestamp is available, omit the Event time metric. Never
+  substitute Notifinho's receipt time.
 
-Timezone conversion is intentionally deferred until a future WebUI can offer
-an explicit global or per-device policy. The current behavior is deterministic
-for containers deployed in any host timezone.
+Configure an IANA timezone for epoch-based sources:
+
+```yaml
+presentation:
+  timezone: Europe/Lisbon
+```
+
+If this setting is absent, Notifinho uses the container's `TZ` value and then
+falls back to UTC. The packaged `tzdata` database makes IANA zones available
+in worldwide container deployments. A future WebUI can expose the same
+setting without changing the card contract.
 
 ## Microsoft Teams hierarchy
 
@@ -54,6 +62,12 @@ layout:
 5. Details: optional icon-labelled integration-specific fields, links, and
    bounded multi-item sections.
 6. Notifinho version footer.
+
+The shared renderer separates the context line from the title, presents the
+event message in a dark full-width highlight, keeps Severity, Category, and
+Event time on one row, then places source-specific facts in a vertical list.
+Thin rules divide the metrics, detail list, and one-line footer. There is no
+rule after the footer because Discord has no card content below it.
 
 The normalized Discord model lives in `src/formatters/discord_common.py`. New
 Discord formatters should inherit `DiscordCardFormatter`, create a

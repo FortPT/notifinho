@@ -15,6 +15,17 @@ class HomeAssistantDiscordFormatter(DiscordCardFormatter):
             entity = ""
         retry = metadata.get("retry_seconds")
         retry_text = f"Retrying in {retry} seconds" if retry else ""
+        tags = metadata.get("tags")
+        if isinstance(tags, str):
+            tags_text = tags.strip()
+        elif isinstance(tags, (list, tuple, set)):
+            tags_text = ", ".join(
+                str(tag).strip()
+                for tag in tags
+                if str(tag).strip()
+            )
+        else:
+            tags_text = "" if tags is None else str(tags).strip()
         title = notification.title or "Home Assistant event"
         return self._render_discord_card(
             DiscordCardData(
@@ -37,7 +48,7 @@ class HomeAssistantDiscordFormatter(DiscordCardFormatter):
                     DiscordFact("🌐", "Endpoint", metadata.get("endpoint"), False),
                     DiscordFact("❌", "Error", metadata.get("error_code")),
                     DiscordFact("🔁", "Retry", retry_text),
-                    DiscordFact("🏷️", "Tags", ", ".join(metadata.get("tags") or []), False),
+                    DiscordFact("🏷️", "Tags", tags_text, False),
                 ),
                 url=metadata.get("action_link") or "",
             )

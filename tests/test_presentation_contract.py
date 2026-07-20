@@ -12,12 +12,14 @@ import pytest
 import outputs.discord as discord_output_module
 import outputs.teams as teams_output_module
 
+from config import config
 from formatters.discord_common import DiscordCardFormatter
 from formatters.presentation import PresentationMixin
 from formatters.teams_common import TeamsCardFormatter
 from models import Notification
 from outputs.discord import DiscordOutput
 from outputs.teams import TeamsOutput
+from version import VERSION
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -134,6 +136,31 @@ def _header_image(header: dict) -> dict:
 )
 def test_shared_datetime_contract(value, expected):
     assert PresentationMixin()._format_datetime(value) == expected
+
+
+@pytest.mark.parametrize("value", [1784583600, "1784583600000"])
+def test_epoch_uses_configured_iana_timezone(monkeypatch, value):
+    monkeypatch.setitem(
+        config._data,
+        "presentation",
+        {"timezone": "Europe/Lisbon"},
+    )
+
+    assert PresentationMixin()._format_datetime(value) == (
+        "20 Jul 2026 • 22:40"
+    )
+
+
+def test_explicit_offset_keeps_source_wall_clock(monkeypatch):
+    monkeypatch.setitem(
+        config._data,
+        "presentation",
+        {"timezone": "Europe/Lisbon"},
+    )
+
+    assert PresentationMixin()._format_datetime(
+        "2026-07-20T18:09:00+05:00"
+    ) == "20 Jul 2026 • 18:09"
 
 
 def test_resolved_state_wins_over_previous_critical_severity():
@@ -323,8 +350,8 @@ def test_xo_card_retains_real_duration_and_result_values():
 
     discord = DiscordOutput().source_formatters["xo"].format(item)["embeds"][0]
     discord_rendered = json.dumps(discord, ensure_ascii=False)
-    assert '"value": "5 min"' in discord_rendered
-    assert '"value": "✅ 3 of 3 VMs successful"' in discord_rendered
+    assert "⏱️ **Duration:** 5 min" in discord_rendered
+    assert "📊 **Result:** ✅ 3 of 3 VMs successful" in discord_rendered
 
 
 def test_xo_result_explains_failed_and_skipped_counts():
@@ -445,6 +472,7 @@ def test_every_discord_card_uses_the_shared_information_hierarchy(source):
     embed = formatter.format(_notification(source))["embeds"][0]
 
     assert " • " in embed["title"]
+    assert embed["description"].startswith("\u200b\n")
     assert embed["description"].count(" • ") == 2
     assert [field["name"].split(" ", 1)[-1] for field in embed["fields"][:4]] == [
         "Event",
@@ -453,6 +481,8 @@ def test_every_discord_card_uses_the_shared_information_hierarchy(source):
         "Event time",
     ]
     assert embed["fields"][0]["inline"] is False
+    assert embed["fields"][0]["value"].startswith("```\n")
+    assert embed["fields"][0]["value"].endswith("\n```")
     assert all(field["inline"] is True for field in embed["fields"][1:4])
     assert embed["fields"][3]["value"] == (
         "15 Jul 2026 • 01:20"
@@ -461,6 +491,40 @@ def test_every_discord_card_uses_the_shared_information_hierarchy(source):
     )
     assert len(embed["fields"]) <= 25
     assert formatter._embed_text_size(embed) <= formatter.EMBED_TEXT_BUDGET
+    assert embed["fields"][-1] == {
+        "name": "\u200b",
+        "value": formatter.SEPARATOR,
+        "inline": False,
+    }
+    assert embed["footer"]["text"] == f"FortPT Labs • Notifinho v{VERSION}"
+
+
+def test_discord_details_are_a_separated_vertical_list():
+    item = _notification("proxmox")
+    item.metadata.update({
+        "vmid": 101,
+        "guest": "APP-01",
+        "job_id": "vzdump-nightly",
+        "storage": "backup-nfs",
+    })
+    embed = DiscordOutput().source_formatters["proxmox"].format(item)["embeds"][0]
+
+    details_index = next(
+        index
+        for index, field in enumerate(embed["fields"])
+        if field["name"] == "📋 Event details"
+    )
+    details = embed["fields"][details_index]
+
+    assert embed["fields"][details_index - 1]["value"] == (
+        DiscordCardFormatter.SEPARATOR
+    )
+    assert details["inline"] is False
+    assert "🆔 **VMID:** 101" in details["value"]
+    assert "💻 **Guest:** APP-01" in details["value"]
+    assert embed["fields"][details_index + 1]["value"] == (
+        DiscordCardFormatter.SEPARATOR
+    )
 
 
 def test_discord_preserves_source_wall_clock_and_never_invents_receipt_time():
@@ -474,7 +538,10 @@ def test_discord_preserves_source_wall_clock_and_never_invents_receipt_time():
 
     item.metadata["event_time"] = ""
     missing = DiscordOutput().default_formatter.format(item)["embeds"][0]
-    assert missing["fields"][3]["value"] == "—"
+    assert all(
+        field["name"].split(" ", 1)[-1] != "Event time"
+        for field in missing["fields"]
+    )
 
 
 def test_discord_rich_details_survive_the_shared_renderer():

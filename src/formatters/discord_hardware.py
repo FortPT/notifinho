@@ -34,6 +34,7 @@ class HardwareDiscordFormatter(DiscordCardFormatter):
                     DiscordFact("🌡️", "Sensor", metadata.get("sensor")),
                     DiscordFact("📚", "Registry", metadata.get("registry")),
                     DiscordFact("🏷️", "Message ID", metadata.get("message_id")),
+                    DiscordFact("🌐", "Source IP", metadata.get("source_ip")),
                     DiscordFact("📍", "Origin", metadata.get("origin"), False),
                     DiscordFact("🛠️", "Recommended action", metadata.get("recommended_action"), False),
                 ),

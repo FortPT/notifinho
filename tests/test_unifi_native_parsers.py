@@ -21,6 +21,7 @@ from formatters.teams_unifi import (
     UniFiDriveTeamsFormatter,
     UniFiProtectTeamsFormatter,
 )
+from formatters.unifi import format_protect_event_time
 from parsers.unifi_drive import Parser as DriveParser
 from parsers.unifi_network import Parser as NetworkParser
 from parsers.unifi_protect import Parser as ProtectParser
@@ -155,8 +156,11 @@ def test_protect_seconds_and_milliseconds_timestamps_match():
     first = ProtectParser().parse(seconds)
     second = ProtectParser().parse(milliseconds)
 
-    assert first.start_time == second.start_time
-    assert first.start_time.startswith("2026-")
+    assert first.start_time == "1767323045"
+    assert second.start_time == "1767323045000"
+    assert format_protect_event_time(first.start_time) == (
+        format_protect_event_time(second.start_time)
+    )
 
 
 @pytest.mark.parametrize("link", ["javascript:alert(1)", "/relative/event", "not a URL"])

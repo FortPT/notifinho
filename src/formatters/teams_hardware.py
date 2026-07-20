@@ -52,6 +52,7 @@ class HardwareTeamsFormatter(TeamsCardFormatter):
                         TeamsFact("🌡️", "Sensor", metadata.get("sensor")),
                         TeamsFact("📚", "Registry", metadata.get("registry")),
                         TeamsFact("🏷️", "Message ID", metadata.get("message_id")),
+                        TeamsFact("🌐", "Source IP", metadata.get("source_ip")),
                         TeamsFact("📍", "Origin", metadata.get("origin")),
                     )
                     if fact.value

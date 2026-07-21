@@ -1,8 +1,9 @@
 # Grafana notification support
 
-Grafana Alerting support is provisional in Notifinho `v1.3.0-dev`. It was
-implemented without production Grafana email samples and is currently
-verified only against clearly labelled synthetic fixtures.
+Grafana Alerting support was introduced in Notifinho `v1.3.0` and remains
+provisional in the current stable release. It was implemented without
+production Grafana email samples and is currently verified against clearly
+labelled synthetic fixtures. Real-sample validation is tracked in issue #26.
 
 ## Initial event coverage
 
@@ -28,8 +29,8 @@ configuration at the host running Notifinho:
 |---|---|---|
 | SMTP host | Notifinho development host | Notifinho host |
 | SMTP port | `8026` when using the published development port | `8025` |
-| Authentication | Disabled | Disabled for the current listener |
-| TLS | Disabled for the current listener | Disabled for the current listener |
+| Authentication | Disabled for fixture replay | Optional SMTP AUTH after STARTTLS |
+| TLS | Disabled for fixture replay | Optional explicit STARTTLS |
 
 Then create an Email contact point in Grafana Alerting and route the desired
 notification policies to it. Menu labels and template fields vary between
@@ -98,8 +99,8 @@ The replay utility performs no SMTP authentication and defaults to
   a complete Grafana data model.
 - Grouped notifications expose their count and preserve per-alert labelled
   fields, but do not yet create a separate card section for every alert.
-- SMTP authentication and TLS are not implemented by Notifinho's current
-  listener.
+- SMTP AUTH and STARTTLS are optional. They must be enabled together using the
+  security settings documented in `docs/smtp-security.md`.
 
 ## Request for anonymized samples
 

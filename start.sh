@@ -21,4 +21,4 @@ cd /notifinho/src
 echo
 echo "[1/1] Starting Notifinho..."
 
-python3 main.py
+exec python3 main.py

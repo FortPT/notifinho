@@ -11,8 +11,10 @@ core components.
 
 from __future__ import annotations
 
+import signal
 import sys
 import time
+from threading import Event
 
 from dispatcher import Dispatcher
 from inputs.http import HTTPInput
@@ -36,6 +38,15 @@ def main() -> int:
 
     smtp = None
     http = None
+    shutdown_requested = Event()
+
+    def request_shutdown(signum, _frame):
+        signal_name = signal.Signals(signum).name
+        log.info("Shutdown requested by %s.", signal_name)
+        shutdown_requested.set()
+
+    signal.signal(signal.SIGTERM, request_shutdown)
+    signal.signal(signal.SIGINT, request_shutdown)
 
     try:
 
@@ -61,7 +72,7 @@ def main() -> int:
         # Keep the application alive
         #
 
-        while True:
+        while not shutdown_requested.is_set():
 
             time.sleep(1)
 

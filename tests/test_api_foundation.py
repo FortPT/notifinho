@@ -184,6 +184,30 @@ def test_configuration_validation_rejects_plain_tokens_and_bad_routes():
     assert "outputs must be a non-empty list" in rendered
 
 
+@pytest.mark.parametrize("value", ["false", 0, 1, None, []])
+def test_configuration_validation_rejects_non_boolean_output_switches(value):
+    errors = validate_config({
+        "outputs": {
+            "discord": {
+                "enabled": value,
+            },
+        },
+    })
+
+    assert "outputs.discord.enabled must be a boolean" in errors
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_configuration_validation_accepts_boolean_output_switches(value):
+    assert validate_config({
+        "outputs": {
+            "discord": {
+                "enabled": value,
+            },
+        },
+    }) == []
+
+
 @pytest.mark.parametrize(
     "webhook",
     ["PASTE_HERE", "http://example.invalid/hook", "not-a-url", ""],

@@ -620,33 +620,29 @@ outputs:
 
 ## 3. Deploy with Docker Compose
 
-Create a `docker-compose.yml` file:
-
-```yaml
-services:
-  notifinho:
-    image: fortpt/notifinho:latest
-    container_name: notifinho
-    restart: unless-stopped
-    ports:
-      # SMTP input
-      - "8025:8025"
-
-      # Native HTTP inputs. Publish only when http.enabled is true.
-      - "18080:8080"
-    volumes:
-      - ./config:/notifinho/config
-      - ./logs:/notifinho/logs
-
-      # Optional Docker-compatible secrets.
-      - ./secrets:/run/secrets:ro
-
-    environment:
-      TZ: Europe/Lisbon
-```
+The repository includes separate development and production definitions. Copy
+the production environment template and create the writable bind mounts:
 
 ```bash
-docker compose up -d
+cp .env.example .env
+mkdir -p logs/emails secrets
+chmod 600 .env config/config.yaml
+chmod 700 logs logs/emails secrets
+```
+
+Set `NOTIFINHO_UID` and `NOTIFINHO_GID` in `.env` to the values returned by
+`id -u` and `id -g`, then validate and start the versioned production image:
+
+```bash
+docker compose -f compose.production.yaml config
+docker compose -f compose.production.yaml pull
+docker compose -f compose.production.yaml up -d
+```
+
+Use `docker-compose.yml` only for a source-mounted development checkout:
+
+```bash
+docker compose -f docker-compose.yml up -d --build
 ```
 
 > **Tip**
@@ -667,6 +663,8 @@ to the networks or senders that need the native webhook endpoints. SMTP port
 
 SMTP security remains disabled by default. Mount certificates and configure
 STARTTLS/AUTH only after reviewing the [SMTP security guide](docs/smtp-security.md).
+The complete production, Portainer, reverse-proxy, and rollback procedure is
+documented in the [container deployment guide](docs/deployment.md).
 
 Verify that the container is running:
 

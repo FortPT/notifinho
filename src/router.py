@@ -110,6 +110,25 @@ class Router:
 
                 continue
 
+            output_enabled = config.get(
+                "outputs",
+                output_name,
+                "enabled",
+                default=True,
+            )
+
+            if output_enabled is not True:
+
+                log.info(
+                    "Output '%s' is disabled; skipped '%s' -> %s (%s)",
+                    output_name,
+                    notification.source,
+                    output_name,
+                    target,
+                )
+
+                continue
+
             log.info(
                 "Routing '%s' -> %s (%s)",
                 notification.source,

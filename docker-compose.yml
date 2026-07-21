@@ -1,7 +1,8 @@
+# Development-only Compose file. Run it from the repository checkout on VM-09.
 services:
   notifinho-dev:
     build:
-      context: /docker/notifinho-dev
+      context: .
       dockerfile: Dockerfile.dev
     image: notifinho-dev:local
     container_name: notifinho-dev
@@ -11,7 +12,9 @@ services:
       - "8026:8025"
       - "18082:8080"
     volumes:
-      - /docker/notifinho-dev:/notifinho
+      - .:/notifinho
     environment:
       TZ: Europe/Lisbon
     command: /notifinho/start.sh
+    init: true
+    stop_grace_period: 20s

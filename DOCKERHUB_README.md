@@ -61,30 +61,24 @@ Current features include:
 docker pull fortpt/notifinho:latest
 ```
 
-```yaml
-services:
-  notifinho:
+The repository provides `compose.production.yaml`, `.env.example`, and a
+development-only `docker-compose.yml`. Production uses a versioned image,
+non-root deployment identity, read-only root filesystem, dropped capabilities,
+and persistent configuration/log mounts.
 
-    image: fortpt/notifinho:latest
-
-    container_name: notifinho
-
-    restart: unless-stopped
-
-    ports:
-      - "8025:8025"
-      - "18080:8080"
-
-    # Uncomment after configuring SMTP authentication.
-    # environment:
-    #   NOTIFINHO_SMTP_PASSWORD: "${NOTIFINHO_SMTP_PASSWORD}"
-
-    volumes:
-      - ./config:/notifinho/config
-      # Mount certificates read-only when STARTTLS is enabled.
-      # - ./config/tls:/notifinho/config/tls:ro
-      - ./logs:/notifinho/logs
+```bash
+cp .env.example .env
+cp config/config.example.yaml config/config.yaml
+mkdir -p logs/emails secrets
+chmod 600 .env config/config.yaml
+chmod 700 logs logs/emails secrets
+docker compose -f compose.production.yaml config
+docker compose -f compose.production.yaml up -d
 ```
+
+Set `NOTIFINHO_UID` and `NOTIFINHO_GID` in `.env` from `id -u` and `id -g`.
+Portainer deployments should replace relative mount paths with absolute host
+paths. Full deployment and rollback guidance is in `docs/deployment.md`.
 
 The container exposes two independent ports:
 
@@ -185,14 +179,23 @@ https://github.com/FortPT/notifinho
 
 ## Roadmap
 
-- Microsoft Teams
-- Zabbix
-- TrueNAS
+- Responsive v2.0 WebUI
+- Local administrator and user accounts
+- User- and application-scoped event endpoints and API tokens
+- Private/shared destinations and user-owned routing
+- Searchable delivery history, safe errors, and audit events
+- Preview, test delivery, configuration import/export, backup, and restore
+- Slack output
+- Generic outbound webhook output
+- MQTT output
+- ntfy output
+- Automatic v1.x YAML import
+- Production Docker Compose, Portainer, and reverse-proxy examples
 - Broader real-system Redfish compatibility validation
-- The v2.0 WebUI, local browser sessions, and user-owned routing
 - Additional UniFi event variants
-- Slack
-- Telegram
+
+Telegram and other destination adapters remain candidates for the v2.x series
+after the v2.0 security, routing, and core output model are stable.
 
 ---
 

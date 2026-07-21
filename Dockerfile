@@ -3,6 +3,9 @@ FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+ARG NOTIFINHO_ICON_BASE_URL="https://raw.githubusercontent.com/FortPT/notifinho/main/assets/icons"
+ENV NOTIFINHO_ICON_BASE_URL="${NOTIFINHO_ICON_BASE_URL}"
+
 WORKDIR /notifinho
 
 COPY requirements.txt /notifinho/requirements.txt

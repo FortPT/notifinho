@@ -6,6 +6,29 @@ No changes yet.
 
 ---
 
+## 1.9.7 - 2026-07-21
+
+### Fixed
+
+- Official Docker images now embed an immutable icon base URL pinned to the
+  exact release commit, preserving official Teams and Discord logos after a
+  preview is promoted to a stable tag.
+- Discord Components V2 delivery now uploads the packaged product thumbnail
+  as a multipart attachment instead of applying attachment logic only to the
+  legacy embed structure.
+- Release validation now checks the effective Docker build argument and the
+  actual Components V2 outbound attachment payload rather than merely counting
+  PNG files inside the image.
+
+### Compatibility
+
+- Existing configuration, routes, webhook targets, secrets, parsers, card
+  layouts, timestamps, and v1.9.6 presentation behavior are unchanged.
+- No stack environment variable, configuration migration, or credential
+  rotation is required.
+
+---
+
 ## 1.9.6 - 2026-07-21
 
 ### Changed

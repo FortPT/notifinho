@@ -667,7 +667,11 @@ def test_every_discord_product_thumbnail_resolves_to_a_packaged_asset(
 
     resolved = output._local_icon(payload, formatter)
 
-    assert resolved == (filename, output.ICON_DIR / filename)
+    assert resolved is not None
+    resolved_filename, resolved_path, thumbnail = resolved
+    assert resolved_filename == filename
+    assert resolved_path == output.ICON_DIR / filename
+    assert thumbnail is output._thumbnail_media(payload)
 
 
 def test_container_image_packages_the_discord_icon_directory():

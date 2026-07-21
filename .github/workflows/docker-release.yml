@@ -53,7 +53,7 @@ jobs:
           echo "Image version: ${VERSION}"
 
       - name: Checkout release tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.version.outputs.tag }}
           fetch-depth: 0

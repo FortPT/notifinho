@@ -42,6 +42,14 @@
   audit events.
 - Added transactional schema version 2 and tested upgrades from the existing
   schema version 1 database.
+- Added disabled platform adapters and secret-free previews for Discord,
+  Microsoft Teams, Slack, generic outbound webhooks, MQTT, and ntfy.
+- Added bounded Slack Block Kit, a versioned generic JSON envelope, safe JSON
+  templates, HMAC-SHA256 webhook signing, idempotency keys, MQTT QoS/TLS/topic
+  controls, and ntfy priority/tag/action presentation.
+- Added output-specific destination validation, administrator-controlled
+  private-network delivery, ownership-safe preview/test delivery, retry-safe
+  transport results, and adapter integration coverage.
 
 ### Compatibility
 
@@ -49,6 +57,8 @@
   routes, destinations, inputs, outputs, and delivery behavior are unchanged.
 - Platform tokens, routes, and delivery services are not yet exposed through
   HTTP and do not replace the existing YAML router.
+- New platform outputs remain inactive until the v2 API/runtime wiring phase;
+  existing Discord and Teams YAML delivery is unchanged.
 
 ---
 

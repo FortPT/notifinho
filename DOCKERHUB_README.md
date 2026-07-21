@@ -183,6 +183,8 @@ https://github.com/FortPT/notifinho
   sessions/CSRF, ownership records, and owner-only secret rotation
 - Source-scoped tokens, private/shared destinations, user route filters,
   bounded delivery retries, audit events, and safe delivery history
+- Ownership-safe preview/test contracts and disabled adapters for Discord,
+  Teams, Slack, generic webhooks, MQTT, and ntfy
 - Responsive v2.0 WebUI
 - Local administrator and user accounts
 - User- and application-scoped event endpoints and API tokens

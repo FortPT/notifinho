@@ -18,6 +18,7 @@ services:
 
     environment:
       TZ: "${TZ:-Europe/Lisbon}"
+      NOTIFINHO_STATE_DIR: "/notifinho/state"
       NOTIFINHO_SMTP_PASSWORD: "${NOTIFINHO_SMTP_PASSWORD:-}"
       NOTIFINHO_ADMIN_TOKEN: "${NOTIFINHO_ADMIN_TOKEN:-}"
       NOTIFINHO_HARDWARE_TOKEN: "${NOTIFINHO_HARDWARE_TOKEN:-}"
@@ -26,6 +27,7 @@ services:
       - "${NOTIFINHO_CONFIG_DIR:-./config}:/notifinho/config"
       - "${NOTIFINHO_LOG_DIR:-./logs}:/notifinho/logs"
       - "${NOTIFINHO_SECRETS_DIR:-./secrets}:/run/secrets:ro"
+      - "${NOTIFINHO_STATE_DIR:-./state}:/notifinho/state"
 
     read_only: true
     tmpfs:

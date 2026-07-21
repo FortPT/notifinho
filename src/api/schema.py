@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import os
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -70,6 +71,7 @@ def validate_config(data) -> list[str]:
         "notifications",
         "presentation",
         "api",
+        "platform",
     ):
         if section in data and not isinstance(data[section], dict):
             errors.append(f"{section} must be an object")
@@ -92,6 +94,16 @@ def validate_config(data) -> list[str]:
                 "presentation.timezone must be a valid IANA timezone"
             )
     api = data.get("api") or {}
+    platform = data.get("platform") or {}
+    if isinstance(platform, dict):
+        if "enabled" in platform and not isinstance(platform.get("enabled"), bool):
+            errors.append("platform.enabled must be a boolean")
+        if "state_dir" in platform:
+            state_dir = str(platform.get("state_dir") or "").strip()
+            if not os.path.isabs(state_dir) or state_dir == os.path.sep:
+                errors.append(
+                    "platform.state_dir must be an absolute directory other than /"
+                )
     tokens = api.get("tokens") or {}
     if not isinstance(tokens, dict):
         errors.append("api.tokens must be an object")

@@ -24,6 +24,19 @@
 
 - Added runtime-packaging, routing, configuration-validation, CI, Compose,
   and graceful-shutdown regression coverage.
+- Added an opt-in, migration-aware SQLite foundation for local users, hashed
+  sessions and CSRF credentials, user-owned API tokens, destinations, routes,
+  secrets, and future database-backed audit events.
+- Added persistent login lockouts, session expiry/revocation, last-admin
+  protection, owner/admin authorization policy, and atomic owner-only secret
+  rotation with integrity checks.
+- Added a trusted-host account-management CLI and platform-state deployment,
+  backup, rollback, and security documentation.
+
+### Compatibility
+
+- Platform state remains disabled by default. Existing v1.x YAML tokens,
+  routes, destinations, inputs, outputs, and delivery behavior are unchanged.
 
 ---
 

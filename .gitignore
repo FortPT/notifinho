@@ -1,5 +1,6 @@
 # Runtime files
 logs/
+state/
 *.log
 *.eml
 !tests/fixtures/qnap/*.eml

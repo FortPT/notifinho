@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import re
 
-from formatters.base import BaseFormatter
+from formatters.discord_common import DiscordCardData, DiscordCardFormatter, DiscordFact
 from models import Notification
-from version import VERSION
 
 
-class QNAPDiscordFormatter(BaseFormatter):
+class QNAPDiscordFormatter(DiscordCardFormatter):
     """Format QNAP events as Discord embeds."""
 
     EMBED_TEXT_BUDGET = 5900
@@ -26,6 +25,9 @@ class QNAPDiscordFormatter(BaseFormatter):
         "backup": "🔄",
         "system": "⚙️",
         "power": "🔌",
+        "network": "🌐",
+        "update": "⬆️",
+        "application": "🧩",
         "generic": "🔔",
     }
 
@@ -60,49 +62,27 @@ class QNAPDiscordFormatter(BaseFormatter):
         "firmware_version",
         "current_version",
         "new_version",
+        "available_version",
+        "connection_type",
+        "power_event",
     )
 
-    def format(
-        self,
-        notification: Notification,
-    ) -> dict:
-
+    def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
-
         nas_name = self._text(
             metadata.get("nas_name")
             or metadata.get("host")
             or "QNAP NAS"
         )
-
-        category_value = (
-            metadata.get("category")
-            or notification.category
-            or "generic"
-        )
-
-        category_key = str(
-            category_value,
-        ).strip().lower()
-
-        category = self._label(
-            category_value,
-        )
-
-        category_icon = self.CATEGORY_ICONS.get(
-            category_key,
-            self.CATEGORY_ICONS["generic"],
-        )
-
-        severity = self._text(
-            metadata.get("severity"),
-        )
-
-        icon, color, status_text = self._status_meta(
+        category_value = metadata.get("category") or notification.category or "generic"
+        category_key = str(category_value).strip().casefold()
+        category = self._label(category_value)
+        category_icon = self.CATEGORY_ICONS.get(category_key, self.CATEGORY_ICONS["generic"])
+        severity = self._text(metadata.get("severity") or notification.status or "information")
+        _icon, _color, status_text = self._status_meta(
             notification.status,
             severity,
         )
-
         message = self._text(
             metadata.get("message")
             or notification.body
@@ -110,126 +90,40 @@ class QNAPDiscordFormatter(BaseFormatter):
             or notification.subject
             or "QNAP notification"
         )
-
-        application = self._text(
-            metadata.get("application"),
-        )
-
+        application = self._text(metadata.get("application"))
         event_time = self._text(
             metadata.get("event_time")
             or notification.start_time
             or notification.end_time
         )
+        event_type = self._text(metadata.get("event_type"))
+        event_label = self._label(event_type) if event_type else "QNAP event"
+        event = application if category_key == "update" and application else event_label
+        details = []
+        if application and application.casefold() != event.casefold():
+            details.append(DiscordFact("📦", "Application", application))
+        for label, value in self._operational_fields(metadata)[:18]:
+            details.append(DiscordFact(self._field_icon(label), label, value))
 
-        embed = {
-            "title": self._truncate(
-                f"{icon} {nas_name}",
-                256,
-            ),
-            "description": self._truncate(
-                (
-                    f"QNAP • **{status_text}** • "
-                    f"{category_icon} {category}"
-                ),
-                1024,
-            ),
-            "color": color,
-            "fields": [
-                {
-                    "name": f"{category_icon} Event",
-                    "value": self._truncate(
-                        message,
-                        1024,
-                    ),
-                    "inline": False,
-                },
-            ],
-            "footer": {
-                "text": f"FortPT Labs\nNotifinho v{VERSION}",
-            },
-        }
-
-        if severity:
-
-            embed["fields"].append(
-                {
-                    "name": "⚠️ Severity",
-                    "value": self._truncate(
-                        severity,
-                        1024,
-                    ),
-                    "inline": True,
-                }
+        return self._render_discord_card(
+            DiscordCardData(
+                source="qnap",
+                integration="QNAP",
+                device=nas_name,
+                event=event,
+                message=message,
+                status=notification.status,
+                state=status_text,
+                severity=severity,
+                category=category,
+                source_area=category,
+                source_area_icon=category_icon,
+                event_time=event_time,
+                device_icon="🗄️",
+                event_icon=category_icon,
+                details=tuple(details),
             )
-
-        embed["fields"].append(
-            {
-                "name": "🗂️ Category",
-                "value": self._truncate(
-                    category,
-                    1024,
-                ),
-                "inline": True,
-            }
         )
-
-        if event_time:
-
-            embed["fields"].append(
-                {
-                    "name": "🕒 Event time",
-                    "value": self._truncate(
-                        self._format_datetime(
-                            event_time,
-                        ),
-                        1024,
-                    ),
-                    "inline": True,
-                }
-            )
-
-        if application:
-
-            embed["fields"].append(
-                {
-                    "name": "⚙️ Application",
-                    "value": self._truncate(
-                        application,
-                        1024,
-                    ),
-                    "inline": True,
-                }
-            )
-
-        for label, value in self._operational_fields(
-            metadata,
-        )[:15]:
-
-            embed["fields"].append(
-                {
-                    "name": self._truncate(
-                        f"{self._field_icon(label)} {label}",
-                        256,
-                    ),
-                    "value": self._truncate(
-                        value,
-                        1024,
-                    ),
-                    "inline": True,
-                }
-            )
-
-        self._enforce_embed_budget(
-            embed,
-        )
-
-        self._set_discord_thumbnail(embed, "qnap")
-
-        return {
-            "embeds": [
-                embed,
-            ],
-        }
 
     def _status_meta(
         self,

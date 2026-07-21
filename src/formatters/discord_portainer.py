@@ -2,73 +2,40 @@
 
 from __future__ import annotations
 
-from formatters.base import BaseFormatter
+from formatters.discord_common import DiscordCardData, DiscordCardFormatter, DiscordFact
 from models import Notification
-from version import VERSION
 
 
-class PortainerDiscordFormatter(BaseFormatter):
+class PortainerDiscordFormatter(DiscordCardFormatter):
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
-        icon, color, state_text = self._status_meta(
-            notification.status,
-            metadata.get("state"),
-        )
         title = notification.title or "Portainer alert"
-        message = notification.body or title
-        embed = {
-            "title": self._truncate(f"🐳 {icon} {title}", 256),
-            "description": self._truncate(
-                f"Portainer • **{state_text}**",
-                1024,
-            ),
-            "color": color,
-            "fields": [
-                self._field("🚨 Alert message", message, False),
-                self._field("📌 State", str(metadata.get("state", "")).title()),
-                self._field(
-                    "⚠️ Severity",
-                    str(metadata.get("severity", "")).title(),
+        state = metadata.get("state") or notification.status
+        event_time = (
+            notification.end_time
+            if str(state).casefold() == "resolved" and notification.end_time
+            else notification.start_time
+        )
+        return self._render_discord_card(
+            DiscordCardData(
+                source="portainer",
+                integration="Portainer",
+                device=metadata.get("instance") or "Portainer",
+                event=title,
+                message=notification.body or title,
+                status=notification.status,
+                state=state,
+                severity=metadata.get("severity") or notification.status,
+                category=notification.category or "containers",
+                source_area=metadata.get("alert_source") or "Containers",
+                event_time=event_time,
+                device_icon="🐳",
+                source_area_icon="📦",
+                details=(
+                    DiscordFact("🔐", "Authentication", metadata.get("authentication_method")),
+                    DiscordFact("👤", "Username", metadata.get("username")),
+                    DiscordFact("🕒", "Started", self._format_datetime(notification.start_time)),
+                    DiscordFact("🏁", "Resolved", self._format_datetime(notification.end_time)),
                 ),
-                self._field("🖥️ Instance", metadata.get("instance")),
-                self._field("🧭 Source", metadata.get("alert_source")),
-                self._field(
-                    "🔐 Authentication",
-                    metadata.get("authentication_method"),
-                ),
-                self._field("👤 Username", metadata.get("username")),
-                self._field(
-                    "🕒 Started",
-                    self._format_datetime(notification.start_time),
-                ),
-                self._field(
-                    "✅ Resolved",
-                    self._format_datetime(notification.end_time),
-                ),
-            ],
-            "footer": {"text": f"FortPT Labs\nNotifinho v{VERSION}"},
-        }
-        embed["fields"] = [field for field in embed["fields"] if field["value"]][
-            :25
-        ]
-        self._set_discord_thumbnail(embed, "portainer")
-        return {"embeds": [embed]}
-
-    def _field(self, name: str, value, inline: bool = True) -> dict:
-        return {
-            "name": name,
-            "value": self._truncate(value, 1024),
-            "inline": inline,
-        }
-
-    @staticmethod
-    def _status_meta(status, state) -> tuple[str, int, str]:
-        normalized = str(status or "").casefold()
-        state_text = str(state or "").casefold()
-        if normalized == "success" or state_text == "resolved":
-            return "✅", 0x2ECC71, "Resolved"
-        if normalized == "failure":
-            return "🚨", 0xE74C3C, "Firing"
-        if normalized == "warning":
-            return "⚠️", 0xF39C12, "Firing"
-        return "ℹ️", 0x3498DB, state_text.title() or "Information"
+            )
+        )

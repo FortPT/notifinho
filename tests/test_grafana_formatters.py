@@ -195,8 +195,7 @@ def test_missing_and_malformed_optional_metadata_is_omitted():
     assert "Datasource" not in serialized_discord
     assert "Event time" not in serialized_discord
     assert "Datasource" not in serialized_teams
-    assert "Event time" in serialized_teams
-    assert "\\u2014" in serialized_teams
+    assert "Event time" not in serialized_teams
 
     for item in _walk(card):
 
@@ -284,7 +283,7 @@ def test_outputs_register_grafana_without_replacing_existing_formatters():
         "payload_key",
     ),
     [
-        (DiscordOutput, discord_output_module, "embeds"),
+        (DiscordOutput, discord_output_module, "components"),
         (TeamsOutput, teams_output_module, "attachments"),
     ],
 )

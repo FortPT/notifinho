@@ -6,6 +6,76 @@ No changes yet.
 
 ---
 
+## 1.9.6 - 2026-07-21
+
+### Changed
+
+- Replaced generated initial badges with official vendor assets across all 17
+  Microsoft Teams integration presentations, including the generic Notifinho
+  card.
+- Normalized all locally served header assets to transparent 256 px PNGs and
+  documented each official source and mechanical transformation.
+- Added an optional `NOTIFINHO_ICON_BASE_URL` override for immutable branch
+  previews and installations that mirror the same official assets.
+- Preserved source casing for identifiers and acronyms such as `PVE-01`,
+  `CPU`, and `VMID`.
+- Shortened the UniFi Network last-device label and removed duplicated UniFi
+  state, source-area, and icon presentation.
+- Standardized all Discord integrations on the shared device/event, context,
+  message, Severity/Category/Event time, rich-detail, and official-thumbnail
+  hierarchy.
+- Added centralized Discord field-count and embed-text budgeting that protects
+  the event and three standard metrics before optional details are removed.
+- Refined Discord cards with Teams-like spacing, an unlabelled dark event
+  highlight, full-width rules in the correct hierarchy, separated vertical
+  details, and a single-line footer.
+- Packaged the official icon directory in the container and upload Discord
+  thumbnails as webhook attachments, preventing integrations such as Grafana
+  and Redfish from losing their logo when Discord cannot fetch a remote URL.
+- Changed the shared Teams/Discord time policy so timezone-aware source values
+  and epochs display in the Notifinho machine/container local time by default.
+  Naive values remain source-local, missing source times remain omitted, and
+  an optional IANA override is available for the future WebUI.
+- Preserved native UniFi Network and Protect epochs until shared Teams and
+  Discord presentation applies the configured timezone.
+
+### Fixed
+
+- Xen Orchestra cards now omit unavailable Duration and Result facts while
+  retaining real values and the triggered backup name when supplied.
+- Teams output and configuration validation now reject placeholder, malformed,
+  credential-bearing, and non-HTTPS webhook values before attempting delivery.
+- Home Assistant string tags no longer render character by character.
+- Removed Discord's redundant Event field, synthetic blank rows, wrapped rule
+  fragments, and duplicate footer separator while preserving exactly one rule
+  before the highlight, one after the metrics, and one before the footer when
+  details are present.
+- Trusted Dell iDRAC `USR0030` and `USR0032` session audit records can be
+  suppressed by exact client address across REDFISH/IPMI transports while
+  failed logins and all other security events remain routed.
+- Dell session events use concise titles such as `User Login` and normalize
+  legacy contexts such as `NotifinhoAlfaCompat` to the device name `ALFA`.
+
+### Compatibility
+
+- Existing valid Teams and Discord webhooks, routes, source payloads,
+  endpoints, and secrets remain compatible. Timezone-aware source instants now
+  deliberately render in the local Notifinho machine clock.
+- No configuration migration or secret rotation is required.
+
+### Validation
+
+- Expanded automated parser, API, formatter, routing, security, release, and
+  backwards-compatibility coverage for local-machine time and trusted Dell
+  session filtering.
+- Added exact product-asset assertions for all 17 Teams presentations.
+- Added cross-integration Discord hierarchy, exact-asset, source-time,
+  recovery-state, rich-detail, and platform-limit regressions.
+- Added transparent-PNG, asset-removal, Xen Orchestra optional-fact, identifier,
+  UniFi duplication, and webhook-validation regressions.
+
+---
+
 ## 1.9.4 - 2026-07-20
 
 ### Changed

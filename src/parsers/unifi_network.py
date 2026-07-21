@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 
 from models import Notification
 
@@ -146,11 +145,9 @@ class Parser:
         if not text:
             return ""
         try:
-            numeric = float(text)
-            if numeric > 10_000_000_000:
-                numeric /= 1000
-            return datetime.fromtimestamp(numeric, tz=timezone.utc).isoformat()
-        except (ValueError, OSError, OverflowError):
+            float(text)
+            return text
+        except ValueError:
             return text
 
     def _text(self, value) -> str:

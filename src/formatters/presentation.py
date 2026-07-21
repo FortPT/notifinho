@@ -3,27 +3,37 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import os
 import re
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+from tzlocal import get_localzone
+
+from config import config
 
 
 class PresentationMixin:
     """Keep presentation, safety, and product branding consistent."""
 
-    ICON_BASE_URL = (
-        "https://raw.githubusercontent.com/FortPT/notifinho/"
-        "main/assets/icons"
-    )
+    ICON_BASE_URL = os.environ.get(
+        "NOTIFINHO_ICON_BASE_URL",
+        (
+            "https://raw.githubusercontent.com/FortPT/notifinho/"
+            "main/assets/icons"
+        ),
+    ).rstrip("/")
 
     PRODUCT_ICONS = {
+        "xo": "xen-orchestra.png",
         "zabbix": "zabbix.png",
         "qnap": "qnap.png",
         "grafana": "grafana.png",
         "truenas": "truenas.png",
-        "unifi": "unifi.png",
-        "unifi_network": "unifi.png",
-        "unifi_protect": "unifi.png",
-        "unifi_drive": "unifi.png",
+        "unifi": "unifi-network.png",
+        "unifi_network": "unifi-network.png",
+        "unifi_protect": "unifi-protect.png",
+        "unifi_drive": "unifi-drive.png",
         "portainer": "portainer.png",
         "proxmox": "proxmox.png",
         "synology": "synology.png",
@@ -32,9 +42,24 @@ class PresentationMixin:
         "hpe_ilo": "hpe-ilo.png",
         "dell_idrac": "dell-idrac.png",
         "home_assistant": "home-assistant.png",
+        "notifinho": "notifinho.png",
     }
 
-    XO_ICON_URL = "https://content.vates.tech/assets/xologoname.png"
+    # Wide vendor wordmarks need a larger square render area than compact
+    # product marks. Keeping both dimensions equal preserves the official
+    # artwork's aspect ratio while making thin lockups legible in Teams.
+    TEAMS_ICON_PIXELS = {
+        "proxmox": 64,
+        "qnap": 72,
+        "synology": 64,
+        "unifi_network": 80,
+        "unifi_protect": 80,
+        "unifi_drive": 64,
+        "redfish": 56,
+        "supermicro": 64,
+        "hpe_ilo": 64,
+        "dell_idrac": 80,
+    }
 
     _SECRET_ASSIGNMENT = re.compile(
         r"(?i)\b(authorization|api[_ -]?key|password|secret|session[_ -]?id|"
@@ -87,8 +112,6 @@ class PresentationMixin:
 
     def _product_icon_url(self, source: str) -> str:
         normalized = str(source or "").strip().casefold()
-        if normalized == "xo":
-            return self.XO_ICON_URL
         filename = self.PRODUCT_ICONS.get(normalized)
         return f"{self.ICON_BASE_URL}/{filename}" if filename else ""
 
@@ -116,6 +139,9 @@ class PresentationMixin:
         icon_url = self._product_icon_url(source)
         if not icon_url:
             return title_block
+        normalized_source = str(source or "").strip().casefold()
+        icon_pixels = self.TEAMS_ICON_PIXELS.get(normalized_source, 48)
+        icon_size = f"{icon_pixels}px"
         return {
             "type": "ColumnSet",
             # Keep the legacy title metadata for downstream card tests and
@@ -139,8 +165,8 @@ class PresentationMixin:
                             "url": icon_url,
                             "altText": f"{source} icon",
                             "size": "Small",
-                            "width": "48px",
-                            "height": "48px",
+                            "width": icon_size,
+                            "height": icon_size,
                         }
                     ],
                 },
@@ -148,7 +174,13 @@ class PresentationMixin:
         }
 
     def _format_datetime(self, value: Any) -> str:
-        """Render the wall-clock value emitted by the event source."""
+        """Render source time without ever substituting receipt time.
+
+        Timezone-aware values and epochs are converted to the Notifinho
+        machine's local timezone. Naive values are treated as source-local
+        wall clocks. An optional presentation timezone overrides the machine
+        default for the future WebUI without changing the event-time source.
+        """
 
         if value is None or value == "":
             return ""
@@ -160,7 +192,10 @@ class PresentationMixin:
             if abs(numeric) > 10_000_000_000:
                 numeric /= 1000
             try:
-                parsed = datetime.fromtimestamp(numeric, tz=timezone.utc)
+                parsed = datetime.fromtimestamp(
+                    numeric,
+                    tz=self._presentation_timezone(),
+                )
             except (OSError, OverflowError, ValueError):
                 return self._sanitize_text(value)
         else:
@@ -169,15 +204,41 @@ class PresentationMixin:
                 return ""
 
             if re.fullmatch(r"\d{10}(?:\.\d+)?", raw):
-                parsed = datetime.fromtimestamp(float(raw), tz=timezone.utc)
+                parsed = datetime.fromtimestamp(
+                    float(raw),
+                    tz=self._presentation_timezone(),
+                )
             elif re.fullmatch(r"\d{13}", raw):
-                parsed = datetime.fromtimestamp(int(raw) / 1000, tz=timezone.utc)
+                parsed = datetime.fromtimestamp(
+                    int(raw) / 1000,
+                    tz=self._presentation_timezone(),
+                )
             else:
                 parsed, _explicit_zone = self._parse_datetime_text(raw)
                 if parsed is None:
                     return self._sanitize_text(raw)
 
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(self._presentation_timezone())
+
         return parsed.strftime("%d %b %Y • %H:%M")
+
+    def _presentation_timezone(self):
+        """Return an override or the Notifinho machine's local timezone."""
+
+        configured = config.get("presentation", "timezone")
+        zone_name = str(configured or os.environ.get("TZ") or "").strip()
+        if zone_name.startswith(":"):
+            zone_name = zone_name[1:]
+        if zone_name:
+            try:
+                return ZoneInfo(zone_name)
+            except (ZoneInfoNotFoundError, ValueError):
+                pass
+        try:
+            return get_localzone()
+        except Exception:
+            return datetime.now().astimezone().tzinfo or timezone.utc
 
     def _parse_datetime_text(self, value: str) -> tuple[datetime | None, bool]:
         cleaned = re.sub(r"(?<=\d)(?:st|nd|rd|th)\b", "", value)

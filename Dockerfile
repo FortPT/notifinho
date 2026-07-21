@@ -10,6 +10,7 @@ COPY requirements.txt /notifinho/requirements.txt
 RUN pip install --no-cache-dir -r /notifinho/requirements.txt
 
 COPY src /notifinho/src
+COPY assets /notifinho/assets
 COPY tools /notifinho/tools
 COPY start.sh /notifinho/start.sh
 

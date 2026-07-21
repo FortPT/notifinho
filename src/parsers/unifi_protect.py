@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
+from config import config
 from formatters.unifi import (
     humanize_unifi_identifier,
     protect_device_display,
@@ -45,6 +45,11 @@ class Parser:
         normalized_triggers = [self._trigger(item) for item in triggers]
         normalized_triggers = [item for item in normalized_triggers if item]
         primary = normalized_triggers[0] if normalized_triggers else {}
+        raw_trigger_device = self._text(primary.get("device"))
+        trigger_device = self._resolve_device(
+            raw_trigger_device,
+            sources,
+        )
         trigger_key = self._text(primary.get("key") or condition.get("source"))
         trigger_label = humanize_unifi_identifier(trigger_key)
         alarm_name = self._text(alarm.get("name")) or "UniFi Protect event"
@@ -59,7 +64,7 @@ class Parser:
             status="information",
             title=visible_title,
             subject=visible_title,
-            body=self._body(trigger_label or trigger_key, primary.get("device")),
+            body=self._body(trigger_label or trigger_key, trigger_device),
             start_time=event_time,
         )
         notification.items = normalized_triggers
@@ -70,7 +75,8 @@ class Parser:
             "condition_operator": self._text(condition.get("type")),
             "trigger_key": trigger_key,
             "trigger_label": trigger_label,
-            "trigger_device": self._text(primary.get("device")),
+            "trigger_device": trigger_device,
+            "trigger_device_id": raw_trigger_device,
             "trigger_timestamp": self._timestamp(primary.get("timestamp")),
             "outer_timestamp": outer_time,
             "event_time": event_time,
@@ -85,6 +91,59 @@ class Parser:
             "triggers": normalized_triggers,
         }
         return notification
+
+    def _resolve_device(self, device, sources: list[dict]) -> str:
+        """Resolve a Protect identifier without inventing a camera name."""
+
+        raw = self._text(device)
+        if not raw:
+            return ""
+
+        raw_key = self._device_key(raw)
+        for source in sources:
+            source_id = self._text(
+                source.get("id")
+                or source.get("deviceId")
+                or source.get("device_id")
+                or source.get("mac")
+                or source.get("device")
+            )
+            friendly = self._text(
+                source.get("name")
+                or source.get("displayName")
+                or source.get("display_name")
+                or source.get("label")
+            )
+            if (
+                source_id
+                and self._device_key(source_id) == raw_key
+                and protect_device_display(friendly)
+            ):
+                return friendly
+
+        aliases = config.get(
+            "notifications",
+            "unifi_protect",
+            "device_aliases",
+            default={},
+        )
+        if isinstance(aliases, dict):
+            for identifier, friendly in aliases.items():
+                if self._device_key(identifier) != raw_key:
+                    continue
+                display = protect_device_display(friendly)
+                if display:
+                    return display
+
+        return raw
+
+    @staticmethod
+    def _device_key(value) -> str:
+        return "".join(
+            character.casefold()
+            for character in str(value or "")
+            if character.isalnum()
+        )
 
     def _condition(self, members: list[dict]) -> dict:
         for member in members:
@@ -109,12 +168,15 @@ class Parser:
         return [item for item in value if isinstance(item, dict)]
 
     def _timestamp(self, value) -> str:
+        """Validate and preserve the source epoch for presentation policy."""
+
+        text = self._text(value)
+        if not text:
+            return ""
         try:
-            numeric = float(value)
-            if numeric > 10_000_000_000:
-                numeric /= 1000
-            return datetime.fromtimestamp(numeric, tz=timezone.utc).isoformat()
-        except (TypeError, ValueError, OSError, OverflowError):
+            float(text)
+            return text
+        except (TypeError, ValueError):
             return ""
 
     def _valid_url(self, value) -> str:

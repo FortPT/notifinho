@@ -10,12 +10,11 @@ from __future__ import annotations
 
 import re
 
-from formatters.base import BaseFormatter
+from formatters.discord_common import DiscordCardData, DiscordCardFormatter, DiscordFact
 from models import Notification
-from version import VERSION
 
 
-class GrafanaDiscordFormatter(BaseFormatter):
+class GrafanaDiscordFormatter(DiscordCardFormatter):
     """Format Grafana alerts as bounded Discord embeds."""
 
     EMBED_TEXT_BUDGET = 5900
@@ -67,7 +66,7 @@ class GrafanaDiscordFormatter(BaseFormatter):
             metadata.get("severity")
         )
 
-        icon, color, status_text = self._status_meta(
+        _icon, _color, status_text = self._status_meta(
             notification.status,
             state,
             severity,
@@ -94,93 +93,55 @@ class GrafanaDiscordFormatter(BaseFormatter):
             or notification.start_time
         )
 
-        embed = {
-            "title": self._truncate(
-                f"{icon} {alert_name}",
-                256,
-            ),
-            "description": self._truncate(
-                f"Grafana • **{status_text}**"
-                + (f" • {state}" if state else ""),
-                1024,
-            ),
-            "color": color,
-            "fields": [
-                {
-                    "name": "🚨 Alert message",
-                    "value": self._truncate(
-                        message,
-                        1024,
-                    ),
-                    "inline": False,
-                },
-            ],
-            "footer": {
-                "text": f"FortPT Labs\nNotifinho v{VERSION}",
-            },
-        }
-
-        self._add_field(
-            embed,
-            "📌 State",
-            state,
-            inline=True,
-        )
-
-        self._add_field(
-            embed,
-            "⚠️ Severity",
-            severity,
-            inline=True,
-        )
-
-        if event_time:
-
-            self._add_field(
-                embed,
-                "🕒 Event time",
-                self._format_datetime(
-                    event_time,
-                ),
-                inline=True,
-            )
-
+        details = []
         for key in self.KNOWN_METADATA_KEYS:
-
-            self._add_field(
-                embed,
-                self.LABELS[key],
-                metadata.get(key),
-                inline=key not in {
-                    "labels",
-                    "values",
-                },
+            value = self._text(metadata.get(key))
+            if not value:
+                continue
+            label = self.LABELS[key]
+            icon, clean_label = label.split(maxsplit=1)
+            details.append(
+                DiscordFact(
+                    icon,
+                    clean_label,
+                    value,
+                    key not in {"labels", "values"},
+                )
             )
+        for label, value in self._unknown_fields(metadata):
+            details.append(DiscordFact("📌", label, value))
 
-        for label, value in self._unknown_fields(
-            metadata,
-        ):
-
-            self._add_field(
-                embed,
-                f"📌 {label}",
-                value,
-                inline=True,
-            )
-
-        embed["fields"] = embed["fields"][:25]
-
-        self._set_discord_thumbnail(embed, "grafana")
-
-        self._enforce_embed_budget(
-            embed,
+        device = self._text(
+            metadata.get("instance")
+            or metadata.get("host")
+            or metadata.get("dashboard")
+            or "Grafana"
         )
-
-        return {
-            "embeds": [
-                embed,
-            ],
-        }
+        url = self._text(
+            metadata.get("dashboard_url")
+            or metadata.get("panel_url")
+            or metadata.get("rule_url")
+        )
+        return self._render_discord_card(
+            DiscordCardData(
+                source="grafana",
+                integration="Grafana",
+                device=device,
+                event=alert_name,
+                message=message,
+                status=notification.status or state,
+                state=state or status_text,
+                severity=severity or notification.status,
+                category=notification.category or "monitoring",
+                source_area=metadata.get("panel") or metadata.get("folder") or "Monitoring",
+                event_time=event_time,
+                device_icon="📊",
+                source_area_icon="📈",
+                event_icon="🚨",
+                details=tuple(details[:21]),
+                url=url,
+            )
+        )
 
     def _add_field(
         self,

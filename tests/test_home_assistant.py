@@ -308,3 +308,17 @@ def test_home_assistant_formatters_present_structured_error_code():
     assert "UNSPECIFIC_ERROR (-1001)" in rendered
     assert "192.168.103.35" in rendered
     assert "control_child" not in rendered
+
+
+def test_home_assistant_discord_string_tags_are_not_split_into_characters():
+    item = Parser().parse(fixture())
+    item.metadata["tags"] = "office, temperature"
+    embed = HomeAssistantDiscordFormatter().format(item)["embeds"][0]
+    details = next(
+        field
+        for field in embed["fields"]
+        if "📋 **Event details**" in field["value"]
+    )
+
+    assert "🏷️ **Tags:** office, temperature" in details["value"]
+    assert "o, f, f, i, c, e" not in details["value"]

@@ -72,7 +72,7 @@ def test_admin_access_cards_keep_the_rule_and_remove_raw_condition_text():
         ensure_ascii=False,
     )
 
-    assert "📹 ℹ️ Admin Access" in serialized
+    assert "📹 ℹ️ NVR • Admin Access" in serialized
     assert "Admin Access detected by NVR" in serialized
     assert "🎯 Trigger type" in serialized
     assert "🚨 Alarm rule" in serialized

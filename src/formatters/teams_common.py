@@ -56,7 +56,20 @@ class TeamsCardFormatter(BaseFormatter):
         device = self._truncate(data.device or data.integration, 160)
         event = self._truncate(data.event or "Notification", 280)
         message = self._truncate(data.message or event, 4000)
-        event_time = self._format_datetime(data.event_time) or "—"
+        event_time = self._format_datetime(data.event_time)
+
+        metrics = [
+            self._teams_metric(status_icon, "Severity", severity),
+            self._teams_metric(
+                self._category_icon(data.category),
+                "Category",
+                category,
+            ),
+        ]
+        if event_time:
+            metrics.append(
+                self._teams_metric("🕒", "Event time", event_time)
+            )
 
         body: list[dict[str, Any]] = [
             self._teams_header(
@@ -95,15 +108,7 @@ class TeamsCardFormatter(BaseFormatter):
             {
                 "type": "ColumnSet",
                 "spacing": "Medium",
-                "columns": [
-                    self._teams_metric(status_icon, "Severity", severity),
-                    self._teams_metric(
-                        self._category_icon(data.category),
-                        "Category",
-                        category,
-                    ),
-                    self._teams_metric("🕒", "Event time", event_time),
-                ],
+                "columns": metrics,
             },
         ]
 
@@ -113,7 +118,7 @@ class TeamsCardFormatter(BaseFormatter):
                 "value": self._truncate(fact.value, 1000),
             }
             for fact in data.details
-            if self._truncate(fact.value, 1000)
+            if self._meaningful_fact(fact.value)
         ]
         if facts:
             body.append(
@@ -247,10 +252,25 @@ class TeamsCardFormatter(BaseFormatter):
 
     @staticmethod
     def _label(value: Any) -> str:
-        return (
-            str(value or "")
-            .replace("_", " ")
-            .replace("-", " ")
-            .strip()
-            .title()
-        )
+        text = str(value or "").replace("_", " ").strip()
+        if not text:
+            return ""
+
+        def label_token(token: str) -> str:
+            parts = token.split("-")
+            return "-".join(
+                part
+                if part.isupper() or any(character.isdigit() for character in part)
+                else part.capitalize()
+                for part in parts
+            )
+
+        return " ".join(label_token(token) for token in text.split())
+
+    def _meaningful_fact(self, value: Any) -> bool:
+        """Reject empty and formatter-sentinel values without hiding zero."""
+
+        if value is None:
+            return False
+        text = self._sanitize_text(value).strip()
+        return text.casefold() not in {"", "-", "—", "n/a", "none", "null"}

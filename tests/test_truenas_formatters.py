@@ -113,7 +113,7 @@ def test_outputs_register_truenas_without_replacing_existing_formatters():
 @pytest.mark.parametrize(
     ("output_class", "output_module", "payload_key"),
     [
-        (DiscordOutput, discord_output_module, "embeds"),
+        (DiscordOutput, discord_output_module, "components"),
         (TeamsOutput, teams_output_module, "attachments"),
     ],
 )
@@ -207,7 +207,7 @@ def test_discord_aggregate_payload_limits_retain_essential_fields():
     for essential in (
         "Essential TrueNAS message",
         "SYNTHETIC-TRUENAS",
-        "backup",
+        "Backup",
         "Failure",
         "Critical",
         "50",

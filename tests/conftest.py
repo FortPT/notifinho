@@ -32,12 +32,18 @@ class TestConfig:
     def __init__(self):
 
         self._data = {
+            "presentation": {
+                "timezone": "UTC",
+            },
             "notifications": {
                 "xo": {
                     "show_ids": False,
                 },
                 "zabbix": {
                     "show_ids": False,
+                },
+                "unifi_protect": {
+                    "device_aliases": {},
                 },
             },
         }

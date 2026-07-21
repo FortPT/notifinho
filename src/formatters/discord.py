@@ -1,385 +1,145 @@
-"""
-Notifinho
-
-discord.py
-
-Discord formatter.
-"""
+"""Discord presentation for Xen Orchestra backup events."""
 
 from __future__ import annotations
 
 from config import config
+from formatters.discord_common import DiscordCardData, DiscordCardFormatter, DiscordFact
 from models import Notification
-from version import VERSION
-from formatters.base import BaseFormatter
 
-class DiscordFormatter(BaseFormatter):
 
-    MONTHS = {
-        "January": "Jan",
-        "February": "Feb",
-        "March": "Mar",
-        "April": "Apr",
-        "May": "May",
-        "June": "Jun",
-        "July": "Jul",
-        "August": "Aug",
-        "September": "Sep",
-        "October": "Oct",
-        "November": "Nov",
-        "December": "Dec",
-    }
+class DiscordFormatter(DiscordCardFormatter):
+    """Format Xen Orchestra notifications using the shared Discord contract."""
 
-    XO_THUMBNAIL = "https://content.vates.tech/assets/xologoname.png"
+    MAX_VMS = 10
 
-    def format(
+    def format(self, notification: Notification) -> dict:
+        status_text = self._status_text(notification.status)
+        job_name = (
+            notification.job_name
+            or notification.title
+            or notification.subject
+            or "Xen Orchestra backup"
+        )
+        details = [
+            DiscordFact("🧰", "Mode", notification.mode),
+            DiscordFact("⏱️", "Duration", self._short_duration(notification.duration)),
+            DiscordFact("📦", "Transfer size", notification.transfer_size),
+            DiscordFact("💾", "Repository", notification.repository),
+            DiscordFact("🚀", "Speed", notification.transfer_speed),
+            DiscordFact("📊", "Result", self._result_text(notification), False),
+            DiscordFact("▶️", "Started", self._format_datetime(notification.start_time)),
+            DiscordFact("🏁", "Finished", self._format_datetime(notification.end_time)),
+        ]
+        if config.get("notifications", "xo", "show_ids", default=False):
+            details.extend((
+                DiscordFact("🆔", "Run ID", notification.run_id, False),
+                DiscordFact("🆔", "Job ID", notification.job_id, False),
+            ))
+        self._add_vm_fact(details, "❌", "Failed VM", "Failed VMs", notification.failed_vms, notification, True)
+        self._add_vm_fact(details, "⚠️", "Skipped VM", "Skipped VMs", notification.skipped_vms, notification, True)
+        self._add_vm_fact(details, "✅", "Successful VM", "Successful VMs", notification.successful_vms, notification, False)
+
+        message = notification.body or notification.title or notification.subject or status_text
+        return self._render_discord_card(
+            DiscordCardData(
+                source="xo",
+                integration="Xen Orchestra",
+                device=job_name,
+                event=status_text,
+                message=message,
+                status=notification.status,
+                state=status_text,
+                severity=notification.status,
+                category=notification.category or "backup",
+                source_area=notification.repository or "Backup",
+                event_time=notification.end_time or notification.start_time,
+                device_icon="🗄️",
+                source_area_icon="💾",
+                event_icon="📋",
+                details=tuple(details),
+            )
+        )
+
+    @staticmethod
+    def _status_text(status: str) -> str:
+        value = str(status or "").casefold()
+        if value in {"failure", "failed", "error"}:
+            return "Backup Failure"
+        if value in {"skipped", "warning"}:
+            return "Backup Skipped"
+        return "Backup Successful"
+
+    def _result_text(self, notification: Notification) -> str:
+        success = notification.vm_success or notification.successes
+        failed = notification.vm_failed or notification.failures
+        skipped = notification.vm_skipped or notification.skipped
+        total = notification.vm_total or success + failed + skipped
+        if not total:
+            return ""
+        parts = [f"✅ {success} of {total} VMs successful"]
+        if failed:
+            parts.append(f"❌ {failed} failed")
+        if skipped:
+            parts.append(f"⚠️ {skipped} skipped")
+        return " • ".join(parts)
+
+    def _add_vm_fact(
         self,
+        details: list[DiscordFact],
+        icon: str,
+        singular: str,
+        plural: str,
+        vms: list[str],
         notification: Notification,
-    ) -> dict:
-
-        status = notification.status.lower()
-
-        if status == "failure":
-            icon = "🚨"
-            color = 0xE74C3C
-            status_text = "Backup Failure"
-
-        elif status == "skipped":
-            icon = "⚠️"
-            color = 0xF1C40F
-            status_text = "Backup Skipped"
-
-        else:
-            icon = "✅"
-            color = 0x2ECC71
-            status_text = "Backup Successful"
-
-        embed = {
-            "title": f"{icon} {notification.job_name}",
-            "description": f"Xen Orchestra • **{status_text}**",
-            "color": color,
-            "thumbnail": {
-                "url": self.XO_THUMBNAIL,
-            },
-            "fields": [],
-            "footer": {
-                "text": f"FortPT Labs\nNotifinho v{VERSION}",
-            },
-        }
-
-        #
-        # Main backup info
-        #
-
-        embed["fields"].append({
-            "name": "Mode",
-            "value": notification.mode or "-",
-            "inline": True,
-        })
-
-        embed["fields"].append({
-            "name": "⏱ Duration",
-            "value": self._short_duration(
-                notification.duration,
-            ),
-            "inline": True,
-        })
-
-        embed["fields"].append({
-            "name": "📦 Transfer",
-            "value": notification.transfer_size or "-",
-            "inline": True,
-        })
-
-        if notification.repository or notification.transfer_speed:
-
-            embed["fields"].append({
-                "name": "💾 Repository",
-                "value": notification.repository or "-",
-                "inline": True,
-            })
-
-            embed["fields"].append({
-                "name": "🚀 Speed",
-                "value": notification.transfer_speed or "-",
-                "inline": True,
-            })
-
-            embed["fields"].append({
-                "name": "\u200b",
-                "value": "\u200b",
-                "inline": True,
-            })
-
-        self._add_spacer(
-            embed,
-        )
-
-        #
-        # Result
-        #
-
-        result_parts = []
-
-        if notification.vm_success:
-            result_parts.append(
-                f"✅ {notification.vm_success}"
-            )
-
-        if notification.vm_failed:
-            result_parts.append(
-                f"❌ {notification.vm_failed}"
-            )
-
-        if notification.vm_skipped:
-            result_parts.append(
-                f"⚠️ {notification.vm_skipped}"
-            )
-
-        embed["fields"].append({
-            "name": "📊 Result",
-            "value": " • ".join(result_parts) if result_parts else "-",
-            "inline": False,
-        })
-
-        self._add_spacer(
-            embed,
-        )
-
-        #
-        # Failed VMs
-        #
-
-        if notification.failed_vms:
-
-            embed["fields"].append({
-                "name": "❌ Failed VM"
-                if len(notification.failed_vms) == 1
-                else "❌ Failed VMs",
-                "value": self._format_vm_details(
-                    notification,
-                    notification.failed_vms,
-                    include_error=True,
-                ),
-                "inline": False,
-            })
-
-            self._add_spacer(
-                embed,
-            )
-
-        #
-        # Skipped VMs
-        #
-
-        if notification.skipped_vms:
-
-            embed["fields"].append({
-                "name": "⚠️ Skipped VM"
-                if len(notification.skipped_vms) == 1
-                else "⚠️ Skipped VMs",
-                "value": self._format_vm_details(
-                    notification,
-                    notification.skipped_vms,
-                    include_error=True,
-                ),
-                "inline": False,
-            })
-
-            self._add_spacer(
-                embed,
-            )
-
-        #
-        # Successful VMs
-        #
-
-        if notification.successful_vms:
-
-            embed["fields"].append({
-                "name": "✅ Successful VM"
-                if len(notification.successful_vms) == 1
-                else "✅ Successful VMs",
-                "value": self._format_vm_details(
-                    notification,
-                    notification.successful_vms,
-                    include_error=False,
-                ),
-                "inline": False,
-            })
-
-            self._add_spacer(
-                embed,
-            )
-
-        #
-        # Times
-        #
-
-        if notification.start_time:
-
-            embed["fields"].append({
-                "name": "🕒 Started",
-                "value": self._format_datetime(
-                    notification.start_time,
-                ),
-                "inline": True,
-            })
-
-        if notification.end_time:
-
-            embed["fields"].append({
-                "name": "🏁 Finished",
-                "value": self._format_datetime(
-                    notification.end_time,
-                ),
-                "inline": True,
-            })
-
-        #
-        # Optional IDs
-        #
-
-        show_ids = config.get(
-            "notifications",
-            "xo",
-            "show_ids",
-            default=False,
-        )
-
-        if show_ids:
-
-            self._add_spacer(
-                embed,
-            )
-
-            if notification.run_id:
-
-                embed["fields"].append({
-                    "name": "Run ID",
-                    "value": notification.run_id,
-                    "inline": False,
-                })
-
-            if notification.job_id:
-
-                embed["fields"].append({
-                    "name": "Job ID",
-                    "value": notification.job_id,
-                    "inline": False,
-                })
-
-        return {
-            "embeds": [
-                embed,
-            ],
-        }
-
-    def _add_spacer(
-        self,
-        embed: dict,
+        include_error: bool,
     ) -> None:
-
-        embed["fields"].append({
-            "name": "\u200b",
-            "value": "\u200b",
-            "inline": False,
-        })
+        if not vms:
+            return
+        details.append(
+            DiscordFact(
+                icon,
+                singular if len(vms) == 1 else plural,
+                self._format_vm_details(notification, vms, icon, include_error),
+                False,
+            )
+        )
 
     def _format_vm_details(
         self,
         notification: Notification,
         vms: list[str],
+        icon: str,
         include_error: bool,
     ) -> str:
-
         lines = []
-
-        shown = vms[:10]
-
+        shown = vms[: self.MAX_VMS]
         for vm in shown:
-
-            details = notification.vm_details.get(
-                vm,
-                {},
-            )
-
-            lines.append(
-                f"**{vm}**"
-            )
-
-            size = details.get(
-                "size",
-                "",
-            )
-
-            speed = details.get(
-                "speed",
-                "",
-            )
-
-            error = details.get(
-                "error",
-                "",
-            )
-
-            detail_parts = []
-
-            if size:
-
-                detail_parts.append(
-                    f"📦 {size}"
-                )
-
-            if speed:
-
-                detail_parts.append(
-                    f"🚀 {speed}"
-                )
-
-            if include_error and error:
-
-                detail_parts.append(
-                    f"🚨 {error}"
-                )
-
-            if detail_parts:
-
-                lines.append(
-                    "└─ " + " • ".join(detail_parts)
-                )
-
-            lines.append("")
-
+            detail = notification.vm_details.get(vm, {}) or {}
+            lines.append(f"{icon} **{vm}**")
+            parts = []
+            if detail.get("size"):
+                parts.append(f"📦 {detail['size']}")
+            if detail.get("speed"):
+                parts.append(f"🚀 {detail['speed']}")
+            repository = detail.get("repository")
+            if repository and repository != notification.repository:
+                parts.append(f"💾 {repository}")
+            if parts:
+                lines.append("└─ " + " • ".join(parts))
+            if include_error and detail.get("error"):
+                lines.append(f"└─ 🚨 {detail['error']}")
         remaining = len(vms) - len(shown)
+        if remaining:
+            lines.append(f"… and {remaining} more")
+        return "\n".join(lines)
 
-        if remaining > 0:
-
-            lines.append(
-                f"... and {remaining} more"
-            )
-
-        return "\n".join(lines).strip()
-
-    def _short_duration(
-        self,
-        value: str,
-    ) -> str:
-
+    @staticmethod
+    def _short_duration(value: str) -> str:
         if not value:
-
-            return "-"
-
+            return ""
         return (
-            value
-            .replace(" minutes", " min")
+            value.replace(" minutes", " min")
             .replace(" minute", " min")
             .replace(" seconds", " sec")
             .replace(" second", " sec")
         )
-
-    def _format_datetime(
-        self,
-        value: str,
-    ) -> str:
-        return super()._format_datetime(value)

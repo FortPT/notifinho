@@ -167,21 +167,23 @@ class TeamsFormatter(TeamsCardFormatter):
 
         skipped = notification.vm_skipped or notification.skipped
 
-        parts = []
+        total = notification.vm_total or success + failed + skipped
 
-        if success:
+        if not total:
 
-            parts.append(f"✅ {success}")
+            return ""
+
+        parts = [f"✅ {success} of {total} VMs successful"]
 
         if failed:
 
-            parts.append(f"❌ {failed}")
+            parts.append(f"❌ {failed} failed")
 
         if skipped:
 
-            parts.append(f"⚠️ {skipped}")
+            parts.append(f"⚠️ {skipped} skipped")
 
-        return " • ".join(parts) if parts else "-"
+        return " • ".join(parts)
 
     def _add_vm_section(
         self,
@@ -289,7 +291,7 @@ class TeamsFormatter(TeamsCardFormatter):
 
         if not value:
 
-            return "-"
+            return ""
 
         value = str(value).strip()
 

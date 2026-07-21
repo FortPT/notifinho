@@ -23,6 +23,7 @@ class _UniFiTeamsFormatter(TeamsCardFormatter):
         facts: list[dict],
         url: str = "",
         action_title: str = "Open event",
+        source_area: str = "",
     ) -> dict:
         metadata = notification.metadata or {}
         device = (
@@ -40,7 +41,7 @@ class _UniFiTeamsFormatter(TeamsCardFormatter):
             title = str(fact.get("title") or "Detail").strip()
             parts = title.split(maxsplit=1)
             icon = parts[0] if parts and not parts[0][0].isalnum() else "📌"
-            label = parts[1] if len(parts) > 1 and icon != "📌" else title
+            label = parts[1] if len(parts) > 1 and icon == parts[0] else title
             if label.casefold() in {"category", "severity", "event time"}:
                 continue
             details.append(TeamsFact(icon, label, value))
@@ -56,7 +57,7 @@ class _UniFiTeamsFormatter(TeamsCardFormatter):
                 state=metadata.get("event_state") or notification.status,
                 severity=metadata.get("severity") or notification.status,
                 category=notification.category or "system",
-                source_area=metadata.get("alarm_name") or notification.category or "System",
+                source_area=source_area or notification.category or "System",
                 event_time=metadata.get("event_time") or notification.start_time,
                 device_icon=self.application_icon,
                 source_area_icon="📍",
@@ -97,11 +98,19 @@ class UniFiNetworkTeamsFormatter(_UniFiTeamsFormatter):
             self._fact("⚠️ Severity", str(metadata.get("severity", "")).title()),
             self._fact("💻 Client", metadata.get("client_display_name")),
             self._fact("📶 Network / Wi-Fi", metadata.get("wifi_name") or metadata.get("network_name")),
-            self._fact("📍 Last connected device", last_device),
+            self._fact("📍 Last device", last_device),
             self._fact("⏱️ Duration", metadata.get("duration")),
             self._fact("📡 Wireless", metadata.get("wifi_rssi")),
         ]
-        return self._payload(notification, facts)
+        return self._payload(
+            notification,
+            facts,
+            source_area=(
+                metadata.get("wifi_name")
+                or metadata.get("network_name")
+                or notification.category
+            ),
+        )
 
 
 class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
@@ -135,7 +144,12 @@ class UniFiProtectTeamsFormatter(_UniFiTeamsFormatter):
             self._fact("🚨 Alarm rule", alarm_rule),
             self._fact("🔎 Condition", condition),
         ]
-        return self._payload(notification, facts, self._text(metadata.get("event_link")))
+        return self._payload(
+            notification,
+            facts,
+            self._text(metadata.get("event_link")),
+            source_area=notification.category,
+        )
 
 
 class UniFiDriveTeamsFormatter(_UniFiTeamsFormatter):
@@ -150,7 +164,6 @@ class UniFiDriveTeamsFormatter(_UniFiTeamsFormatter):
             self._fact("🖥️ System", metadata.get("system")),
             self._fact("💾 Backup task", metadata.get("backup_task")),
             self._fact("🚨 Alarm rule", alarm_rule),
-            self._fact("📌 State", metadata.get("event_state")),
             self._fact("🗂️ Category", notification.category),
         ]
         return self._payload(
@@ -158,4 +171,5 @@ class UniFiDriveTeamsFormatter(_UniFiTeamsFormatter):
             facts,
             self._text(metadata.get("action_link")),
             "Manage Backup Task",
+            source_area=notification.category,
         )

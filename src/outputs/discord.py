@@ -8,6 +8,11 @@ Discord output.
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
+
 import requests
 
 from config import config
@@ -37,6 +42,13 @@ from models import Notification
 
 
 class DiscordOutput:
+
+    ICON_DIR = Path(
+        os.environ.get(
+            "NOTIFINHO_DISCORD_ICON_DIR",
+            "/notifinho/assets/icons",
+        )
+    )
 
     def __init__(self):
 
@@ -95,9 +107,10 @@ class DiscordOutput:
 
         try:
 
-            payload = formatter.format(
-                notification,
-            )
+            if hasattr(formatter, "format_components_v2"):
+                payload = formatter.format_components_v2(notification)
+            else:
+                payload = formatter.format(notification)
 
             payload = formatter._sanitize_payload(payload)
 
@@ -133,11 +146,41 @@ class DiscordOutput:
 
         try:
 
-            response = requests.post(
-                webhook,
-                json=payload,
-                timeout=15,
-            )
+            delivery_webhook = self._delivery_webhook(webhook, payload)
+            icon = self._local_icon(payload, formatter)
+
+            if icon is None:
+                response = requests.post(
+                    delivery_webhook,
+                    json=payload,
+                    timeout=15,
+                )
+            else:
+                filename, path = icon
+                payload["embeds"][0]["thumbnail"]["url"] = (
+                    f"attachment://{filename}"
+                )
+                payload["attachments"] = [
+                    {
+                        "id": 0,
+                        "filename": filename,
+                    }
+                ]
+                with path.open("rb") as stream:
+                    response = requests.post(
+                        delivery_webhook,
+                        data={
+                            "payload_json": json.dumps(payload),
+                        },
+                        files={
+                            "files[0]": (
+                                filename,
+                                stream,
+                                "image/png",
+                            )
+                        },
+                        timeout=15,
+                    )
 
             if response.status_code >= 400:
 
@@ -166,3 +209,44 @@ class DiscordOutput:
             )
 
             return False
+
+    @staticmethod
+    def _delivery_webhook(webhook, payload):
+        """Enable non-interactive Components V2 on webhook delivery."""
+
+        flags = payload.get("flags", 0) if isinstance(payload, dict) else 0
+        if not isinstance(flags, int) or not flags & (1 << 15):
+            return webhook
+        parts = urlsplit(webhook)
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+        query["with_components"] = "true"
+        return urlunsplit((
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(query),
+            parts.fragment,
+        ))
+
+    def _local_icon(self, payload, formatter):
+        """Resolve a safe packaged icon for Discord multipart delivery."""
+
+        embeds = payload.get("embeds") if isinstance(payload, dict) else None
+        if not isinstance(embeds, list) or not embeds:
+            return None
+        thumbnail = embeds[0].get("thumbnail")
+        if not isinstance(thumbnail, dict):
+            return None
+        url = str(thumbnail.get("url") or "")
+        filename = Path(urlparse(url).path).name
+        allowed = set(formatter.PRODUCT_ICONS.values())
+        if filename not in allowed:
+            return None
+        path = self.ICON_DIR / filename
+        if not path.is_file():
+            log.warning(
+                "Packaged Discord icon is unavailable: %s",
+                filename,
+            )
+            return None
+        return filename, path

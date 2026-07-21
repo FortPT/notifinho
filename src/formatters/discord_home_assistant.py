@@ -2,46 +2,54 @@
 
 from __future__ import annotations
 
-from formatters.discord_hardware import HardwareDiscordFormatter
+from formatters.discord_common import DiscordCardData, DiscordCardFormatter, DiscordFact
 from models import Notification
-from version import VERSION
 
 
-class HomeAssistantDiscordFormatter(HardwareDiscordFormatter):
+class HomeAssistantDiscordFormatter(DiscordCardFormatter):
     def format(self, notification: Notification) -> dict:
         metadata = notification.metadata or {}
-        icon, color, state = self._status_meta(notification.status)
-        category = str(notification.category or "automation").replace("_", " ").replace("-", " ").title()
         entity = metadata.get("entity_id")
         device = metadata.get("device")
         if entity == device:
             entity = ""
         retry = metadata.get("retry_seconds")
         retry_text = f"Retrying in {retry} seconds" if retry else ""
-        fields = [
-            self._field("📣 Event", notification.body or notification.title, False),
-            self._field("📌 State", state),
-            self._field("⚠️ Severity", str(metadata.get("severity", "")).title()),
-            self._field("🧩 Service", metadata.get("service")),
-            self._field("📟 Device", device),
-            self._field("🔌 Entity", entity),
-            self._field("🌐 Endpoint", metadata.get("endpoint")),
-            self._field("🛑 Error", metadata.get("error_code")),
-            self._field("📍 Area", metadata.get("area")),
-            self._field("🔄 Retry", retry_text),
-            self._field("🏷️ Tags", ", ".join(metadata.get("tags") or [])),
-            self._field("🕒 Event time", self._format_datetime(notification.start_time)),
-            self._field("🔗 Open Home Assistant", metadata.get("action_link"), False),
-        ]
-        embed = {
-            "title": self._truncate(f"🏠 {icon} {notification.title or 'Home Assistant event'}", 256),
-            "description": self._truncate(
-                f"Home Assistant • **{state}** • {category}",
-                1024,
-            ),
-            "color": color,
-            "fields": [field for field in fields if field["value"]][:25],
-            "footer": {"text": f"FortPT Labs\nNotifinho v{VERSION}"},
-        }
-        self._set_discord_thumbnail(embed, "home_assistant")
-        return {"embeds": [embed]}
+        tags = metadata.get("tags")
+        if isinstance(tags, str):
+            tags_text = tags.strip()
+        elif isinstance(tags, (list, tuple, set)):
+            tags_text = ", ".join(
+                str(tag).strip()
+                for tag in tags
+                if str(tag).strip()
+            )
+        else:
+            tags_text = "" if tags is None else str(tags).strip()
+        title = notification.title or "Home Assistant event"
+        return self._render_discord_card(
+            DiscordCardData(
+                source="home_assistant",
+                integration="Home Assistant",
+                device=device or metadata.get("area") or "Home Assistant",
+                event=title,
+                message=notification.body or title,
+                status=notification.status,
+                state=metadata.get("state") or notification.status,
+                severity=metadata.get("severity") or notification.status,
+                category=notification.category or "automation",
+                source_area=metadata.get("area") or "Automation",
+                event_time=metadata.get("event_time") or notification.start_time,
+                device_icon="🏠",
+                event_icon="🤖",
+                details=(
+                    DiscordFact("⚙️", "Service", metadata.get("service")),
+                    DiscordFact("🔗", "Entity", entity),
+                    DiscordFact("🌐", "Endpoint", metadata.get("endpoint"), False),
+                    DiscordFact("❌", "Error", metadata.get("error_code")),
+                    DiscordFact("🔁", "Retry", retry_text),
+                    DiscordFact("🏷️", "Tags", tags_text, False),
+                ),
+                url=metadata.get("action_link") or "",
+            )
+        )

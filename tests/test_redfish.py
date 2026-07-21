@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from config import config
 from dispatcher import Dispatcher
 from formatters.discord_hardware import (
     DellIDRACDiscordFormatter,
@@ -24,9 +25,11 @@ from formatters.teams_hardware import (
     SupermicroTeamsFormatter,
 )
 from inputs.http import HTTPServer
+from models import Notification
 from outputs.discord import DiscordOutput
 from outputs.teams import TeamsOutput
 from parsers.redfish import RedfishParser
+from router import Router as DeliveryRouter
 
 
 FIXTURES = Path(__file__).parent / "fixtures" / "redfish"
@@ -133,6 +136,114 @@ def test_redfish_context_is_presented_as_host_and_scopes_deduplication():
     assert "Recommended action" not in json.dumps(
         SupermicroTeamsFormatter().format(srv_02)
     )
+
+
+def test_dell_ipmi_session_event_extracts_source_ip():
+    value = payload("dell_storage.json")
+    value["Events"][0].update({
+        "MessageId": "USR0030",
+        "Message": (
+            "Successfully logged in using root, from 192.168.0.164 "
+            "and IPMI over LAN."
+        ),
+    })
+
+    item = RedfishParser().parse(value, "dell")[0]
+
+    assert item.metadata["source_ip"] == "192.168.0.164"
+    assert "🌐 **Source IP:** 192.168.0.164" in json.dumps(
+        DellIDRACDiscordFormatter().format(item),
+        ensure_ascii=False,
+    )
+
+
+def test_dell_legacy_context_and_audit_title_are_readable():
+    value = payload("dell_storage.json")
+    value["Context"] = "NotifinhoAlfaCompat"
+    value["Events"][0].update({
+        "MessageId": "USR0030",
+        "Message": (
+            "Successfully logged in using root, from 192.168.0.251 "
+            "and REDFISH."
+        ),
+    })
+
+    item = RedfishParser().parse(value, "dell")[0]
+
+    assert item.metadata["system"] == "ALFA"
+    assert item.title == "User Login"
+    assert item.body.startswith("Successfully logged in")
+
+
+@pytest.mark.parametrize(
+    ("message_id", "transport"),
+    [
+        ("USR0030", "IPMI over LAN"),
+        ("USR0030", "REDFISH"),
+        ("USR0032", "IPMI over LAN"),
+        ("USR0032", "REDFISH"),
+    ],
+)
+def test_trusted_dell_session_audit_is_suppressed(
+    monkeypatch,
+    message_id,
+    transport,
+):
+    monkeypatch.setitem(
+        config._data["notifications"],
+        "dell_idrac",
+        {
+            "suppress_ipmi_session_audit_from": [
+                "192.168.0.164",
+                "192.168.0.251",
+            ],
+        },
+    )
+    value = payload("dell_storage.json")
+    value["Events"][0].update({
+        "MessageId": message_id,
+        "Message": (
+            "Successfully logged in using root, from 192.168.0.164 "
+            f"and {transport}."
+        ),
+    })
+    item = RedfishParser().parse(value, "dell")[0]
+
+    assert DeliveryRouter().route(item) is True
+
+
+@pytest.mark.parametrize(
+    ("message_id", "source_ip", "message"),
+    [
+        ("USR0030", "192.168.0.99", "IPMI over LAN"),
+        ("USR0031", "192.168.0.164", "IPMI over LAN login failed"),
+    ],
+)
+def test_dell_suppression_preserves_untrusted_and_other_security_events(
+    monkeypatch,
+    message_id,
+    source_ip,
+    message,
+):
+    monkeypatch.setitem(
+        config._data["notifications"],
+        "dell_idrac",
+        {"suppress_ipmi_session_audit_from": ["192.168.0.164"]},
+    )
+    item = Notification(
+        source="dell_idrac",
+        category="security",
+        title=message,
+        body=message,
+        metadata={
+            "message_id": message_id,
+            "source_ip": source_ip,
+        },
+    )
+    router = DeliveryRouter()
+    router.outputs = {}
+
+    assert router.route(item) is False
 
 
 @pytest.mark.parametrize(

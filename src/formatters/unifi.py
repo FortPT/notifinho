@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 
-from datetime import datetime, timezone
+from formatters.presentation import PresentationMixin
 
 
 _MAC_RE = re.compile(
     r"^(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}$",
     re.IGNORECASE,
 )
+_COMPACT_MAC_RE = re.compile(r"^[0-9a-f]{12}$", re.IGNORECASE)
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
@@ -85,7 +86,11 @@ def protect_device_display(value) -> str:
     text = "" if value is None else str(value).strip()
     if not text:
         return ""
-    if _MAC_RE.fullmatch(text) or _UUID_RE.fullmatch(text):
+    if (
+        _MAC_RE.fullmatch(text)
+        or _COMPACT_MAC_RE.fullmatch(text)
+        or _UUID_RE.fullmatch(text)
+    ):
         return ""
     if _PLACEHOLDER_MAC_RE.search(text):
         return ""
@@ -103,25 +108,9 @@ def protect_device_display(value) -> str:
 
 
 def format_protect_event_time(value) -> str:
-    """Render the source wall clock without converting its timezone."""
+    """Render Protect time through the shared source-time contract."""
 
-    text = "" if value is None else str(value).strip()
-    if not text:
-        return ""
-    try:
-        if isinstance(value, (int, float)) or re.fullmatch(
-            r"-?\d+(?:\.\d+)?",
-            text,
-        ):
-            numeric = float(value)
-            if abs(numeric) > 10_000_000_000:
-                numeric /= 1000
-            parsed = datetime.fromtimestamp(numeric, tz=timezone.utc)
-        else:
-            parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
-    except (TypeError, ValueError, OSError, OverflowError):
-        return text
-    return parsed.strftime("%d %b %Y • %H:%M")
+    return PresentationMixin()._format_datetime(value)
 
 
 def notification_status_icon(status, severity="") -> str:

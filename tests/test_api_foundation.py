@@ -184,6 +184,73 @@ def test_configuration_validation_rejects_plain_tokens_and_bad_routes():
     assert "outputs must be a non-empty list" in rendered
 
 
+@pytest.mark.parametrize(
+    "webhook",
+    ["PASTE_HERE", "http://example.invalid/hook", "not-a-url", ""],
+)
+def test_configuration_validation_rejects_invalid_teams_webhooks(webhook):
+    errors = validate_config({
+        "outputs": {"teams": {"default": {"webhook": webhook}}},
+        "routing": {
+            "generic": {
+                "outputs": [{"output": "teams", "target": "default"}],
+            }
+        },
+    })
+    rendered = "; ".join(errors)
+
+    if webhook:
+        assert "must be a valid HTTPS URL" in rendered
+    else:
+        assert "webhook is required" in rendered
+
+
+def test_configuration_validation_accepts_trusted_idrac_audit_addresses():
+    errors = validate_config({
+        "notifications": {
+            "dell_idrac": {
+                "suppress_ipmi_session_audit_from": [
+                    "192.168.0.164",
+                    "2001:db8::251",
+                ],
+            },
+        },
+    })
+
+    assert errors == []
+
+
+@pytest.mark.parametrize("value", ["192.168.0.999", "not-an-ip", 164])
+def test_configuration_validation_rejects_invalid_idrac_audit_address(value):
+    errors = validate_config({
+        "notifications": {
+            "dell_idrac": {
+                "suppress_ipmi_session_audit_from": [value],
+            },
+        },
+    })
+
+    assert any("must be an IP address" in error for error in errors)
+
+
+def test_configuration_validation_accepts_iana_presentation_timezone():
+    assert validate_config({
+        "presentation": {"timezone": "Europe/Lisbon"},
+    }) == []
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["", "Lisbon", "Europe/Not_A_Real_Zone", 123],
+)
+def test_configuration_validation_rejects_invalid_presentation_timezone(value):
+    errors = validate_config({
+        "presentation": {"timezone": value},
+    })
+
+    assert "presentation.timezone must be a valid IANA timezone" in errors
+
+
 def test_generic_event_api_enforces_source_scope_and_returns_delivery_state():
     secret = "synthetic-event-secret"
     config = Configuration(token_config(hash_token(secret)))

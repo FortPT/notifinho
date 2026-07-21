@@ -10,6 +10,7 @@ import pytest
 
 import router as router_module
 
+from formatters.discord_common import DiscordCardFormatter
 from formatters.discord_unifi import (
     UniFiDriveDiscordFormatter,
     UniFiNetworkDiscordFormatter,
@@ -124,6 +125,12 @@ def test_protect_card_does_not_list_configured_sources():
     assert "SYNTHETIC-CAMERA" in serialized
     assert "configured_source_count" not in serialized
     assert len(payload["embeds"][0]["fields"]) == 4
+    assert payload["embeds"][0]["fields"][0]["name"].endswith(
+        "Severity"
+    )
+    assert payload["embeds"][0]["fields"][-1]["value"].endswith(
+        DiscordCardFormatter.SEPARATOR
+    )
 
 
 def _protect_field_names(item):
@@ -177,6 +184,7 @@ def test_protect_human_readable_camera_name_is_retained_on_both_platforms():
         "00-00-5e-00-53-41",
         "123e4567-e89b-42d3-a456-426614174000",
         "A1B2C3D4E5F60708",
+        "AC8BA90DD406",
         "FAKE_MAC",
     ],
 )
@@ -202,7 +210,7 @@ def test_protect_private_or_opaque_device_is_omitted_without_empty_field(device_
         (datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp(), "13 Jul 2026 • 01:16"),
         (datetime(2026, 7, 13, 1, 16, 35, 108000, tzinfo=timezone.utc).timestamp() * 1000, "13 Jul 2026 • 01:16"),
         ("2026-07-13T01:16:35.108000+00:00", "13 Jul 2026 • 01:16"),
-        ("2026-07-13T02:16:35.108000+01:00", "13 Jul 2026 • 02:16"),
+        ("2026-07-13T02:16:35.108000+01:00", "13 Jul 2026 • 01:16"),
     ],
 )
 def test_protect_event_time_formats_seconds_milliseconds_and_iso(event_time, expected):
@@ -272,11 +280,11 @@ def test_unifi_titles_have_one_application_and_status_icon(
             UniFiNetworkTeamsFormatter(),
             {
                 "🎛️ Controller",
-                "🗂️ Category",
-                "⚠️ Severity",
+                "🌐 Category",
+                "ℹ️ Severity",
                 "💻 Client",
                 "📶 Network / Wi-Fi",
-                "📍 Last connected device",
+                "📍 Last device",
                 "⏱️ Duration",
                 "📡 Wireless",
             },
@@ -296,7 +304,7 @@ def test_unifi_titles_have_one_application_and_status_icon(
             "unifi_drive",
             UniFiDriveDiscordFormatter(),
             UniFiDriveTeamsFormatter(),
-            {"🖥️ System", "💾 Backup task", "📌 State", "🗂️ Category"},
+            {"🖥️ System", "💾 Backup task", "🔄 Category"},
         ),
     ],
 )
@@ -305,19 +313,39 @@ def test_unifi_discord_and_teams_labels_have_readable_icons(
 ):
     item = notification(source)
     discord_fields = discord_formatter.format(item)["embeds"][0]["fields"]
+    discord_text = json.dumps(discord_fields, ensure_ascii=False)
     teams_card = teams_formatter.format(item)["attachments"][0]["content"]
     teams_text = json.dumps(teams_card, ensure_ascii=False)
 
-    assert expected_labels <= {field["name"] for field in discord_fields}
     standard_metrics = {"Category", "Severity", "Event time", "State"}
     for label in expected_labels:
-        plain_label = label.split(" ", 1)[-1]
+        icon, plain_label = label.split(" ", 1)
         if plain_label in standard_metrics:
             if plain_label != "State":
                 assert plain_label in teams_text
+                assert label in {field["name"] for field in discord_fields}
         else:
             assert label in teams_text
+            assert icon in discord_text
+            assert f"**{plain_label}:**" in discord_text
     assert all(any(character.isalpha() for character in label) for label in expected_labels)
+
+
+@pytest.mark.parametrize("source", ["unifi_network", "unifi_protect", "unifi_drive"])
+def test_unifi_teams_cards_do_not_repeat_icons_or_event_state(source):
+    item = notification(source)
+    card = UniFiNetworkTeamsFormatter().format(item) if source == "unifi_network" else (
+        UniFiProtectTeamsFormatter().format(item)
+        if source == "unifi_protect"
+        else UniFiDriveTeamsFormatter().format(item)
+    )
+    rendered = json.dumps(card, ensure_ascii=False)
+    facts = _teams_facts(card)
+
+    assert "📌 📌" not in rendered
+    assert all(fact["title"].count("📌") <= 1 for fact in facts)
+    if source == "unifi_drive":
+        assert not any(fact["title"].endswith(" State:") for fact in facts)
 
 
 @pytest.mark.parametrize(
@@ -353,7 +381,12 @@ def test_missing_values_do_not_leave_icon_only_fields():
     teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
     facts = _teams_facts(teams)
 
-    assert discord["fields"] == []
+    assert [field["name"].split(" ", 1)[-1] for field in discord["fields"][:2]] == [
+        "Severity", "Category",
+    ]
+    assert "Event time" not in json.dumps(discord)
+    assert "Event time" not in json.dumps(teams)
+    assert discord["fields"][-1]["value"] == DiscordCardFormatter.SEPARATOR
     assert facts == []
 
 

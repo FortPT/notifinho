@@ -32,7 +32,7 @@ class GenericTeamsFormatter(TeamsCardFormatter):
         )
         return self._render_teams_card(
             TeamsCardData(
-                source=notification.source,
+                source="notifinho",
                 integration=source,
                 device=device,
                 event=title,

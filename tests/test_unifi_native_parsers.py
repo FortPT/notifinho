@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from config import config
 from dispatcher import Dispatcher
 from formatters.discord_unifi import (
     UniFiDriveDiscordFormatter,
@@ -21,6 +22,7 @@ from formatters.teams_unifi import (
     UniFiDriveTeamsFormatter,
     UniFiProtectTeamsFormatter,
 )
+from formatters.unifi import format_protect_event_time
 from parsers.unifi_drive import Parser as DriveParser
 from parsers.unifi_network import Parser as NetworkParser
 from parsers.unifi_protect import Parser as ProtectParser
@@ -112,6 +114,41 @@ def test_protect_discovered_motion_envelope():
     assert notification.metadata["event_link"].startswith("https://protect.example/")
 
 
+def test_protect_resolves_payload_camera_name_from_raw_trigger_identifier():
+    payload = protect_payload()
+    payload["alarm"]["triggers"][0]["device"] = "AC8BA90DD406"
+    payload["alarm"]["sources"] = [
+        {
+            "deviceId": "ac:8b:a9:0d:d4:06",
+            "name": "CAM-ENTRANCE-01",
+            "type": "include",
+        }
+    ]
+
+    notification = ProtectParser().parse(payload)
+
+    assert notification.metadata["trigger_device"] == "CAM-ENTRANCE-01"
+    assert notification.metadata["trigger_device_id"] == "AC8BA90DD406"
+    assert notification.body == "Motion detected by CAM-ENTRANCE-01"
+
+
+def test_protect_resolves_configured_camera_alias(monkeypatch):
+    payload = protect_payload()
+    payload["alarm"]["triggers"][0]["device"] = "AC8BA90DD406"
+    monkeypatch.setitem(
+        config._data["notifications"]["unifi_protect"],
+        "device_aliases",
+        {"ac:8b:a9:0d:d4:06": "CAM-OFFICE-01"},
+    )
+
+    notification = ProtectParser().parse(payload)
+
+    assert notification.metadata["trigger_device"] == "CAM-OFFICE-01"
+    assert notification.metadata["trigger_device_id"] == "AC8BA90DD406"
+    assert notification.title == "Motion"
+    assert notification.body == "Motion detected by CAM-OFFICE-01"
+
+
 def test_protect_multiple_triggers_and_malformed_members():
     payload = protect_payload()
     payload["alarm"]["triggers"].extend(
@@ -155,8 +192,11 @@ def test_protect_seconds_and_milliseconds_timestamps_match():
     first = ProtectParser().parse(seconds)
     second = ProtectParser().parse(milliseconds)
 
-    assert first.start_time == second.start_time
-    assert first.start_time.startswith("2026-")
+    assert first.start_time == "1767323045"
+    assert second.start_time == "1767323045000"
+    assert format_protect_event_time(first.start_time) == (
+        format_protect_event_time(second.start_time)
+    )
 
 
 @pytest.mark.parametrize("link", ["javascript:alert(1)", "/relative/event", "not a URL"])

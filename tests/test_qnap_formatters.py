@@ -401,8 +401,7 @@ def test_missing_and_malformed_metadata_omits_empty_optional_values():
     assert "Application" not in discord_text
     assert "Event time" not in discord_text
     assert "Application" not in teams_text
-    assert "Event time" in teams_text
-    assert "\\u2014" in teams_text
+    assert "Event time" not in teams_text
 
 
 def test_discord_oversized_unknown_metadata_stays_inside_embed_budget():
@@ -467,7 +466,7 @@ def test_discord_oversized_unknown_metadata_stays_inside_embed_budget():
         (
             DiscordOutput,
             discord_output_module,
-            "embeds",
+            "components",
         ),
         (
             TeamsOutput,

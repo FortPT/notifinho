@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.4-blue" alt="Stable release v1.9.4">
+  <img src="https://img.shields.io/badge/stable-v1.9.6-blue" alt="Stable release v1.9.6">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.4** |
+| **Current Stable Release** | **v1.9.6** |
 | **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,9 +57,13 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.4 standardizes Microsoft Teams cards across all integrations and
-preserves the wall-clock timestamp emitted by each source machine in both
-Teams and Discord. Existing endpoints, parsers, routes, targets, secrets, and
+Notifinho v1.9.6 completes the Microsoft Teams and Discord presentation
+contract with official vendor assets, exact asset regression coverage, shared
+device/event hierarchy, protected platform limits, and richer optional facts.
+Timezone-aware source timestamps are displayed in the Notifinho machine's
+local clock in both outputs; naive source values remain local and missing
+times are omitted. Existing
+endpoints, parsers, routes, targets, secrets, and
 the Supermicro BMC, HPE iLO, Dell iDRAC, Home Assistant, Portainer, Proxmox VE,
 Synology DSM, and native UniFi integrations remain compatible. Notifinho consumes
 emitted SMTP or webhook notifications; it
@@ -72,43 +76,22 @@ enabled with STARTTLS and SMTP AUTH; see the
 
 # 📸 Preview
 
-## Xen Orchestra
+The v1.9.6 examples below are the final live presentation approved on
+Microsoft Teams and Discord. Both destinations use the same device/event,
+status, source-time, and official-asset contract while retaining the details
+best suited to each platform.
 
-**Xen Orchestra → Discord**
+## Microsoft Teams
 
-![Xen Orchestra Backup Notification - Discord](docs/images/xo-discord.png)
+| Xen Orchestra backup | QNAP firmware event |
+|---|---|
+| ![Xen Orchestra notification in Microsoft Teams](docs/images/teams-xen-orchestra-v1.9.6.png) | ![QNAP notification in Microsoft Teams](docs/images/teams-qnap-v1.9.6.png) |
 
-*Example of a Xen Orchestra backup report transformed into a rich Discord notification by Notifinho.*
+## Discord
 
-**Xen Orchestra → Microsoft Teams**
-
-![Xen Orchestra Backup Notification - Microsoft Teams](docs/images/xo-teams.png)
-
-*Example of the same Xen Orchestra backup report delivered as a Microsoft Teams Adaptive Card.*
-
-## Zabbix
-
-Zabbix problem and recovery emails become severity-aware Discord embeds or
-Microsoft Teams Adaptive Cards. Screenshots are not currently available; see
-the [Zabbix features and routing examples](#zabbix) for the supported fields.
-
-## QNAP
-
-QNAP storage, security, backup, system, and power notifications receive
-source-specific Discord and Teams layouts. Screenshots are not currently
-available; see the [QNAP integration guide](docs/qnap.md).
-
-## Grafana
-
-Grafana firing, resolved, pending, No Data, evaluation-error, and grouped
-alerts receive source-specific Discord and Teams layouts. Screenshots are not
-currently available; see the [Grafana integration guide](docs/grafana.md).
-
-## TrueNAS
-
-TrueNAS 26 test, active, cleared, current, and grouped alerts receive
-source-specific Discord and Teams layouts. Support is provisional in
-`v1.4.0`; see the [TrueNAS integration guide](docs/truenas.md).
+| Xen Orchestra backup | UniFi Protect and Drive events |
+|---|---|
+| ![Responsive Xen Orchestra notification in Discord](docs/images/discord-xen-orchestra-v1.9.6.png) | ![Responsive UniFi notifications in Discord](docs/images/discord-unifi-v1.9.6.png) |
 
 ---
 
@@ -150,7 +133,7 @@ Actionable.
 - [Why Notifinho?](#why-notifinho)
 - [Features](#features)
 - [Supported Integrations](#supported-integrations)
-- [Screenshots](#screenshots)
+- [Preview](#-preview)
 - [Project Goals](#project-goals)
 - [Core Concepts](#core-concepts)
 - [Architecture](#architecture)
@@ -402,25 +385,6 @@ This separation allows new infrastructure products and new messaging platforms t
 
 ---
 
-# 📸 Screenshots
-
-## Xen Orchestra → Discord
-
-The current implementation transforms Xen Orchestra backup reports into rich Discord notifications containing:
-
-- Backup status
-- Repository
-- Transfer speed
-- Transfer size
-- Backup duration
-- VM-level results
-- Failure reasons
-- Rich formatting with severity colors
-
-![Xen Orchestra Backup Notification](docs/images/xo-discord.png)
-
----
-
 # 🎯 Project Goals
 
 Notifinho was created with a few simple goals in mind:
@@ -625,6 +589,20 @@ Edit the configuration file:
 ```bash
 nano config/config.yaml
 ```
+
+By default, Notifinho renders timezone-aware source timestamps and epochs in
+the machine/container local timezone. Naive source timestamps are treated as
+already local. Missing source timestamps are never replaced with Notifinho's
+receipt time.
+
+```yaml
+# Optional future-WebUI-style override:
+presentation:
+  timezone: Europe/Lisbon
+```
+
+Leave the override out to follow the machine/container local clock. Set it
+only when the displayed timezone must intentionally differ from that clock.
 
 Configure your Discord webhook:
 
@@ -977,6 +955,13 @@ notifications:
   zabbix:
     # Include the Zabbix problem ID in notifications.
     show_ids: false
+
+  dell_idrac:
+    # Optional exact client addresses whose successful iDRAC session login or
+    # logout audit records (USR0030/USR0032) are routine and should be handled
+    # without delivery, regardless of REDFISH/IPMI transport. Failed logins
+    # and unrelated security alerts are never hidden.
+    suppress_ipmi_session_audit_from: []
 ```
 
 The complete documented configuration is available in
@@ -1604,6 +1589,29 @@ See the [v1.9.4 release notes](docs/releases/v1.9.4.md).
 - Available source times are never replaced with Notifinho receipt time
 - Teams and Discord omit visible UTC or offset suffixes
 - Existing configuration, routing, endpoints, and secrets remain compatible
+
+---
+
+## ✅ v1.9.6 — Official Teams and Discord presentation
+
+Notifinho v1.9.6 replaces generated initial badges with official vendor assets
+for every Teams and Discord integration and closes issues found during the
+live v1.9.4 office audit. See the
+[v1.9.6 release notes](docs/releases/v1.9.6.md).
+
+- Every Teams and Discord formatter is bound to an exact, official asset
+- Discord uses the same device/event, context, metric, and status contract
+  while retaining richer source-specific fields
+- Asset sources and mechanical transformations are documented
+- Xen Orchestra preserves backup names and omits missing Duration/Result facts
+- Identifiers such as `PVE-01`, `CPU`, and `VMID` retain their source casing
+- UniFi cards remove duplicated state/icons and shorten the last-device label
+- Teams and Discord use the Notifinho machine's local clock by default, with
+  no visible timezone suffix and no receipt-time substitution
+- Trusted Dell session login/logout audit noise can be suppressed by exact
+  source IP across REDFISH and IPMI transports
+- Placeholder, malformed, and non-HTTPS Teams webhooks fail before delivery
+- Existing valid webhooks, routes, endpoints, and secrets remain compatible
 
 ---
 

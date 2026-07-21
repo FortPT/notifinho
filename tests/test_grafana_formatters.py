@@ -283,7 +283,7 @@ def test_outputs_register_grafana_without_replacing_existing_formatters():
         "payload_key",
     ),
     [
-        (DiscordOutput, discord_output_module, "embeds"),
+        (DiscordOutput, discord_output_module, "components"),
         (TeamsOutput, teams_output_module, "attachments"),
     ],
 )

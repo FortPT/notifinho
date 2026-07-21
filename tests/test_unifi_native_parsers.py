@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pytest
 
+from config import config
 from dispatcher import Dispatcher
 from formatters.discord_unifi import (
     UniFiDriveDiscordFormatter,
@@ -111,6 +112,41 @@ def test_protect_discovered_motion_envelope():
     assert notification.metadata["trigger_device"] == "SYNTHETIC-CAMERA-02"
     assert notification.metadata["configured_source_count"] == 2
     assert notification.metadata["event_link"].startswith("https://protect.example/")
+
+
+def test_protect_resolves_payload_camera_name_from_raw_trigger_identifier():
+    payload = protect_payload()
+    payload["alarm"]["triggers"][0]["device"] = "AC8BA90DD406"
+    payload["alarm"]["sources"] = [
+        {
+            "deviceId": "ac:8b:a9:0d:d4:06",
+            "name": "CAM-ENTRANCE-01",
+            "type": "include",
+        }
+    ]
+
+    notification = ProtectParser().parse(payload)
+
+    assert notification.metadata["trigger_device"] == "CAM-ENTRANCE-01"
+    assert notification.metadata["trigger_device_id"] == "AC8BA90DD406"
+    assert notification.body == "Motion detected by CAM-ENTRANCE-01"
+
+
+def test_protect_resolves_configured_camera_alias(monkeypatch):
+    payload = protect_payload()
+    payload["alarm"]["triggers"][0]["device"] = "AC8BA90DD406"
+    monkeypatch.setitem(
+        config._data["notifications"]["unifi_protect"],
+        "device_aliases",
+        {"ac:8b:a9:0d:d4:06": "CAM-OFFICE-01"},
+    )
+
+    notification = ProtectParser().parse(payload)
+
+    assert notification.metadata["trigger_device"] == "CAM-OFFICE-01"
+    assert notification.metadata["trigger_device_id"] == "AC8BA90DD406"
+    assert notification.title == "Motion"
+    assert notification.body == "Motion detected by CAM-OFFICE-01"
 
 
 def test_protect_multiple_triggers_and_malformed_members():

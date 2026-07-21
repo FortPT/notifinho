@@ -11,6 +11,7 @@ _MAC_RE = re.compile(
     r"^(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}$",
     re.IGNORECASE,
 )
+_COMPACT_MAC_RE = re.compile(r"^[0-9a-f]{12}$", re.IGNORECASE)
 _UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
     re.IGNORECASE,
@@ -85,7 +86,11 @@ def protect_device_display(value) -> str:
     text = "" if value is None else str(value).strip()
     if not text:
         return ""
-    if _MAC_RE.fullmatch(text) or _UUID_RE.fullmatch(text):
+    if (
+        _MAC_RE.fullmatch(text)
+        or _COMPACT_MAC_RE.fullmatch(text)
+        or _UUID_RE.fullmatch(text)
+    ):
         return ""
     if _PLACEHOLDER_MAC_RE.search(text):
         return ""

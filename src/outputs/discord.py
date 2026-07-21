@@ -107,10 +107,7 @@ class DiscordOutput:
 
         try:
 
-            if source == "dell_idrac" and hasattr(
-                formatter,
-                "format_components_v2",
-            ):
+            if hasattr(formatter, "format_components_v2"):
                 payload = formatter.format_components_v2(notification)
             else:
                 payload = formatter.format(notification)

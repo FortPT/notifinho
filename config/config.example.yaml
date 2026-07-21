@@ -388,6 +388,13 @@ routing:
         target: default
 
 notifications:
+  unifi_protect:
+    # Optional mapping used when Protect sends a MAC/device identifier instead
+    # of its human-readable camera name. Separators and letter case in the
+    # identifier are ignored during matching.
+    device_aliases:
+      AABBCCDDEEFF: CAM-ENTRANCE-01
+
   xo:
     # Send successful backup notifications.
     success: false

@@ -184,6 +184,7 @@ def test_protect_human_readable_camera_name_is_retained_on_both_platforms():
         "00-00-5e-00-53-41",
         "123e4567-e89b-42d3-a456-426614174000",
         "A1B2C3D4E5F60708",
+        "AC8BA90DD406",
         "FAKE_MAC",
     ],
 )

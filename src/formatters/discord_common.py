@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any
 
 from formatters.base import BaseFormatter
 from version import VERSION
+
+
+_COMPONENTS_V2_RENDERING = ContextVar(
+    "discord_components_v2_rendering",
+    default=False,
+)
 
 
 @dataclass(frozen=True)
@@ -59,7 +66,25 @@ class DiscordCardFormatter(BaseFormatter):
     COMPONENT_TYPE_SEPARATOR = 14
     COMPONENT_TYPE_CONTAINER = 17
 
+    def format_components_v2(self, notification) -> dict[str, Any]:
+        """Render an existing integration through the responsive contract.
+
+        Formatters continue to expose their legacy ``format`` method for
+        compatibility and focused unit tests.  Delivery opts into Components
+        V2 through this context-local switch, avoiding shared mutable state
+        when multiple notifications are formatted concurrently.
+        """
+
+        token = _COMPONENTS_V2_RENDERING.set(True)
+        try:
+            return self.format(notification)
+        finally:
+            _COMPONENTS_V2_RENDERING.reset(token)
+
     def _render_discord_card(self, data: DiscordCardData) -> dict[str, Any]:
+        if _COMPONENTS_V2_RENDERING.get():
+            return self._render_discord_components_v2(data)
+
         status_icon, color, default_state = self._discord_status(
             data.status,
             data.severity,

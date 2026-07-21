@@ -42,6 +42,9 @@ class TestConfig:
                 "zabbix": {
                     "show_ids": False,
                 },
+                "unifi_protect": {
+                    "device_aliases": {},
+                },
             },
         }
 

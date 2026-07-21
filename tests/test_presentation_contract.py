@@ -609,7 +609,7 @@ def test_xo_and_generic_formatters_are_selected_explicitly():
     assert teams.default_formatter.__class__.__name__ == "GenericTeamsFormatter"
 
 
-def test_discord_uploads_packaged_thumbnail_as_webhook_attachment(
+def test_discord_components_v2_uses_external_thumbnail_without_attachment(
     monkeypatch,
     tmp_path,
 ):
@@ -625,34 +625,25 @@ def test_discord_uploads_packaged_thumbnail_as_webhook_attachment(
         status_code = 204
         text = ""
 
-    icon = tmp_path / "redfish.png"
-    icon.write_bytes(b"\x89PNG\r\n\x1a\nsynthetic")
-
-    def fake_post(url, data, files, timeout):
+    def fake_post(url, json, timeout):
         captured["url"] = url
-        captured["payload"] = json.loads(data["payload_json"])
-        captured["filename"] = files["files[0]"][0]
-        captured["content"] = files["files[0]"][1].read()
-        captured["mime"] = files["files[0]"][2]
+        captured["payload"] = json
         captured["timeout"] = timeout
         return Response()
 
     monkeypatch.setattr(discord_output_module, "config", Config())
     monkeypatch.setattr(discord_output_module.requests, "post", fake_post)
-    monkeypatch.setattr(DiscordOutput, "ICON_DIR", tmp_path)
-
     assert DiscordOutput().send(_notification("redfish"), target="default")
 
     payload = captured["payload"]
-    assert payload["embeds"][0]["thumbnail"]["url"] == (
-        "attachment://redfish.png"
+    header = payload["components"][0]["components"][0]
+    assert payload["flags"] == 32768
+    assert header["accessory"]["media"]["url"].endswith(
+        "/redfish.png"
     )
-    assert payload["attachments"] == [
-        {"id": 0, "filename": "redfish.png"}
-    ]
-    assert captured["filename"] == "redfish.png"
-    assert captured["content"].startswith(b"\x89PNG")
-    assert captured["mime"] == "image/png"
+    assert "embeds" not in payload
+    assert "attachments" not in payload
+    assert "with_components=true" in captured["url"]
     assert captured["timeout"] == 15
 
 

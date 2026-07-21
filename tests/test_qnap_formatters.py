@@ -466,7 +466,7 @@ def test_discord_oversized_unknown_metadata_stays_inside_embed_budget():
         (
             DiscordOutput,
             discord_output_module,
-            "embeds",
+            "components",
         ),
         (
             TeamsOutput,

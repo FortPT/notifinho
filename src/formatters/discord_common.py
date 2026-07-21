@@ -145,7 +145,7 @@ class DiscordCardFormatter(BaseFormatter):
         event_time = self._format_datetime(data.event_time)
 
         header_text = (
-            f"### {data.device_icon} {status_icon} {device} • {event}\n"
+            f"### {data.device_icon} {status_icon} {device} • {event}\n\n"
             f"-# {data.integration} • {status_icon} **{state}** • "
             f"{data.source_area_icon} {source_area}"
         )
@@ -175,9 +175,8 @@ class DiscordCardFormatter(BaseFormatter):
 
         children = [
             header,
-            self._discord_v2_separator(),
             self._discord_v2_text(self._discord_highlight(message)),
-            self._discord_v2_separator(divider=False),
+            self._discord_v2_separator(divider=False, spacing=2),
             self._discord_v2_text("  •  ".join(metrics)),
         ]
 
@@ -236,13 +235,14 @@ class DiscordCardFormatter(BaseFormatter):
         self,
         *,
         divider: bool = True,
+        spacing: int = 1,
     ) -> dict[str, Any]:
         """Build a native divider that follows the rendered card width."""
 
         return {
             "type": self.COMPONENT_TYPE_SEPARATOR,
             "divider": divider,
-            "spacing": 1,
+            "spacing": 2 if spacing == 2 else 1,
         }
 
     def _discord_highlight(self, value: Any) -> str:

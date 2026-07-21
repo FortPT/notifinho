@@ -449,7 +449,7 @@ Backend control plane (disabled by default)
     |- health, masked config, validation, logs, preview, and test-send
     |- atomic config updates, backups, rate limits, and audit records
     `- opt-in SQLite state, local accounts, hashed sessions/CSRF,
-       ownership records, and owner-only secret files
+       scoped tokens, owned routes/destinations, secret files, and history
 ```
 
 One notification model.
@@ -477,6 +477,9 @@ implementing a second routing engine.
 The first v2 platform phase adds an opt-in, migration-aware local state layer
 without changing existing delivery behavior. See the
 [platform-state and local-account guide](docs/platform-state.md).
+The second phase implements the disabled service layer for
+[user-scoped tokens, destinations, routes, retries, audit, and safe delivery
+history](docs/platform-routing.md).
 
 ---
 
@@ -1633,6 +1636,8 @@ without duplicating parser, formatter, or routing logic in the browser.
 
 - Migration-aware SQLite state, local account/lockout services, hashed session
   and CSRF credentials, ownership records, and owner-only secret rotation
+- Source-scoped platform token rotation/revocation, private/shared destination
+  policy, filterable user routes, bounded retries, audit, and safe history
 - Responsive WebUI backed by the v1.9 API
 - Local administrator and user accounts with clear roles
 - User- and application-scoped event endpoints and API tokens

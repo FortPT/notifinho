@@ -181,6 +181,8 @@ https://github.com/FortPT/notifinho
 
 - Migration-aware SQLite state, local account/login protection, hashed
   sessions/CSRF, ownership records, and owner-only secret rotation
+- Source-scoped tokens, private/shared destinations, user route filters,
+  bounded delivery retries, audit events, and safe delivery history
 - Responsive v2.0 WebUI
 - Local administrator and user accounts
 - User- and application-scoped event endpoints and API tokens

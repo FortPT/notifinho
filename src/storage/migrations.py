@@ -123,6 +123,47 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX audit_events_created_at ON audit_events(created_at)",
         ),
     ),
+    (
+        2,
+        "user routing and delivery foundation",
+        (
+            "ALTER TABLE api_tokens ADD COLUMN version INTEGER NOT NULL DEFAULT 1",
+            "ALTER TABLE api_tokens ADD COLUMN updated_at INTEGER",
+            "UPDATE api_tokens SET updated_at = created_at WHERE updated_at IS NULL",
+            """
+            CREATE TABLE delivery_attempts (
+                id TEXT PRIMARY KEY,
+                delivery_id TEXT NOT NULL,
+                owner_user_id TEXT NOT NULL
+                    REFERENCES users(id) ON DELETE CASCADE,
+                route_id TEXT REFERENCES routes(id) ON DELETE SET NULL,
+                destination_id TEXT REFERENCES destinations(id) ON DELETE SET NULL,
+                source TEXT NOT NULL,
+                title TEXT NOT NULL,
+                severity TEXT NOT NULL,
+                outcome TEXT NOT NULL CHECK (
+                    outcome IN ('delivered', 'failed', 'retry_scheduled')
+                ),
+                attempt_number INTEGER NOT NULL CHECK (attempt_number >= 1),
+                retryable INTEGER NOT NULL DEFAULT 0 CHECK (retryable IN (0, 1)),
+                response_status INTEGER,
+                error_code TEXT,
+                safe_error TEXT,
+                created_at INTEGER NOT NULL,
+                completed_at INTEGER NOT NULL,
+                UNIQUE (delivery_id, attempt_number)
+            )
+            """,
+            """
+            CREATE INDEX delivery_attempts_owner_created
+            ON delivery_attempts(owner_user_id, created_at DESC)
+            """,
+            """
+            CREATE INDEX delivery_attempts_destination_created
+            ON delivery_attempts(destination_id, created_at DESC)
+            """,
+        ),
+    ),
 )
 
 

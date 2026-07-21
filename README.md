@@ -376,10 +376,10 @@ This separation allows new infrastructure products and new messaging platforms t
 |-----------|:------:|
 | Discord | ✅ Stable |
 | Microsoft Teams | ✅ Stable |
-| Slack | 📅 v2.0.0 |
-| Generic outbound webhook | 📅 v2.0.0 |
-| MQTT | 📅 v2.0.0 |
-| ntfy | 📅 v2.0.0 |
+| Slack | 🧪 v2 adapter contract-tested; inactive |
+| Generic outbound webhook | 🧪 v2 adapter contract-tested; inactive |
+| MQTT | 🧪 v2 adapter contract-tested; inactive |
+| ntfy | 🧪 v2 adapter contract-tested; inactive |
 
 ---
 
@@ -480,6 +480,9 @@ without changing existing delivery behavior. See the
 The second phase implements the disabled service layer for
 [user-scoped tokens, destinations, routes, retries, audit, and safe delivery
 history](docs/platform-routing.md).
+The third phase adds disabled, ownership-aware
+[platform output adapters and preview/test delivery](docs/platform-outputs.md)
+for Discord, Teams, Slack, generic webhooks, MQTT, and ntfy.
 
 ---
 
@@ -1638,6 +1641,8 @@ without duplicating parser, formatter, or routing logic in the browser.
   and CSRF credentials, ownership records, and owner-only secret rotation
 - Source-scoped platform token rotation/revocation, private/shared destination
   policy, filterable user routes, bounded retries, audit, and safe history
+- Ownership-safe previews and adapters for Discord, Teams, Slack, generic
+  webhooks, MQTT, and ntfy, with strict outbound and secret boundaries
 - Responsive WebUI backed by the v1.9 API
 - Local administrator and user accounts with clear roles
 - User- and application-scoped event endpoints and API tokens

@@ -62,7 +62,7 @@ def configured_route(platform, *, output_type="webhook", owner_key="owner"):
         f"{owner.username} destination",
         output_type,
         secret_id=secret.id,
-        settings={"mode": "synthetic"},
+        settings={},
     )
     route = platform["routes"].create(
         owner.actor,

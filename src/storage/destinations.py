@@ -11,6 +11,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Callable
 
+from outputs.settings import OUTPUT_TYPES, normalize_output_settings
 from storage.audit_events import AuditEventStore
 from storage.database import Database
 from storage.ownership import Actor, OwnershipPolicy
@@ -20,9 +21,6 @@ from storage.validation import normalized_identifier, normalized_name
 _SECRET_KEY = re.compile(
     r"(?i)(authorization|cookie|password|secret|token|webhook|api[_-]?key)"
 )
-_OUTPUT_TYPES = {"discord", "teams", "slack", "webhook", "mqtt", "ntfy"}
-
-
 @dataclass(frozen=True)
 class Destination:
     id: str
@@ -76,9 +74,18 @@ class DestinationStore:
             "output type",
             maximum=32,
         )
-        if normalized_output not in _OUTPUT_TYPES:
+        if normalized_output not in OUTPUT_TYPES:
             raise ValueError("unsupported destination output type")
-        encoded_settings = self._settings(settings or {})
+        raw_settings = {} if settings is None else settings
+        if (
+            isinstance(raw_settings, dict)
+            and raw_settings.get("allow_private_network")
+            and not actor.is_admin
+        ):
+            raise PermissionError(
+                "only administrators can allow private-network destinations"
+            )
+        encoded_settings = self._settings(normalized_output, raw_settings)
         destination_id = uuid.uuid4().hex
         now = int(self.clock())
         try:
@@ -246,7 +253,15 @@ class DestinationStore:
     ) -> Destination:
         row = self._record(destination_id)
         OwnershipPolicy.require_write(actor, str(row["owner_user_id"]))
-        encoded = self._settings(settings)
+        if (
+            isinstance(settings, dict)
+            and settings.get("allow_private_network")
+            and not actor.is_admin
+        ):
+            raise PermissionError(
+                "only administrators can allow private-network destinations"
+            )
+        encoded = self._settings(str(row["output_type"]), settings)
         now = int(self.clock())
         with self.database.transaction() as connection:
             connection.execute(
@@ -298,13 +313,14 @@ class DestinationStore:
         )
 
     @classmethod
-    def _settings(cls, settings: dict) -> str:
+    def _settings(cls, output_type: str, settings: dict) -> str:
         if not isinstance(settings, dict):
             raise ValueError("destination settings must be an object")
         cls._reject_secrets(settings)
+        normalized = normalize_output_settings(output_type, settings)
         try:
             encoded = json.dumps(
-                settings,
+                normalized,
                 sort_keys=True,
                 separators=(",", ":"),
                 allow_nan=False,

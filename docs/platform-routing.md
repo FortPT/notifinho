@@ -28,7 +28,8 @@ revoked token cannot be rotated back into service.
 A destination has one owner, a display name, output type, non-secret JSON
 settings, enabled state, and optional owner-scoped secret reference. Supported
 schema types are Discord, Microsoft Teams, Slack, generic webhook, MQTT, and
-ntfy. Actual Slack/webhook/MQTT/ntfy adapters remain the next output phase.
+ntfy. The disabled adapters and preview/test contracts are documented in the
+[platform output guide](platform-outputs.md).
 
 Credential-like keys are rejected anywhere in destination settings. Webhook
 URLs, passwords, tokens, and similar values must use the owner-only secret
@@ -71,7 +72,7 @@ destinations never match.
 
 The platform delivery service accepts injected output adapters. This keeps
 transport code separate from ownership, routing, retries, and history, and
-lets the next phase add new outputs without duplicating policy.
+lets every platform output reuse the same policy.
 
 For every matched route, the service:
 

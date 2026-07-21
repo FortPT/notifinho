@@ -13,6 +13,7 @@ import pytest
 
 from storage.database import Database
 from storage.migrations import LATEST_SCHEMA_VERSION
+from storage.migrations import MIGRATIONS
 from storage.ownership import Actor, OwnershipPolicy
 from storage.runtime import initialize_state, state_directory
 
@@ -56,6 +57,7 @@ def test_database_migration_is_idempotent_and_records_all_foundation_tables(tmp_
         "destinations",
         "routes",
         "audit_events",
+        "delivery_attempts",
     } <= tables
     assert (migration["version"], migration["name"]) == (
         1,
@@ -209,6 +211,41 @@ def test_account_cli_initializes_state_and_bootstraps_admin(tmp_path):
         text=True,
     )
 
-    assert "state_schema=1" in initialized.stdout
+    assert f"state_schema={LATEST_SCHEMA_VERSION}" in initialized.stdout
     assert "account_created=admin" in created.stdout
     assert "administrator\trole=admin\tenabled=true" in listed.stdout
+
+
+def test_schema_one_database_upgrades_to_user_routing_schema(tmp_path):
+    database = Database(tmp_path / "state" / "notifinho.db")
+    with database.connect() as connection:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            """
+            CREATE TABLE schema_migrations (
+                version INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                applied_at INTEGER NOT NULL DEFAULT (unixepoch())
+            )
+            """
+        )
+        version, name, statements = MIGRATIONS[0]
+        for statement in statements:
+            connection.execute(statement)
+        connection.execute(
+            "INSERT INTO schema_migrations(version, name) VALUES (?, ?)",
+            (version, name),
+        )
+        connection.execute("PRAGMA user_version = 1")
+        connection.commit()
+
+    assert database.migrate() == 2
+    with database.connect() as connection:
+        columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(api_tokens)")
+        }
+        migration = connection.execute(
+            "SELECT name FROM schema_migrations WHERE version = 2"
+        ).fetchone()[0]
+    assert {"version", "updated_at"} <= columns
+    assert migration == "user routing and delivery foundation"

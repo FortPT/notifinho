@@ -32,9 +32,12 @@ SQLite foreign keys and transactional migrations protect relationships among:
 - user-owned routes; and
 - future database-backed audit events.
 
-Schema migrations run in order and are recorded in `schema_migrations`. A
-database created by a newer Notifinho schema is rejected instead of being
-silently downgraded.
+Schema migrations run in order and are recorded in `schema_migrations`. Schema
+version 2 adds API-token rotation metadata and safe delivery-attempt history.
+A database created by a newer Notifinho schema is rejected instead of being
+silently downgraded. See the
+[user routing and delivery guide](platform-routing.md) for the schema-v2
+service contracts.
 
 ## Account security foundation
 
@@ -54,9 +57,9 @@ Local login protection includes:
 - a `__Host-` session cookie with `HttpOnly`, `Secure`, `SameSite=Strict`, and
   path `/` defaults.
 
-The browser login endpoints are intentionally not exposed in this foundation
-phase. They will be wired to these services with CSRF enforcement before the
-WebUI is enabled.
+The browser login and platform-routing endpoints are intentionally not exposed
+in these foundation phases. They will be wired to these services with CSRF and
+ownership enforcement before the WebUI is enabled.
 
 ## Production preparation
 

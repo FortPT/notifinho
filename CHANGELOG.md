@@ -32,11 +32,23 @@
   rotation with integrity checks.
 - Added a trusted-host account-management CLI and platform-state deployment,
   backup, rollback, and security documentation.
+- Added user-owned, source-scoped API-token creation, authentication, rotation,
+  revocation, expiry, rate-limit metadata, and secret-free token responses.
+- Added private/shared destination policy, strict separation of destination
+  settings and owner-scoped secrets, and source/host/event/severity/status user
+  route matching.
+- Added injected-adapter delivery orchestration with bounded explicit retries,
+  sanitized per-attempt history, safe terminal error codes, and database-backed
+  audit events.
+- Added transactional schema version 2 and tested upgrades from the existing
+  schema version 1 database.
 
 ### Compatibility
 
 - Platform state remains disabled by default. Existing v1.x YAML tokens,
   routes, destinations, inputs, outputs, and delivery behavior are unchanged.
+- Platform tokens, routes, and delivery services are not yet exposed through
+  HTTP and do not replace the existing YAML router.
 
 ---
 

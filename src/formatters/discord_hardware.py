@@ -56,3 +56,42 @@ class HPEILODiscordFormatter(HardwareDiscordFormatter):
 
 class DellIDRACDiscordFormatter(HardwareDiscordFormatter):
     provider = "Dell iDRAC"
+
+    def format_components_v2(self, notification: Notification) -> dict:
+        """Return the opt-in Dell iDRAC responsive card prototype."""
+
+        metadata = notification.metadata or {}
+        provider = str(metadata.get("provider") or self.provider)
+        category = str(notification.category or "hardware")
+        event = str(notification.title or f"{provider} event")
+        severity = str(metadata.get("severity") or notification.status)
+        return self._render_discord_components_v2(
+            DiscordCardData(
+                source=notification.source,
+                integration=provider,
+                device=str(metadata.get("system") or provider),
+                event=event,
+                message=str(notification.body or event),
+                status=notification.status,
+                severity=severity,
+                category=category,
+                source_area=category,
+                source_area_icon=self._category_icon(category),
+                event_time=notification.start_time or notification.end_time,
+                device_icon="🖥️",
+                event_icon=self._category_icon(category),
+                details=(
+                    DiscordFact("🌡️", "Sensor", metadata.get("sensor")),
+                    DiscordFact("📚", "Registry", metadata.get("registry")),
+                    DiscordFact("🏷️", "Message ID", metadata.get("message_id")),
+                    DiscordFact("🌐", "Source IP", metadata.get("source_ip")),
+                    DiscordFact("📍", "Origin", metadata.get("origin"), False),
+                    DiscordFact(
+                        "🛠️",
+                        "Recommended action",
+                        metadata.get("recommended_action"),
+                        False,
+                    ),
+                ),
+            )
+        )

@@ -52,6 +52,13 @@ class DiscordCardFormatter(BaseFormatter):
     # wraps into a second fragment.
     SEPARATOR = "───────────────────────────────────────────────"
 
+    COMPONENTS_V2_FLAG = 1 << 15
+    COMPONENT_TYPE_SECTION = 9
+    COMPONENT_TYPE_TEXT_DISPLAY = 10
+    COMPONENT_TYPE_THUMBNAIL = 11
+    COMPONENT_TYPE_SEPARATOR = 14
+    COMPONENT_TYPE_CONTAINER = 17
+
     def _render_discord_card(self, data: DiscordCardData) -> dict[str, Any]:
         status_icon, color, default_state = self._discord_status(
             data.status,
@@ -109,6 +116,134 @@ class DiscordCardFormatter(BaseFormatter):
         self._enforce_discord_budget(embed)
         self._finish_discord_footer(embed)
         return {"embeds": [embed]}
+
+    def _render_discord_components_v2(
+        self,
+        data: DiscordCardData,
+    ) -> dict[str, Any]:
+        """Render one responsive Discord Components V2 card.
+
+        This is intentionally opt-in while the layout is validated against a
+        real webhook on desktop and mobile. Legacy embed formatters continue
+        to use :meth:`_render_discord_card`.
+        """
+
+        status_icon, color, default_state = self._discord_status(
+            data.status,
+            data.severity,
+        )
+        state = self._label(data.state) or default_state
+        severity = self._label(data.severity) or default_state
+        category = self._label(data.category) or "Event"
+        source_area = self._truncate(
+            self._label(data.source_area) or category,
+            280,
+        )
+        device = self._truncate(data.device or data.integration, 120)
+        event = self._truncate(data.event or "Notification", 180)
+        message = self._truncate(data.message or event, 1000)
+        event_time = self._format_datetime(data.event_time)
+
+        header_text = (
+            f"### {data.device_icon} {status_icon} {device} • {event}\n"
+            f"-# {data.integration} • {status_icon} **{state}** • "
+            f"{data.source_area_icon} {source_area}"
+        )
+        icon_url = self._product_icon_url(data.source)
+        if icon_url:
+            header = {
+                "type": self.COMPONENT_TYPE_SECTION,
+                "components": [self._discord_v2_text(header_text)],
+                "accessory": {
+                    "type": self.COMPONENT_TYPE_THUMBNAIL,
+                    "media": {"url": icon_url},
+                    "description": f"{data.integration} logo",
+                },
+            }
+        else:
+            header = self._discord_v2_text(header_text)
+
+        metrics = [
+            f"{status_icon} **Severity:** {severity}",
+            (
+                f"{self._category_icon(data.category)} "
+                f"**Category:** {category}"
+            ),
+        ]
+        if event_time:
+            metrics.append(f"🕒 **Event time:** {event_time}")
+
+        children = [
+            header,
+            self._discord_v2_separator(),
+            self._discord_v2_text(self._discord_highlight(message)),
+            self._discord_v2_separator(divider=False),
+            self._discord_v2_text("  •  ".join(metrics)),
+        ]
+
+        details = self._discord_v2_details(data.details)
+        if details:
+            children.extend((
+                self._discord_v2_separator(),
+                self._discord_v2_text(
+                    f"**📋 Event details**\n{details}",
+                ),
+            ))
+
+        children.extend((
+            self._discord_v2_separator(),
+            self._discord_v2_text(
+                f"-# FortPT Labs • Notifinho v{VERSION}",
+            ),
+        ))
+
+        return {
+            "flags": self.COMPONENTS_V2_FLAG,
+            "components": [
+                {
+                    "type": self.COMPONENT_TYPE_CONTAINER,
+                    "accent_color": color,
+                    "components": children,
+                }
+            ],
+        }
+
+    def _discord_v2_details(
+        self,
+        details: tuple[DiscordFact, ...],
+    ) -> str:
+        """Return a compact, bounded vertical detail list."""
+
+        entries = []
+        for fact in details:
+            if not self._meaningful_fact(fact.value):
+                continue
+            label = self._truncate(fact.label, 120)
+            value = self._truncate(fact.value, 700)
+            entries.append(f"{fact.icon} **{label}:** {value}")
+        return self._truncate("\n".join(entries), 1800)
+
+    def _discord_v2_text(self, content: Any) -> dict[str, Any]:
+        """Build a Text Display without allowing source text to ping users."""
+
+        safe = self._truncate(content, 2000).replace("@", "@\u200b")
+        return {
+            "type": self.COMPONENT_TYPE_TEXT_DISPLAY,
+            "content": safe or "—",
+        }
+
+    def _discord_v2_separator(
+        self,
+        *,
+        divider: bool = True,
+    ) -> dict[str, Any]:
+        """Build a native divider that follows the rendered card width."""
+
+        return {
+            "type": self.COMPONENT_TYPE_SEPARATOR,
+            "divider": divider,
+            "spacing": 1,
+        }
 
     def _discord_highlight(self, value: Any) -> str:
         """Render the event message as a full-width Discord code block."""

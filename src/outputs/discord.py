@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 import requests
 
@@ -107,9 +107,13 @@ class DiscordOutput:
 
         try:
 
-            payload = formatter.format(
-                notification,
-            )
+            if source == "dell_idrac" and hasattr(
+                formatter,
+                "format_components_v2",
+            ):
+                payload = formatter.format_components_v2(notification)
+            else:
+                payload = formatter.format(notification)
 
             payload = formatter._sanitize_payload(payload)
 
@@ -145,11 +149,12 @@ class DiscordOutput:
 
         try:
 
+            delivery_webhook = self._delivery_webhook(webhook, payload)
             icon = self._local_icon(payload, formatter)
 
             if icon is None:
                 response = requests.post(
-                    webhook,
+                    delivery_webhook,
                     json=payload,
                     timeout=15,
                 )
@@ -166,7 +171,7 @@ class DiscordOutput:
                 ]
                 with path.open("rb") as stream:
                     response = requests.post(
-                        webhook,
+                        delivery_webhook,
                         data={
                             "payload_json": json.dumps(payload),
                         },
@@ -207,6 +212,24 @@ class DiscordOutput:
             )
 
             return False
+
+    @staticmethod
+    def _delivery_webhook(webhook, payload):
+        """Enable non-interactive Components V2 on webhook delivery."""
+
+        flags = payload.get("flags", 0) if isinstance(payload, dict) else 0
+        if not isinstance(flags, int) or not flags & (1 << 15):
+            return webhook
+        parts = urlsplit(webhook)
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+        query["with_components"] = "true"
+        return urlunsplit((
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(query),
+            parts.fragment,
+        ))
 
     def _local_icon(self, payload, formatter):
         """Resolve a safe packaged icon for Discord multipart delivery."""

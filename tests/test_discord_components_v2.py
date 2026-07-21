@@ -93,14 +93,14 @@ def test_dell_components_v2_uses_native_responsive_separators():
         True,
         True,
     ]
-    assert [separator["spacing"] for separator in separators] == [
-        2,
-        1,
-        1,
-    ]
+    assert all(separator["spacing"] == 1 for separator in separators)
 
     header_text = children[0]["components"][0]["content"]
-    assert "Power Supply Recovered\n\n-# Dell iDRAC" in header_text
+    context_text = children[1]["content"]
+    assert "DELL-SRV-01 • Power Supply Recovered" in header_text
+    assert "Dell iDRAC • ✅ **Resolved** • 🔌 Power" in context_text
+    assert "Dell iDRAC" not in header_text
+    assert children[2]["content"].startswith("```\n")
 
     rendered = text_content(payload)
     assert "DELL-SRV-01 • Power Supply Recovered" in rendered

@@ -144,8 +144,10 @@ class DiscordCardFormatter(BaseFormatter):
         message = self._truncate(data.message or event, 1000)
         event_time = self._format_datetime(data.event_time)
 
-        header_text = (
-            f"### {data.device_icon} {status_icon} {device} • {event}\n\n"
+        title_text = (
+            f"### {data.device_icon} {status_icon} {device} • {event}"
+        )
+        context_text = (
             f"-# {data.integration} • {status_icon} **{state}** • "
             f"{data.source_area_icon} {source_area}"
         )
@@ -153,7 +155,7 @@ class DiscordCardFormatter(BaseFormatter):
         if icon_url:
             header = {
                 "type": self.COMPONENT_TYPE_SECTION,
-                "components": [self._discord_v2_text(header_text)],
+                "components": [self._discord_v2_text(title_text)],
                 "accessory": {
                     "type": self.COMPONENT_TYPE_THUMBNAIL,
                     "media": {"url": icon_url},
@@ -161,7 +163,7 @@ class DiscordCardFormatter(BaseFormatter):
                 },
             }
         else:
-            header = self._discord_v2_text(header_text)
+            header = self._discord_v2_text(title_text)
 
         metrics = [
             f"{status_icon} **Severity:** {severity}",
@@ -175,8 +177,9 @@ class DiscordCardFormatter(BaseFormatter):
 
         children = [
             header,
+            self._discord_v2_text(context_text),
             self._discord_v2_text(self._discord_highlight(message)),
-            self._discord_v2_separator(divider=False, spacing=2),
+            self._discord_v2_separator(divider=False),
             self._discord_v2_text("  •  ".join(metrics)),
         ]
 

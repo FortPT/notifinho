@@ -37,17 +37,22 @@ record the deployment user's numeric identity:
 
 ```bash
 cp .env.example .env
-mkdir -p logs/emails secrets
+mkdir -p logs/emails secrets state
 id -u
 id -g
 chmod 600 .env config/config.yaml
-chmod 700 logs logs/emails secrets
+chmod 700 logs logs/emails secrets state
 ```
 
 Set `NOTIFINHO_UID` and `NOTIFINHO_GID` in `.env` to the values printed by
 `id`. The production service uses that identity instead of container root.
 Files mounted below `/run/secrets` must be readable by this identity and mode
 `0600` when used as API-token or SMTP-password sources.
+
+The writable `state` mount is reserved for the opt-in v2 SQLite database and
+owner-scoped secret files. Platform state remains disabled by default. See the
+[platform-state guide](platform-state.md) before enabling it or creating local
+accounts.
 
 Validate and start the production definition:
 
@@ -72,6 +77,7 @@ Replace relative paths in `.env` with absolute host paths, for example:
 NOTIFINHO_CONFIG_DIR=/docker/notifinho/config
 NOTIFINHO_LOG_DIR=/docker/notifinho/logs
 NOTIFINHO_SECRETS_DIR=/docker/notifinho/secrets
+NOTIFINHO_STATE_DIR=/docker/notifinho/state
 ```
 
 Use a versioned image tag for production. Upgrade only after validating the

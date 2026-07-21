@@ -16,11 +16,13 @@ import sys
 import time
 from threading import Event
 
+from config import config
 from dispatcher import Dispatcher
 from inputs.http import HTTPInput
 from inputs.smtp import SMTPInput
 from logger import log
 from router import Router
+from storage.runtime import initialize_state
 from version import APP_NAME, VERSION
 
 
@@ -49,6 +51,15 @@ def main() -> int:
     signal.signal(signal.SIGINT, request_shutdown)
 
     try:
+
+        state_database = initialize_state(config)
+
+        if state_database is not None:
+
+            log.info(
+                "Platform state initialized (schema %s).",
+                state_database.schema_version,
+            )
 
         dispatcher = Dispatcher()
 

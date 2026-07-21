@@ -36,3 +36,5 @@ def test_production_compose_applies_runtime_hardening():
     assert service["cap_drop"] == ["ALL"]
     assert "no-new-privileges:true" in service["security_opt"]
     assert service["user"] == "${NOTIFINHO_UID:-1000}:${NOTIFINHO_GID:-1000}"
+    assert "${NOTIFINHO_STATE_DIR:-./state}:/notifinho/state" in service["volumes"]
+    assert service["environment"]["NOTIFINHO_STATE_DIR"] == "/notifinho/state"

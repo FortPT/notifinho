@@ -208,6 +208,41 @@ def test_configuration_validation_accepts_boolean_output_switches(value):
     }) == []
 
 
+@pytest.mark.parametrize("value", ["false", 0, 1, None, []])
+def test_configuration_validation_rejects_non_boolean_platform_switches(value):
+    errors = validate_config({
+        "platform": {
+            "enabled": value,
+            "state_dir": "/notifinho/state",
+        },
+    })
+
+    assert "platform.enabled must be a boolean" in errors
+
+
+@pytest.mark.parametrize("value", ["", ".", "relative/state", "/"])
+def test_configuration_validation_rejects_unsafe_platform_state_paths(value):
+    errors = validate_config({
+        "platform": {
+            "enabled": False,
+            "state_dir": value,
+        },
+    })
+
+    assert (
+        "platform.state_dir must be an absolute directory other than /" in errors
+    )
+
+
+def test_configuration_validation_accepts_disabled_platform_state():
+    assert validate_config({
+        "platform": {
+            "enabled": False,
+            "state_dir": "/notifinho/state",
+        },
+    }) == []
+
+
 @pytest.mark.parametrize(
     "webhook",
     ["PASTE_HERE", "http://example.invalid/hook", "not-a-url", ""],

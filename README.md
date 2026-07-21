@@ -447,7 +447,9 @@ Router
 Backend control plane (disabled by default)
     |- source-scoped and administrator tokens
     |- health, masked config, validation, logs, preview, and test-send
-    `- atomic config updates, backups, rate limits, and audit records
+    |- atomic config updates, backups, rate limits, and audit records
+    `- opt-in SQLite state, local accounts, hashed sessions/CSRF,
+       ownership records, and owner-only secret files
 ```
 
 One notification model.
@@ -471,6 +473,10 @@ The v1.9 backend preserves this pipeline while adding Redfish hardware events,
 Home Assistant, authenticated event submission, and configuration-management
 foundations. The v2.0 WebUI will manage this same backend model rather than
 implementing a second routing engine.
+
+The first v2 platform phase adds an opt-in, migration-aware local state layer
+without changing existing delivery behavior. See the
+[platform-state and local-account guide](docs/platform-state.md).
 
 ---
 
@@ -1625,6 +1631,8 @@ routing, parser, timestamp, configuration, or secret contract changes.
 v2.0.0 turns the completed notification engine into a self-service platform
 without duplicating parser, formatter, or routing logic in the browser.
 
+- Migration-aware SQLite state, local account/lockout services, hashed session
+  and CSRF credentials, ownership records, and owner-only secret rotation
 - Responsive WebUI backed by the v1.9 API
 - Local administrator and user accounts with clear roles
 - User- and application-scoped event endpoints and API tokens

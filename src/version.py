@@ -11,7 +11,7 @@ global project information.
 
 APP_NAME = "Notifinho"
 
-VERSION = "1.9.5"
+VERSION = "1.9.6"
 
 AUTHOR = "Ruben Rodrigues"
 

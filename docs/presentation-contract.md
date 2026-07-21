@@ -51,35 +51,30 @@ instance, and keep vendor parsing outside the renderer.
 
 ## Discord hierarchy
 
-Every integration supplies the same normalized concepts to the shared Discord
-renderer while retaining more source-specific detail than the compact Teams
-layout:
+Every integration supplies normalized data to the shared Discord Components
+V2 renderer:
 
-1. Header: `device • event`, with device and status icons, a severity-aware
-   embed color, and the official integration thumbnail.
+1. Header: `device • event`, device/status icons, severity-aware accent color,
+   and the official integration thumbnail.
 2. Context: `integration • state • source area`.
-3. Message: one full-width highlighted event body without a redundant label.
-4. Metrics: Severity, Category, and Event time as the first three inline
-   fields.
-5. Details: optional icon-labelled integration-specific fields, links, and
-   bounded multi-item sections.
-6. Notifinho version footer.
+3. A native responsive separator followed by the highlighted event message.
+4. One compact text row containing Severity, Category, and Event time.
+5. A native responsive separator followed by optional integration details.
+6. A final native separator and the one-line Notifinho version footer.
 
-The shared renderer places the context directly below the title, then one
-non-wrapping full-width rule and the unlabelled event message in a dark
-highlight. It does not insert blank spacer text around the rule or highlight.
-Severity, Category, and Event time stay on one row. A second full-width rule
-starts the vertical event-details section immediately after that row. One
-final rule follows the last detail and separates the one-line footer; cards
-without details use that second rule as the footer separator. There is no rule
-after the footer because Discord has no card content below it.
+Discord controls separator width at render time, so rules remain aligned on
+desktop and mobile without fixed underscore or dash strings. The renderer does
+not add a redundant Event label or synthetic spacer fields. Source-specific
+details remain richer than the compact Teams card and are ordered vertically
+for phone readability.
 
-The normalized Discord model lives in `src/formatters/discord_common.py`. New
-Discord formatters should inherit `DiscordCardFormatter`, create a
-`DiscordCardData` instance, and keep source parsing outside the renderer. The
-renderer enforces Discord's 25-field and 6,000-character embed limits by
-dropping the lowest-priority optional details first; the event message and the
-three standard metrics are always retained.
+The normalized model and Components V2 renderer live in
+`src/formatters/discord_common.py`; delivery and packaged icon attachments live
+in `src/outputs/discord.py`. New formatters create `DiscordCardData` and
+`DiscordFact` values rather than constructing destination JSON independently.
+The renderer enforces Discord's component and text budgets, removing the
+lowest-priority optional facts first while retaining title, context, event,
+metrics, and footer.
 
 Optional facts whose source value is missing or represented by `-`, `—`,
 `N/A`, `None`, or `null` are omitted. Identifiers and acronyms such as

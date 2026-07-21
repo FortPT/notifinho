@@ -2,7 +2,28 @@
 
 ## Unreleased
 
-No changes yet.
+### Changed
+
+- Added pull-request and main-branch CI, automated dependency update checks,
+  exact Python dependency pins, and immutable Python container base images.
+- Separated development and production Compose workflows and documented a
+  hardened production deployment with a non-root user, read-only filesystem,
+  dropped capabilities, and bounded shutdown behavior.
+- Updated contributor, Docker Hub, Grafana, QNAP, and Synology documentation
+  to match the current branch, validation status, security guidance, and v2.0
+  roadmap.
+
+### Fixed
+
+- Output-level `enabled` settings are now validated and honored by routing,
+  while configurations that omit the setting retain legacy enabled behavior.
+- Container shutdown now reaches the application signal handler and exits
+  cleanly instead of relying on forced termination.
+
+### Added
+
+- Added runtime-packaging, routing, configuration-validation, CI, Compose,
+  and graceful-shutdown regression coverage.
 
 ---
 

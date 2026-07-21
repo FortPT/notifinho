@@ -154,6 +154,16 @@ def validate_config(data) -> list[str]:
                             f"{index} must be an IP address"
                         )
     outputs = data.get("outputs") or {}
+    if isinstance(outputs, dict):
+        for output_name, settings in outputs.items():
+            if not isinstance(settings, dict):
+                errors.append(f"outputs.{output_name} must be an object")
+                continue
+            if "enabled" in settings and not isinstance(
+                settings.get("enabled"),
+                bool,
+            ):
+                errors.append(f"outputs.{output_name}.enabled must be a boolean")
     if isinstance(routing, dict):
         for source, route in routing.items():
             if not isinstance(route, dict):

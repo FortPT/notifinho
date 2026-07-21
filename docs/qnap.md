@@ -1,9 +1,11 @@
 # QNAP notification support
 
-QNAP QTS and QuTS hero support remains provisional in Notifinho `v1.5.1`.
-It was initially developed from clearly labelled synthetic messages resembling
-common Notification Center layouts and is now being validated against real QNAP
-systems and Microsoft Teams delivery workflows.
+QNAP QTS and QuTS hero support was introduced in Notifinho `v1.3.0` and has
+been validated with real QNAP Notification Center delivery. The notification
+was detected, parsed, routed, formatted, and delivered successfully without
+committing production identifiers or payloads. The synthetic fixtures remain
+the public regression corpus; additional firmware, language, and customized
+template variants remain normal compatibility-hardening work.
 
 ## Initial event coverage
 
@@ -84,8 +86,8 @@ Notification Center and use:
 |---------|-------------|------------|
 | SMTP server | Host running Notifinho | Host running Notifinho |
 | Port | `8026` when connecting to the published dev port | `8025` |
-| Authentication | Disabled | Disabled unless a future deployment adds it |
-| TLS | Disabled for the current built-in listener | Disabled for the current built-in listener |
+| Authentication | Disabled for fixture replay | Optional SMTP AUTH after STARTTLS |
+| TLS | Disabled for fixture replay | Optional explicit STARTTLS |
 | Recipient | Any syntactically valid local notification address | Deployment-defined address |
 
 Send Notification Center's test message first, then enable only the event
@@ -102,8 +104,8 @@ markers; it does not rely on the recipient address.
   not provide explicit labels.
 - HTML styling is discarded; only operational text and labelled values are
   forwarded.
-- SMTP authentication and TLS are not provided by Notifinho's current local
-  listener.
+- SMTP AUTH and STARTTLS are optional. They must be configured using the
+  security settings documented in `docs/smtp-security.md`.
 
 ## Help verify real formats
 

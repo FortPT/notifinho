@@ -1,0 +1,73 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip check
+
+      - name: Run automated tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q
+
+      - name: Validate Python syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q src scripts tools
+
+      - name: Validate public YAML files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          import yaml
+
+
+          for name in (
+              "config/config.example.yaml",
+              "docker-compose.yml",
+              "compose.production.yaml",
+              ".github/dependabot.yml",
+              ".github/workflows/ci.yml",
+              ".github/workflows/docker-release.yml",
+          ):
+              value = yaml.safe_load(Path(name).read_text(encoding="utf-8"))
+              if not isinstance(value, dict):
+                  raise SystemExit(f"{name} must contain a YAML object")
+              print(f"validated {name}")
+          PY

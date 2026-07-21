@@ -9,7 +9,7 @@ Whether you're fixing a typo, improving the documentation, reporting a bug or im
 ## Getting Started
 
 1. Fork the repository.
-2. Create a feature branch from `master`.
+2. Create a feature branch from `main`.
 3. Make your changes.
 4. Test your changes.
 5. Submit a Pull Request.

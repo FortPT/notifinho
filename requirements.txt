@@ -1,7 +1,19 @@
-PyYAML
-requests
-beautifulsoup4
-lxml
-aiosmtpd
-tzdata
-tzlocal
+# Runtime dependencies are pinned so release images built from the same commit
+# resolve the same Python packages. Dependabot tracks update proposals.
+PyYAML==6.0.3
+requests==2.34.2
+beautifulsoup4==4.15.0
+lxml==6.1.1
+aiosmtpd==1.4.6
+tzdata==2026.3
+tzlocal==5.4.4
+
+# Runtime transitive dependencies are pinned for reproducible container builds.
+atpublic==7.0.0
+attrs==26.1.0
+certifi==2026.6.17
+charset-normalizer==3.4.9
+idna==3.18
+soupsieve==2.9.1
+typing-extensions==4.16.0
+urllib3==2.7.0

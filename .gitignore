@@ -8,6 +8,7 @@ logs/
 
 # Local config with secrets
 config/config.yaml
+.env
 
 # Python
 __pycache__/

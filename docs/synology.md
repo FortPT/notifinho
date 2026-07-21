@@ -1,15 +1,16 @@
-# Synology DSM integration candidate
+# Synology DSM integration
 
-Notifinho v1.8 includes fixture-validated Synology DSM ingestion through SMTP
-and an authenticated native HTTP endpoint:
+Notifinho v1.8 includes Synology DSM ingestion through SMTP and an
+authenticated native HTTP endpoint:
 
 ```text
 POST /synology/events
 ```
 
-Real DSM delivery has not yet been validated. Keep this integration on
-`notifinho-dev` until representative notifications can be sent from an actual
-Synology system.
+Real DSM delivery has been validated with DSM 7.3.2 custom JSON webhook and
+Hyper Backup events, plus DSM 7.1.1 SMTP delivery using STARTTLS. Both paths
+were routed successfully to a dedicated Microsoft Teams destination. Broader
+warning, failure, and operational event coverage remains compatibility work.
 
 Synology documents custom webhook providers under **Control Panel >
 Notification > Webhook**. DSM 7 supports custom providers, GET or POST
@@ -24,7 +25,7 @@ The exact variables and resulting request depend on the installed DSM version
 and selected event. For that reason, Notifinho uses a small versioned contract
 and clearly retains the real-system validation requirement.
 
-## Supported candidate events
+## Supported events
 
 - system health, DSM updates, temperature, fan, memory, and CPU events;
 - storage pools, volumes, RAID, cache, and capacity;
@@ -68,7 +69,7 @@ routing:
 
 Do not commit the real HTTP secret or destination URLs.
 
-## SMTP candidate
+## SMTP input
 
 Configure DSM email notifications to use Notifinho's SMTP listener. Detection
 accepts Synology/DiskStation branding in the sender or subject and bounded DSM
@@ -178,9 +179,9 @@ python3 scripts/replay_email.py \
   --port 8026
 ```
 
-## Deferred real-system validation
+## Additional compatibility validation
 
-Before marking Synology support validated:
+When validating additional DSM versions and event families:
 
 1. record the exact DSM version, NAS model, and transport;
 2. send DSM's built-in test through email and a custom POST provider;
@@ -193,8 +194,10 @@ Before marking Synology support validated:
 7. ensure no production identifiers, tokens, URLs, or raw payloads enter the
    repository.
 
-Until this checklist is complete, leave issue #43 open and describe the
-integration as a fixture-validated candidate.
+Issue #43 records the completed baseline validation. New warning/failure
+templates or DSM-specific differences should be tracked as compatibility
+issues without changing the validated status of the existing SMTP and webhook
+contracts.
 
 ## Rollback
 

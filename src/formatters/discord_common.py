@@ -155,15 +155,20 @@ class DiscordCardFormatter(BaseFormatter):
         if icon_url:
             header = {
                 "type": self.COMPONENT_TYPE_SECTION,
-                "components": [self._discord_v2_text(title_text)],
+                "components": [
+                    self._discord_v2_text(title_text),
+                    self._discord_v2_text(context_text),
+                ],
                 "accessory": {
                     "type": self.COMPONENT_TYPE_THUMBNAIL,
                     "media": {"url": icon_url},
                     "description": f"{data.integration} logo",
                 },
             }
+            context_components = []
         else:
             header = self._discord_v2_text(title_text)
+            context_components = [self._discord_v2_text(context_text)]
 
         metrics = [
             f"{status_icon} **Severity:** {severity}",
@@ -177,7 +182,8 @@ class DiscordCardFormatter(BaseFormatter):
 
         children = [
             header,
-            self._discord_v2_text(context_text),
+            *context_components,
+            self._discord_v2_separator(),
             self._discord_v2_text(self._discord_highlight(message)),
             self._discord_v2_separator(divider=False),
             self._discord_v2_text("  •  ".join(metrics)),

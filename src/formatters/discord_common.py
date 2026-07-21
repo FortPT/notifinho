@@ -46,8 +46,11 @@ class DiscordCardFormatter(BaseFormatter):
 
     EMBED_TEXT_BUDGET = 5900
     MAX_FIELDS = 25
-    ESSENTIAL_FIELDS = 4
-    SEPARATOR = "────────────────────────────────────────────────────"
+    ESSENTIAL_FIELDS = 3
+    # Discord renders embed content more narrowly when a thumbnail is
+    # present. Keep the shared rule inside that narrowest width so it never
+    # wraps into a second fragment.
+    SEPARATOR = "───────────────────────────────────────────────"
 
     def _render_discord_card(self, data: DiscordCardData) -> dict[str, Any]:
         status_icon, color, default_state = self._discord_status(
@@ -57,19 +60,16 @@ class DiscordCardFormatter(BaseFormatter):
         state = self._label(data.state) or default_state
         severity = self._label(data.severity) or default_state
         category = self._label(data.category) or "Event"
-        source_area = self._label(data.source_area) or category
+        source_area = self._truncate(
+            self._label(data.source_area) or category,
+            700,
+        )
         device = self._truncate(data.device or data.integration, 120)
         event = self._truncate(data.event or "Notification", 180)
         message = self._truncate(data.message or event, 1024)
         event_time = self._format_datetime(data.event_time)
 
         fields = [
-            self._discord_field(
-                "",
-                "",
-                self._discord_highlight(message),
-                inline=False,
-            ),
             self._discord_field(status_icon, "Severity", severity),
             self._discord_field(
                 self._category_icon(data.category),
@@ -88,9 +88,10 @@ class DiscordCardFormatter(BaseFormatter):
                 256,
             ),
             "description": self._truncate(
-                f"\u200b\n{data.integration} • {status_icon} **{state}** • "
-                f"{data.source_area_icon} {source_area}",
-                4096,
+                f"{data.integration} • {status_icon} **{state}** • "
+                f"{data.source_area_icon} {source_area}\n"
+                f"{self.SEPARATOR}\n{self._discord_highlight(message)}",
+                2048,
             ),
             "color": color,
             "fields": fields,
@@ -113,9 +114,7 @@ class DiscordCardFormatter(BaseFormatter):
         """Render the event message as a full-width Discord code block."""
 
         text = self._truncate(value, 1014).replace("```", "'''")
-        return (
-            f"```\n{text or '—'}\n```\n\u200b\n{self.SEPARATOR}"
-        )
+        return f"```\n{text or '—'}\n```"
 
     def _finish_discord_footer(self, embed: dict[str, Any]) -> None:
         """Place one full-width rule immediately above the footer."""
@@ -124,10 +123,10 @@ class DiscordCardFormatter(BaseFormatter):
         if not fields:
             return
         last = fields[-1]
-        if last.get("value") == self.SEPARATOR:
-            self._trim_discord_event_for_footer(embed)
+        if str(last.get("value") or "").endswith(self.SEPARATOR):
+            self._trim_discord_description_for_budget(embed)
             return
-        if last.get("name") in {"📋 Event details", "\u200b"} and not last.get(
+        if last.get("name") == "\u200b" and not last.get(
             "inline",
             True,
         ):
@@ -138,29 +137,31 @@ class DiscordCardFormatter(BaseFormatter):
             )
         elif len(fields) < self.MAX_FIELDS:
             fields.append(self._discord_separator())
-        self._trim_discord_event_for_footer(embed)
+        self._trim_discord_description_for_budget(embed)
 
-    def _trim_discord_event_for_footer(self, embed: dict[str, Any]) -> None:
+    def _trim_discord_description_for_budget(
+        self,
+        embed: dict[str, Any],
+    ) -> None:
         """Keep the mandatory rules without exceeding Discord's text limit."""
 
         excess = self._discord_text_size(embed) - self.EMBED_TEXT_BUDGET
         if excess <= 0:
             return
-        fields = embed.get("fields", [])
-        if not fields:
-            return
-        event = fields[0]
-        value = str(event.get("value") or "")
-        suffix = f"\n```\n\u200b\n{self.SEPARATOR}"
-        if value.endswith(suffix):
-            body = value[: -len(suffix)]
-            event["value"] = (
-                f"{self._truncate(body, max(len(body) - excess, 1))}{suffix}"
+        description = str(embed.get("description") or "")
+        marker = f"\n{self.SEPARATOR}\n```\n"
+        suffix = "\n```"
+        if marker in description and description.endswith(suffix):
+            context, message = description.split(marker, 1)
+            message = message[: -len(suffix)]
+            maximum = max(len(message) - excess, 1)
+            embed["description"] = (
+                f"{context}{marker}{self._truncate(message, maximum)}{suffix}"
             )
             return
-        event["value"] = self._truncate(
-            value,
-            max(len(value) - excess, 1),
+        embed["description"] = self._truncate(
+            description,
+            max(len(description) - excess, 1),
         )
 
     def _discord_detail_fields(
@@ -187,19 +188,24 @@ class DiscordCardFormatter(BaseFormatter):
         current = ""
         for entry in entries:
             candidate = f"{current}\n{entry}" if current else entry
-            if len(candidate) <= 1024:
+            if len(candidate) <= 880:
                 current = candidate
                 continue
             if current:
                 chunks.append(current)
-            current = self._truncate(entry, 1024)
+            current = self._truncate(entry, 880)
         if current:
             chunks.append(current)
 
         fields = []
         for index, chunk in enumerate(chunks):
+            if index == 0:
+                chunk = (
+                    f"{self.SEPARATOR}\n"
+                    f"📋 **Event details**\n{chunk}"
+                )
             fields.append({
-                "name": "📋 Event details" if index == 0 else "\u200b",
+                "name": "\u200b",
                 "value": chunk,
                 "inline": False,
             })
@@ -231,10 +237,14 @@ class DiscordCardFormatter(BaseFormatter):
         del fields[self.MAX_FIELDS :]
 
         # Integration-specific fields are ordered by importance. Preserve the
-        # event plus the Severity/Category/Event time row and remove optional
-        # details from the end first.
+        # Severity/Category/Event time row and remove optional details from
+        # the end first.
+        essential_fields = min(
+            self.ESSENTIAL_FIELDS,
+            sum(bool(field.get("inline")) for field in fields),
+        )
         while (
-            len(fields) > self.ESSENTIAL_FIELDS
+            len(fields) > essential_fields
             and self._discord_text_size(embed) > self.EMBED_TEXT_BUDGET
         ):
             fields.pop()
@@ -242,12 +252,11 @@ class DiscordCardFormatter(BaseFormatter):
         if self._discord_text_size(embed) <= self.EMBED_TEXT_BUDGET:
             return
 
-        event_field = fields[0]
         excess = self._discord_text_size(embed) - self.EMBED_TEXT_BUDGET
-        value = str(event_field.get("value", ""))
-        event_field["value"] = self._truncate(
-            value,
-            max(len(value) - excess, 1),
+        description = str(embed.get("description", ""))
+        embed["description"] = self._truncate(
+            description,
+            max(len(description) - excess, 1),
         )
 
     @staticmethod

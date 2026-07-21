@@ -29,6 +29,9 @@ No changes yet.
 - Refined Discord cards with Teams-like spacing, an unlabelled dark event
   highlight, full-width rules in the correct hierarchy, separated vertical
   details, and a single-line footer.
+- Packaged the official icon directory in the container and upload Discord
+  thumbnails as webhook attachments, preventing integrations such as Grafana
+  and Redfish from losing their logo when Discord cannot fetch a remote URL.
 - Changed the shared Teams/Discord time policy so timezone-aware source values
   and epochs display in the Notifinho machine/container local time by default.
   Naive values remain source-local, missing source times remain omitted, and
@@ -43,6 +46,10 @@ No changes yet.
 - Teams output and configuration validation now reject placeholder, malformed,
   credential-bearing, and non-HTTPS webhook values before attempting delivery.
 - Home Assistant string tags no longer render character by character.
+- Removed Discord's redundant Event field, synthetic blank rows, wrapped rule
+  fragments, and duplicate footer separator while preserving exactly one rule
+  before the highlight, one after the metrics, and one before the footer when
+  details are present.
 - Trusted Dell iDRAC `USR0030` and `USR0032` session audit records can be
   suppressed by exact client address across REDFISH/IPMI transports while
   failed logins and all other security events remain routed.

@@ -124,8 +124,10 @@ def test_protect_card_does_not_list_configured_sources():
     serialized = json.dumps(payload)
     assert "SYNTHETIC-CAMERA" in serialized
     assert "configured_source_count" not in serialized
-    assert len(payload["embeds"][0]["fields"]) == 5
-    assert payload["embeds"][0]["fields"][0]["name"] == "\u200b"
+    assert len(payload["embeds"][0]["fields"]) == 4
+    assert payload["embeds"][0]["fields"][0]["name"].endswith(
+        "Severity"
+    )
     assert payload["embeds"][0]["fields"][-1]["value"].endswith(
         DiscordCardFormatter.SEPARATOR
     )
@@ -378,8 +380,8 @@ def test_missing_values_do_not_leave_icon_only_fields():
     teams = UniFiNetworkTeamsFormatter().format(item)["attachments"][0]["content"]
     facts = _teams_facts(teams)
 
-    assert [field["name"].split(" ", 1)[-1] for field in discord["fields"][:3]] == [
-        "\u200b", "Severity", "Category",
+    assert [field["name"].split(" ", 1)[-1] for field in discord["fields"][:2]] == [
+        "Severity", "Category",
     ]
     assert "Event time" not in json.dumps(discord)
     assert "Event time" not in json.dumps(teams)

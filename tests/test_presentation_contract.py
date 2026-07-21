@@ -479,28 +479,37 @@ def test_every_teams_card_uses_the_shared_information_hierarchy(source):
         "hpe_ilo",
         "dell_idrac",
         "home_assistant",
+        "generic",
     ],
 )
 def test_every_discord_card_uses_the_shared_information_hierarchy(source):
-    formatter = DiscordOutput().source_formatters[source]
+    output = DiscordOutput()
+    formatter = (
+        output.default_formatter
+        if source == "generic"
+        else output.source_formatters[source]
+    )
     embed = formatter.format(_notification(source))["embeds"][0]
 
     assert " • " in embed["title"]
-    assert embed["description"].startswith("\u200b\n")
+    assert not embed["description"].startswith("\u200b\n")
+    assert not embed["description"].startswith("\n")
+    assert "\n\n" not in embed["description"]
     assert embed["description"].count(" • ") == 2
-    assert [field["name"].split(" ", 1)[-1] for field in embed["fields"][:4]] == [
-        "\u200b",
+    assert [field["name"].split(" ", 1)[-1] for field in embed["fields"][:3]] == [
         "Severity",
         "Category",
         "Event time",
     ]
-    assert embed["fields"][0]["inline"] is False
-    assert embed["fields"][0]["value"].startswith("```\n")
-    assert embed["fields"][0]["value"].endswith(
-        f"\n```\n\u200b\n{formatter.SEPARATOR}"
+    assert embed["description"].endswith("\n```")
+    assert (
+        f"\n{formatter.SEPARATOR}\n```\n"
+        in embed["description"]
     )
-    assert all(field["inline"] is True for field in embed["fields"][1:4])
-    assert embed["fields"][3]["value"] == (
+    assert len(formatter.SEPARATOR) == 47
+    assert embed["description"].count(formatter.SEPARATOR) == 1
+    assert all(field["inline"] is True for field in embed["fields"][:3])
+    assert embed["fields"][2]["value"] == (
         "15 Jul 2026 • 01:20"
         if source == "xo"
         else "15 Jul 2026 • 01:15"
@@ -508,6 +517,19 @@ def test_every_discord_card_uses_the_shared_information_hierarchy(source):
     assert len(embed["fields"]) <= 25
     assert formatter._embed_text_size(embed) <= formatter.EMBED_TEXT_BUDGET
     assert embed["fields"][-1]["value"].endswith(formatter.SEPARATOR)
+    assert all(
+        "Event" != field["name"].split(" ", 1)[-1]
+        for field in embed["fields"]
+    )
+    field_separator_count = sum(
+        str(field["value"]).count(formatter.SEPARATOR)
+        for field in embed["fields"]
+    )
+    has_details = any(
+        "📋 **Event details**" in str(field["value"])
+        for field in embed["fields"]
+    )
+    assert field_separator_count == (2 if has_details else 1)
     assert embed["footer"]["text"] == f"FortPT Labs • Notifinho v{VERSION}"
 
 
@@ -524,12 +546,16 @@ def test_discord_details_follow_metrics_and_end_at_the_footer_rule():
     details_index = next(
         index
         for index, field in enumerate(embed["fields"])
-        if field["name"] == "📋 Event details"
+        if "📋 **Event details**" in field["value"]
     )
     details = embed["fields"][details_index]
 
     assert embed["fields"][details_index - 1]["name"].endswith("Event time")
+    assert details["name"] == "\u200b"
     assert details["inline"] is False
+    assert details["value"].startswith(
+        f"{DiscordCardFormatter.SEPARATOR}\n📋 **Event details**\n"
+    )
     assert "🆔 **VMID:** 101" in details["value"]
     assert "💻 **Guest:** APP-01" in details["value"]
     assert details["value"].endswith(DiscordCardFormatter.SEPARATOR)
@@ -544,7 +570,7 @@ def test_discord_converts_source_time_and_never_invents_receipt_time():
     item.metadata["event_time"] = "2026-07-20T18:09:00+05:00"
     embed = DiscordOutput().default_formatter.format(item)["embeds"][0]
 
-    assert embed["fields"][3]["value"] == "20 Jul 2026 • 13:09"
+    assert embed["fields"][2]["value"] == "20 Jul 2026 • 13:09"
     assert "UTC" not in json.dumps(embed)
 
     item.metadata["event_time"] = ""
@@ -581,6 +607,82 @@ def test_xo_and_generic_formatters_are_selected_explicitly():
     assert teams.source_formatters["xo"].__class__.__name__ == "TeamsFormatter"
     assert discord.default_formatter.__class__.__name__ == "GenericDiscordFormatter"
     assert teams.default_formatter.__class__.__name__ == "GenericTeamsFormatter"
+
+
+def test_discord_uploads_packaged_thumbnail_as_webhook_attachment(
+    monkeypatch,
+    tmp_path,
+):
+    captured = {}
+
+    class Config:
+        def get(self, *keys, default=None):
+            if keys[-1:] == ("webhook",):
+                return "https://example.invalid/webhook/synthetic/id"
+            return default
+
+    class Response:
+        status_code = 204
+        text = ""
+
+    icon = tmp_path / "redfish.png"
+    icon.write_bytes(b"\x89PNG\r\n\x1a\nsynthetic")
+
+    def fake_post(url, data, files, timeout):
+        captured["url"] = url
+        captured["payload"] = json.loads(data["payload_json"])
+        captured["filename"] = files["files[0]"][0]
+        captured["content"] = files["files[0]"][1].read()
+        captured["mime"] = files["files[0]"][2]
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr(discord_output_module, "config", Config())
+    monkeypatch.setattr(discord_output_module.requests, "post", fake_post)
+    monkeypatch.setattr(DiscordOutput, "ICON_DIR", tmp_path)
+
+    assert DiscordOutput().send(_notification("redfish"), target="default")
+
+    payload = captured["payload"]
+    assert payload["embeds"][0]["thumbnail"]["url"] == (
+        "attachment://redfish.png"
+    )
+    assert payload["attachments"] == [
+        {"id": 0, "filename": "redfish.png"}
+    ]
+    assert captured["filename"] == "redfish.png"
+    assert captured["content"].startswith(b"\x89PNG")
+    assert captured["mime"] == "image/png"
+    assert captured["timeout"] == 15
+
+
+@pytest.mark.parametrize(
+    ("source", "filename"),
+    TEAMS_PRODUCT_ASSETS.items(),
+)
+def test_every_discord_product_thumbnail_resolves_to_a_packaged_asset(
+    source,
+    filename,
+):
+    item = _notification("home_lab" if source == "generic" else source)
+    output = DiscordOutput()
+    formatter = (
+        output.default_formatter
+        if source == "generic"
+        else output.source_formatters[source]
+    )
+    payload = formatter.format(item)
+    output.ICON_DIR = ROOT / "assets" / "icons"
+
+    resolved = output._local_icon(payload, formatter)
+
+    assert resolved == (filename, output.ICON_DIR / filename)
+
+
+def test_container_image_packages_the_discord_icon_directory():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "COPY assets /notifinho/assets" in dockerfile
 
 
 @pytest.mark.parametrize(

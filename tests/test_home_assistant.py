@@ -317,7 +317,7 @@ def test_home_assistant_discord_string_tags_are_not_split_into_characters():
     details = next(
         field
         for field in embed["fields"]
-        if field["name"] == "📋 Event details"
+        if "📋 **Event details**" in field["value"]
     )
 
     assert "🏷️ **Tags:** office, temperature" in details["value"]

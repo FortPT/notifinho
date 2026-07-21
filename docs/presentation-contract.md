@@ -65,12 +65,14 @@ layout:
    bounded multi-item sections.
 6. Notifinho version footer.
 
-The shared renderer separates the context line from the title, presents the
-unlabelled event message in a dark full-width highlight, places a full-width
-rule directly below it, keeps Severity, Category, and Event time on one row,
-then places source-specific facts in a vertical list. A final full-width rule
-immediately follows the last detail and separates the one-line footer. There
-is no rule after the footer because Discord has no card content below it.
+The shared renderer places the context directly below the title, then one
+non-wrapping full-width rule and the unlabelled event message in a dark
+highlight. It does not insert blank spacer text around the rule or highlight.
+Severity, Category, and Event time stay on one row. A second full-width rule
+starts the vertical event-details section immediately after that row. One
+final rule follows the last detail and separates the one-line footer; cards
+without details use that second rule as the footer separator. There is no rule
+after the footer because Discord has no card content below it.
 
 The normalized Discord model lives in `src/formatters/discord_common.py`. New
 Discord formatters should inherit `DiscordCardFormatter`, create a
@@ -99,11 +101,13 @@ alone.
 
 ## Integration images
 
-Card images must be publicly reachable over HTTPS, render without
-authentication or redirects, and use a Teams- and Discord-supported raster format.
-Notifinho stores normalized 256 px transparent PNGs in `assets/icons/` and
-serves them with the project documentation, avoiding a runtime dependency on
-vendor CDNs.
+Card images use a Teams- and Discord-supported raster format. Notifinho stores
+normalized 256 px transparent PNGs in `assets/icons/` and includes that
+directory in the production image. Discord uploads the matching packaged PNG
+with each webhook request and references it through an `attachment://` URL;
+this prevents a card from silently losing its thumbnail when an external image
+host is unavailable. Teams continues to use the public HTTPS asset URL because
+Adaptive Cards do not support Discord-style webhook attachments.
 
 Production uses the repository's `main/assets/icons` URL. Preview builds and
 installations that mirror the official assets can set

@@ -8,6 +8,8 @@ from pathlib import Path
 
 from api.audit import AuditLog
 from api.config_service import ConfigService
+from api.platform import PlatformAPI
+from api.response import APIResponse
 from api.security import RateLimiter, TokenAuthenticator
 from formatters.presentation import PresentationMixin
 from outputs.discord import DiscordOutput
@@ -16,7 +18,15 @@ from version import VERSION
 
 
 class APIService:
-    def __init__(self, dispatcher, router, configuration):
+    def __init__(
+        self,
+        dispatcher,
+        router,
+        configuration,
+        *,
+        platform_database=None,
+        platform_registry=None,
+    ):
         self.dispatcher = dispatcher
         self.router = router
         self.configuration = configuration
@@ -27,12 +37,52 @@ class APIService:
         self.rate_limiter = RateLimiter()
         self.started = time.monotonic()
         self.sanitizer = PresentationMixin()
+        self.platform = (
+            PlatformAPI(
+                platform_database,
+                dispatcher,
+                configuration,
+                registry=platform_registry,
+            )
+            if platform_database is not None
+            else None
+        )
 
     @property
     def enabled(self) -> bool:
         return bool(self.configuration.get("api", "enabled", default=False))
 
     def handle(self, method: str, path: str, payload, headers, client: str):
+        """Compatibility interface used by direct v1.9 service callers."""
+
+        return self.handle_http(method, path, payload, headers, client).legacy()
+
+    def handle_http(
+        self,
+        method: str,
+        path: str,
+        payload,
+        headers,
+        client: str,
+    ) -> APIResponse:
+        if not self.enabled:
+            return APIResponse(404)
+        if path.startswith("/api/v2/"):
+            if (
+                self.platform is None
+                or self.configuration.get(
+                    "platform",
+                    "enabled",
+                    default=False,
+                )
+                is not True
+            ):
+                return APIResponse(404)
+            return self.platform.handle(method, path, payload, headers, client)
+        status, response = self._handle_v1(method, path, payload, headers, client)
+        return APIResponse(status, response)
+
+    def _handle_v1(self, method: str, path: str, payload, headers, client: str):
         if not self.enabled:
             return 404, None
         if path == "/api/health":

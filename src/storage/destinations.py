@@ -172,14 +172,24 @@ class DestinationStore:
         return [self._destination(row) for row in rows]
 
     def for_delivery(self, actor: Actor, destination_id: str) -> DeliveryDestination:
+        target = self.for_delivery_metadata(actor, destination_id)
+        if not target.destination.enabled:
+            raise PermissionError("destination is disabled")
+        return target
+
+    def for_delivery_metadata(
+        self,
+        actor: Actor,
+        destination_id: str,
+    ) -> DeliveryDestination:
+        """Return secret identity without resolving or exposing its value."""
+
         row = self._record(destination_id)
         OwnershipPolicy.require_read(
             actor,
             str(row["owner_user_id"]),
             bool(row["shared"]),
         )
-        if not bool(row["enabled"]):
-            raise PermissionError("destination is disabled")
         return DeliveryDestination(
             self._destination(row),
             str(row["secret_id"]) if row["secret_id"] is not None else None,
@@ -272,6 +282,36 @@ class DestinationStore:
                 (encoded, now, str(destination_id)),
             )
         self._audit(actor, "destination.update", destination_id, "success")
+        return self.get(actor, destination_id)
+
+    def set_secret(
+        self,
+        actor: Actor,
+        destination_id: str,
+        secret_id: str,
+    ) -> Destination:
+        row = self._record(destination_id)
+        OwnershipPolicy.require_write(actor, str(row["owner_user_id"]))
+        with self.database.transaction() as connection:
+            secret = connection.execute(
+                "SELECT owner_user_id FROM secret_records WHERE id = ?",
+                (str(secret_id),),
+            ).fetchone()
+            if secret is None:
+                raise KeyError("destination secret not found")
+            if str(secret["owner_user_id"]) != str(row["owner_user_id"]):
+                raise PermissionError("destination and secret must have the same owner")
+            connection.execute(
+                "UPDATE destinations SET secret_id = ?, updated_at = ? WHERE id = ?",
+                (str(secret_id), int(self.clock()), str(destination_id)),
+            )
+        self._audit(
+            actor,
+            "destination.secret",
+            destination_id,
+            "success",
+            {"configured": True},
+        )
         return self.get(actor, destination_id)
 
     def delete(self, actor: Actor, destination_id: str) -> None:

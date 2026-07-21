@@ -72,10 +72,13 @@ def main() -> int:
 
         smtp.start()
 
-        http = HTTPInput(
-            dispatcher=dispatcher,
-            router=router,
-        )
+        http_arguments = {
+            "dispatcher": dispatcher,
+            "router": router,
+        }
+        if state_database is not None:
+            http_arguments["platform_database"] = state_database
+        http = HTTPInput(**http_arguments)
 
         http.start()
 

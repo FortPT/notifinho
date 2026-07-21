@@ -4,9 +4,10 @@ Phase 3 implements the disabled output-adapter layer for Discord, Microsoft
 Teams, Slack, generic outbound webhooks, MQTT, and ntfy. It uses the ownership,
 secret, route, retry, history, and audit services from Phases 1 and 2.
 
-These adapters are not exposed through HTTP and are not connected to the
-existing YAML router. Existing v1.x delivery remains authoritative until the
-v2 event API is enabled in a later phase.
+Phase 4 exposes these adapters through authenticated, ownership-safe preview,
+test, and platform event endpoints. They remain disconnected from the existing
+YAML router; existing v1.x delivery remains authoritative for YAML inputs.
+See the [platform API guide](platform-api.md).
 
 ## Common contract
 

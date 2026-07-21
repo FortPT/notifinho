@@ -188,6 +188,96 @@ class RouteStore:
         )
         return self.get(actor, route_id)
 
+    def update(
+        self,
+        actor: Actor,
+        route_id: str,
+        *,
+        name=None,
+        source=None,
+        destination_id=None,
+        filters=None,
+        priority=None,
+        enabled=None,
+    ) -> Route:
+        row = self._record(route_id)
+        owner_user_id = str(row["owner_user_id"])
+        OwnershipPolicy.require_write(actor, owner_user_id)
+
+        display, normalized = normalized_name(
+            row["name"] if name is None else name,
+            "route name",
+        )
+        normalized_source = self._source(
+            row["source"] if source is None else source,
+        )
+        if normalized_source == "*" and not actor.is_admin:
+            raise PermissionError("wildcard routes require an administrator")
+        encoded_filters = self._filters(
+            json.loads(str(row["filters_json"])) if filters is None else filters,
+        )
+        bounded_priority = int(row["priority"] if priority is None else priority)
+        if not 0 <= bounded_priority <= 1000:
+            raise ValueError("route priority must be between 0 and 1000")
+        if enabled is None:
+            enabled_value = bool(row["enabled"])
+        elif isinstance(enabled, bool):
+            enabled_value = enabled
+        else:
+            raise ValueError("route enabled must be a boolean")
+        next_destination = str(
+            row["destination_id"] if destination_id is None else destination_id
+        )
+        now = int(self.clock())
+        try:
+            with self.database.transaction() as connection:
+                destination = connection.execute(
+                    "SELECT owner_user_id, shared FROM destinations WHERE id = ?",
+                    (next_destination,),
+                ).fetchone()
+                if destination is None:
+                    raise KeyError("route destination not found")
+                if (
+                    str(destination["owner_user_id"]) != owner_user_id
+                    and not bool(destination["shared"])
+                ):
+                    raise PermissionError(
+                        "route destination must be owned by the user or shared"
+                    )
+                connection.execute(
+                    """
+                    UPDATE routes
+                    SET name = ?, name_normalized = ?, source = ?,
+                        destination_id = ?, filters_json = ?, priority = ?,
+                        enabled = ?, updated_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        display,
+                        normalized,
+                        normalized_source,
+                        next_destination,
+                        encoded_filters,
+                        bounded_priority,
+                        1 if enabled_value else 0,
+                        now,
+                        str(route_id),
+                    ),
+                )
+        except sqlite3.IntegrityError as error:
+            raise ValueError(
+                "route name is already configured for this owner"
+            ) from error
+        route = self.get(actor, route_id)
+        self._audit(
+            actor,
+            "route.update",
+            route_id,
+            "success",
+            {"source": route.source, "destination_id": route.destination_id},
+        )
+        return route
+
     def delete(self, actor: Actor, route_id: str) -> None:
         row = self._record(route_id)
         OwnershipPolicy.require_write(actor, str(row["owner_user_id"]))

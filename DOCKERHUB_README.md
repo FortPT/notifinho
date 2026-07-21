@@ -185,6 +185,8 @@ https://github.com/FortPT/notifinho
   bounded delivery retries, audit events, and safe delivery history
 - Ownership-safe preview/test contracts and disabled adapters for Discord,
   Teams, Slack, generic webhooks, MQTT, and ntfy
+- Opt-in authenticated `/api/v2` sessions, CSRF, owned-resource management,
+  preview/test endpoints, and source-scoped platform event submission
 - Responsive v2.0 WebUI
 - Local administrator and user accounts
 - User- and application-scoped event endpoints and API tokens

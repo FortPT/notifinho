@@ -243,6 +243,19 @@ def test_configuration_validation_accepts_disabled_platform_state():
     }) == []
 
 
+@pytest.mark.parametrize("value", ["false", 0, 1, None, []])
+def test_configuration_validation_rejects_non_boolean_secure_cookie_switch(value):
+    errors = validate_config({
+        "platform": {
+            "enabled": False,
+            "state_dir": "/notifinho/state",
+            "secure_cookies": value,
+        },
+    })
+
+    assert "platform.secure_cookies must be a boolean" in errors
+
+
 @pytest.mark.parametrize(
     "webhook",
     ["PASTE_HERE", "http://example.invalid/hook", "not-a-url", ""],

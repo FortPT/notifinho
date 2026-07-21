@@ -56,13 +56,19 @@ class HTTPServer(ThreadingHTTPServer):
         router,
         max_body_bytes: int,
         shared_secret: str,
+        platform_database=None,
     ):
         super().__init__(address, HTTPHandler)
         self.dispatcher = dispatcher
         self.router = router
         self.max_body_bytes = max_body_bytes
         self.shared_secret = shared_secret
-        self.api = APIService(dispatcher, router, config)
+        self.api = APIService(
+            dispatcher,
+            router,
+            config,
+            platform_database=platform_database,
+        )
         self._seen: dict[str, float] = {}
         self._seen_lock = threading.Lock()
 
@@ -197,9 +203,17 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self._unsupported_method()
 
     def do_PATCH(self) -> None:  # noqa: N802
+        request_url = urlsplit(self.path)
+        if request_url.path.startswith("/api/"):
+            self._api_request("PATCH", request_url.path)
+            return
         self._unsupported_method()
 
     def do_DELETE(self) -> None:  # noqa: N802
+        request_url = urlsplit(self.path)
+        if request_url.path.startswith("/api/"):
+            self._api_request("DELETE", request_url.path)
+            return
         self._unsupported_method()
 
     def do_HEAD(self) -> None:  # noqa: N802
@@ -240,7 +254,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
 
     def _api_request(self, method: str, path: str) -> None:
         payload = None
-        if method in {"POST", "PUT"}:
+        if method in {"POST", "PUT", "PATCH"}:
             content_type = self.headers.get("Content-Type", "")
             if not is_json_content_type(content_type):
                 self._respond_json(400, {"error": "application/json required"})
@@ -258,14 +272,18 @@ class HTTPHandler(BaseHTTPRequestHandler):
             except (UnicodeError, json.JSONDecodeError):
                 self._respond_json(400, {"error": "invalid JSON"})
                 return
-        status, response = self.server.api.handle(
+        response = self.server.api.handle_http(
             method,
             path,
             payload,
             self.headers,
             self.client_address[0],
         )
-        self._respond_json(status, response)
+        self._respond_json(
+            response.status,
+            response.payload,
+            response.headers,
+        )
 
     def _respond(self, status: int, headers: dict[str, str] | None = None) -> None:
         self.send_response(status)
@@ -274,15 +292,32 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
-    def _respond_json(self, status: int, payload) -> None:
+    def _respond_json(
+        self,
+        status: int,
+        payload,
+        headers: tuple[tuple[str, str], ...] = (),
+    ) -> None:
         body = b""
         if payload is not None:
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
         self.send_response(status)
         if body:
             self.send_header("Content-Type", "application/json; charset=utf-8")
-        if status == 405:
+        platform_response = urlsplit(self.path).path.startswith("/api/v2/")
+        if platform_response:
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            if not any(
+                str(name).casefold() == "cache-control" for name, _value in headers
+            ):
+                self.send_header("Cache-Control", "no-store")
+        if status == 405 and not any(
+            str(name).casefold() == "allow" for name, _value in headers
+        ):
             self.send_header("Allow", "GET, POST, PUT")
+        for name, value in headers:
+            self.send_header(name, value)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         if body:
@@ -296,7 +331,7 @@ class HTTPHandler(BaseHTTPRequestHandler):
 class HTTPInput:
     """Configurable HTTP listener that shares the application lifecycle."""
 
-    def __init__(self, dispatcher, router):
+    def __init__(self, dispatcher, router, *, platform_database=None):
         self.dispatcher = dispatcher
         self.router = router
         self.enabled = bool(config.get("http", "enabled", default=False))
@@ -309,6 +344,7 @@ class HTTPInput:
         self.shared_secret = str(
             config.get("http", "shared_secret", default="") or ""
         )
+        self.platform_database = platform_database
         self.server: HTTPServer | None = None
         self.thread: threading.Thread | None = None
 
@@ -324,6 +360,7 @@ class HTTPInput:
             self.router,
             self.max_body_bytes,
             self.shared_secret,
+            self.platform_database,
         )
         self.thread = threading.Thread(
             target=self.server.serve_forever,

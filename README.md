@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.6-blue" alt="Stable release v1.9.6">
+  <img src="https://img.shields.io/badge/stable-v1.9.7-blue" alt="Stable release v1.9.7">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.6** |
+| **Current Stable Release** | **v1.9.7** |
 | **Next Planned Release** | **v2.0.0** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,12 +57,10 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.6 completes the Microsoft Teams and Discord presentation
-contract with official vendor assets, exact asset regression coverage, shared
-device/event hierarchy, protected platform limits, and richer optional facts.
-Timezone-aware source timestamps are displayed in the Notifinho machine's
-local clock in both outputs; naive source values remain local and missing
-times are omitted. Existing
+Notifinho v1.9.7 permanently pins official Teams and Discord icon URLs to the
+exact stable release commit and uploads packaged thumbnails for Discord
+Components V2. The accepted v1.9.6 presentation, machine-local timestamps,
+device aliases, and trusted Dell audit suppression remain unchanged. Existing
 endpoints, parsers, routes, targets, secrets, and
 the Supermicro BMC, HPE iLO, Dell iDRAC, Home Assistant, Portainer, Proxmox VE,
 Synology DSM, and native UniFi integrations remain compatible. Notifinho consumes
@@ -76,7 +74,7 @@ enabled with STARTTLS and SMTP AUTH; see the
 
 # 📸 Preview
 
-The v1.9.6 examples below are the final live presentation approved on
+The examples below show the final live presentation approved on
 Microsoft Teams and Discord. Both destinations use the same device/event,
 status, source-time, and official-asset contract while retaining the details
 best suited to each platform.
@@ -1612,6 +1610,15 @@ live v1.9.4 office audit. See the
   source IP across REDFISH and IPMI transports
 - Placeholder, malformed, and non-HTTPS Teams webhooks fail before delivery
 - Existing valid webhooks, routes, endpoints, and secrets remain compatible
+
+---
+
+## ✅ v1.9.7 — Permanent official icon delivery
+
+Notifinho v1.9.7 is a focused packaging and delivery correction. Official
+Docker images pin the vendor asset base to their own immutable release commit,
+and Discord Components V2 uploads the matching packaged PNG. No layout,
+routing, parser, timestamp, configuration, or secret contract changes.
 
 ---
 

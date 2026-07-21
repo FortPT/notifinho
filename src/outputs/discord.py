@@ -156,10 +156,8 @@ class DiscordOutput:
                     timeout=15,
                 )
             else:
-                filename, path = icon
-                payload["embeds"][0]["thumbnail"]["url"] = (
-                    f"attachment://{filename}"
-                )
+                filename, path, thumbnail = icon
+                thumbnail["url"] = f"attachment://{filename}"
                 payload["attachments"] = [
                     {
                         "id": 0,
@@ -229,13 +227,10 @@ class DiscordOutput:
         ))
 
     def _local_icon(self, payload, formatter):
-        """Resolve a safe packaged icon for Discord multipart delivery."""
+        """Resolve a packaged icon and its mutable thumbnail media object."""
 
-        embeds = payload.get("embeds") if isinstance(payload, dict) else None
-        if not isinstance(embeds, list) or not embeds:
-            return None
-        thumbnail = embeds[0].get("thumbnail")
-        if not isinstance(thumbnail, dict):
+        thumbnail = self._thumbnail_media(payload)
+        if thumbnail is None:
             return None
         url = str(thumbnail.get("url") or "")
         filename = Path(urlparse(url).path).name
@@ -249,4 +244,36 @@ class DiscordOutput:
                 filename,
             )
             return None
-        return filename, path
+        return filename, path, thumbnail
+
+    @classmethod
+    def _thumbnail_media(cls, payload):
+        """Find legacy embed or Components V2 thumbnail media recursively."""
+
+        if not isinstance(payload, dict):
+            return None
+
+        embeds = payload.get("embeds")
+        if isinstance(embeds, list) and embeds:
+            thumbnail = embeds[0].get("thumbnail")
+            if isinstance(thumbnail, dict) and thumbnail.get("url"):
+                return thumbnail
+
+        def visit(value):
+            if isinstance(value, dict):
+                if value.get("type") == 11:
+                    media = value.get("media")
+                    if isinstance(media, dict) and media.get("url"):
+                        return media
+                for child in value.values():
+                    found = visit(child)
+                    if found is not None:
+                        return found
+            elif isinstance(value, list):
+                for child in value:
+                    found = visit(child)
+                    if found is not None:
+                        return found
+            return None
+
+        return visit(payload.get("components"))

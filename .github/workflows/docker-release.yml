@@ -59,6 +59,7 @@ jobs:
           fetch-depth: 0
 
       - name: Verify tag and application version
+        id: release
         shell: bash
         env:
           TAG: ${{ steps.version.outputs.tag }}
@@ -88,7 +89,13 @@ jobs:
             exit 1
           fi
 
+          ICON_BASE_URL="https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${HEAD_SHA}/assets/icons"
+
+          echo "commit_sha=${HEAD_SHA}" >> "$GITHUB_OUTPUT"
+          echo "icon_base_url=${ICON_BASE_URL}" >> "$GITHUB_OUTPUT"
+
           echo "Application version ${APP_VERSION} matches ${TAG}."
+          echo "Immutable icon base: ${ICON_BASE_URL}"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -129,6 +136,8 @@ jobs:
         with:
           context: .
           push: true
+          build-args: |
+            NOTIFINHO_ICON_BASE_URL=${{ steps.release.outputs.icon_base_url }}
           tags: |
             fortpt/notifinho:${{ steps.version.outputs.version }}
             fortpt/notifinho:latest

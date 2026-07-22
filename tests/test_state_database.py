@@ -250,9 +250,18 @@ def test_schema_one_database_upgrades_to_user_routing_schema(tmp_path):
         bootstrap_migration = connection.execute(
             "SELECT name FROM schema_migrations WHERE version = 3"
         ).fetchone()[0]
+        configuration_migration = connection.execute(
+            "SELECT name FROM schema_migrations WHERE version = 4"
+        ).fetchone()[0]
+        destination_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(destinations)")
+        }
     assert {"version", "updated_at"} <= columns
     assert migration == "user routing and delivery foundation"
     assert bootstrap_migration == "secure first-run bootstrap"
+    assert configuration_migration == "unified YAML configuration mirror"
+    assert "configuration_key" in destination_columns
+    assert len(list((database.path.parent / "schema-backups").glob("*.db"))) == 1
 
 
 def test_missing_platform_switch_enables_persistent_legacy_config_fallback(

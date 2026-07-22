@@ -184,11 +184,13 @@ def test_webui_markup_is_semantic_external_and_complete():
         "view-deliveries",
         "view-audit",
         "view-users",
+        "view-settings",
         "view-data",
         "view-account",
         "configuration-status",
         "configuration-summary",
         "configuration-inputs",
+        "preferences-form",
         "destination-dialog",
         "route-dialog",
         "token-dialog",
@@ -216,6 +218,7 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
         "/deliveries",
         "/audit-events",
         "/users",
+        "/preferences",
         "/portability/export",
         "/portability/preview",
         "/portability/import",
@@ -232,6 +235,10 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
     assert 'const API = "/api/v2"' in script
     assert 'credentials: "same-origin"' in script
     assert 'cache: "no-store"' in script
+    assert '["delivered", "success"].includes(item.outcome)' in script
+    assert 'delivery.success ? `Test delivery sent successfully (${detail}).`' in script
+    assert 'actionButton("Reset password", "reset-user", item.id)' in script
+    assert 'if (!self)' in script
     assert 'headers["X-CSRF-Token"]' in script
     assert "navigator.clipboard.writeText" in script
     assert "textContent" in script

@@ -4,9 +4,8 @@ Notifinho's v2 platform foundation uses SQLite and owner-only secret files. It
 does not require PostgreSQL, Redis, or another container. Platform state and
 the same-origin WebUI are enabled by default, while explicit
 `platform.enabled: false` and `webui.enabled: false` settings remain
-authoritative. Existing v1.x YAML configuration remains authoritative for the
-legacy pipeline until an administrator confirms the v2.0.2 takeover. Inputs
-and non-routing behavior continue to be YAML-managed afterward.
+authoritative. Existing YAML configuration is the single configuration source;
+SQLite mirrors file-backed outputs and routes for delivery operations.
 
 ## Storage layout
 
@@ -17,8 +16,10 @@ The hardened production Compose layout is:
 |- notifinho.db
 |- secrets/
 |  `- generated-identifier.v1
-`- backups/
-   `- state-YYYYMMDDTHHMMSSZ-identifier/
+|- backups/
+|  `- state-YYYYMMDDTHHMMSSZ-identifier/
+`- schema-backups/
+   `- notifinho-schema-3-before-4-TIMESTAMP.db
 ```
 
 The state directory and secret directory are mode `0700`. The SQLite database
@@ -39,6 +40,8 @@ SQLite foreign keys and transactional migrations protect relationships among:
 Schema migrations run in order and are recorded in `schema_migrations`. Schema
 version 2 adds API-token rotation metadata and safe delivery-attempt history.
 Schema version 3 adds digest-only, expiring, single-use first-run setup tokens.
+Schema version 4 adds stable configuration keys for the YAML runtime mirror.
+A pre-migration SQLite snapshot is created automatically before schema 4.
 A database created by a newer Notifinho schema is rejected instead of being
 silently downgraded. See the
 [user routing and delivery guide](platform-routing.md) for the schema-v2
@@ -86,7 +89,7 @@ platform:
   enabled: true
   state_dir: "/notifinho/state"
   backup_retention: 20
-  routing_authority: "yaml"
+  configuration_model: "unified_yaml_v1"
   secure_cookies: true
 ```
 
@@ -95,10 +98,10 @@ exist, every startup rotates a random 256-bit setup token, writes only its
 SHA-256 digest to SQLite, and prints the plaintext token once to container
 output. Open the WebUI over HTTPS, enter that token, and choose the first
 administrator username and password. The token expires after 30 minutes and is
-consumed immediately after successful setup. The WebUI inventories YAML routes
-without changing them. Only the separately previewed and confirmed takeover
-imports their supported destinations/routes and sets database authority; the
-YAML values remain as rollback fallback.
+consumed immediately after successful setup. The WebUI reads and writes the
+mounted YAML through validated, atomic server-side operations. External edits
+are synchronized automatically; invalid YAML leaves the last known-good
+runtime active and is reported for operator repair.
 
 ## Trusted recovery CLI
 
@@ -139,7 +142,7 @@ directory into encrypted owner-only storage. Do not copy a live SQLite database
 with ordinary filesystem tools. Server-side snapshots are not a substitute for
 off-host backups.
 
-Phase 1 rollback is non-destructive: set `platform.enabled` to `false` and run
-the previously validated image. The older image ignores the preserved state
-directory. Never delete or downgrade the database; restore a matching backup
-if a later release's migration notes require it.
+v2.1.0 uses schema 4. A v2.0.2 image rejects that newer database, so rollback
+requires stopping the container and restoring the complete pre-upgrade state
+and configuration backups before pinning `2.0.2`. Never delete or hand-edit the
+database to imitate a downgrade.

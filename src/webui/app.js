@@ -10,6 +10,7 @@ const VIEW_TITLES = {
   deliveries: ["Operations", "Delivery history"],
   audit: ["Security", "Audit log"],
   users: ["Administration", "Users"],
+  settings: ["Administration", "Settings"],
   data: ["Administration", "Data tools"],
   account: ["Profile", "Account security"],
 };
@@ -20,6 +21,80 @@ const OUTPUT_NAMES = {
   webhook: "Generic webhook",
   mqtt: "MQTT",
   ntfy: "ntfy",
+};
+const PT_TRANSLATIONS = {
+  "Overview": "Visão geral",
+  "Destinations": "Destinos",
+  "Routes": "Rotas",
+  "Applications": "Aplicações",
+  "Delivery history": "Histórico de entregas",
+  "Audit log": "Registo de auditoria",
+  "Users": "Utilizadores",
+  "Settings": "Definições",
+  "Data tools": "Ferramentas de dados",
+  "Account security": "Segurança da conta",
+  "Workspace": "Área de trabalho",
+  "Outputs": "Saídas",
+  "Routing": "Encaminhamento",
+  "Access": "Acesso",
+  "Operations": "Operações",
+  "Security": "Segurança",
+  "Administration": "Administração",
+  "Profile": "Perfil",
+  "Add destination": "Adicionar destino",
+  "Add route": "Adicionar rota",
+  "Issue token": "Emitir token",
+  "Add user": "Adicionar utilizador",
+  "Destinations": "Destinos",
+  "Active routes": "Rotas ativas",
+  "Recent success": "Sucesso recente",
+  "Recent deliveries": "Entregas recentes",
+  "View all": "Ver tudo",
+  "Source": "Origem",
+  "Route": "Rota",
+  "Destination": "Destino",
+  "Filters": "Filtros",
+  "Priority": "Prioridade",
+  "Management": "Gestão",
+  "Status": "Estado",
+  "Time": "Hora",
+  "Action": "Ação",
+  "Resource": "Recurso",
+  "Outcome": "Resultado",
+  "Details": "Detalhes",
+  "User": "Utilizador",
+  "Role": "Função",
+  "Last login": "Último início de sessão",
+  "Language": "Idioma",
+  "Timezone": "Fuso horário",
+  "Time format": "Formato horário",
+  "Save settings": "Guardar definições",
+  "English (United Kingdom)": "Inglês (Reino Unido)",
+  "Português (Portugal)": "Português (Portugal)",
+  "24-hour": "24 horas",
+  "12-hour (AM/PM)": "12 horas (AM/PM)",
+  "Change password": "Alterar palavra-passe",
+  "Current password": "Palavra-passe atual",
+  "New password": "Nova palavra-passe",
+  "Confirm new password": "Confirmar nova palavra-passe",
+  "Update password": "Atualizar palavra-passe",
+  "End session": "Terminar sessão",
+  "Sign out": "Terminar sessão",
+  "Create backup": "Criar cópia de segurança",
+  "Download safe JSON": "Transferir JSON seguro",
+  "Preview JSON import": "Pré-visualizar importação JSON",
+  "Connected": "Ligado",
+  "Offline": "Sem ligação",
+  "Enabled": "Ativo",
+  "Disabled": "Desativado",
+  "Active": "Ativo",
+  "Revoked": "Revogado",
+  "Preview": "Pré-visualizar",
+  "Edit": "Editar",
+  "Disable": "Desativar",
+  "Enable": "Ativar",
+  "Delete": "Eliminar",
+  "Reset password": "Repor palavra-passe",
 };
 const state = {
   user: null,
@@ -33,6 +108,7 @@ const state = {
   users: [],
   backups: [],
   configuration: null,
+  preferences: { timezone: "Europe/Lisbon", language: "en-GB", time_format: "24" },
   pendingImport: null,
   sessionExpiresAt: null,
   confirmResolve: null,
@@ -177,9 +253,14 @@ function formatTime(value) {
   const number = Number(value);
   const date = new Date(number < 10_000_000_000 ? number * 1000 : number);
   if (Number.isNaN(date.getTime())) return "Unknown";
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
+  return new Intl.DateTimeFormat(state.preferences.language || "en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: state.preferences.time_format === "12",
+    timeZone: state.preferences.timezone || "Europe/Lisbon",
   }).format(date);
 }
 
@@ -187,7 +268,7 @@ function relativeTime(value) {
   if (!value) return "Never";
   const seconds = Number(value) < 10_000_000_000 ? Number(value) : Number(value) / 1000;
   const delta = Math.round(seconds - Date.now() / 1000);
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const formatter = new Intl.RelativeTimeFormat(state.preferences.language || "en-GB", { numeric: "auto" });
   const absolute = Math.abs(delta);
   if (absolute < 60) return formatter.format(delta, "second");
   if (absolute < 3600) return formatter.format(Math.round(delta / 60), "minute");
@@ -238,7 +319,10 @@ function showApp(session) {
   byId("login-view").hidden = true;
   byId("app-shell").hidden = false;
   byId("users-nav").hidden = !isAdmin();
+  byId("settings-nav").hidden = !isAdmin();
   byId("data-nav").hidden = !isAdmin();
+  byId("add-destination-button").hidden = !isAdmin();
+  byId("add-route-button").hidden = !isAdmin();
   const name = state.user.username;
   const role = state.user.role;
   for (const id of ["profile-avatar", "account-avatar"]) byId(id).textContent = initials(name);
@@ -339,6 +423,7 @@ async function loadWorkspace() {
     request("/tokens"),
     request("/deliveries"),
     request("/audit-events"),
+    request("/preferences"),
   ];
   if (isAdmin()) {
     tasks.push(request("/users"));
@@ -351,12 +436,13 @@ async function loadWorkspace() {
   state.tokens = results[2].tokens;
   state.deliveries = results[3].deliveries;
   state.audit = results[4].audit_events;
-  state.users = isAdmin() ? results[5].users : [];
-  state.backups = isAdmin() ? results[6].backups : [];
-  state.configuration = isAdmin() ? results[7].configuration : null;
+  state.preferences = results[5].preferences;
+  state.users = isAdmin() ? results[6].users : [];
+  state.backups = isAdmin() ? results[7].backups : [];
+  state.configuration = isAdmin() ? results[8].configuration : null;
   renderAll();
   const requested = window.location.hash.slice(1);
-  navigate(VIEW_TITLES[requested] && (!["users", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
+  navigate(VIEW_TITLES[requested] && (!["users", "settings", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
 }
 
 async function refreshWorkspace() {
@@ -382,10 +468,24 @@ function renderAll() {
   renderUsers();
   renderBackups();
   renderConfiguration();
+  renderPreferences();
+  applyLanguage();
+}
+
+function applyLanguage() {
+  document.documentElement.lang = state.preferences.language || "en-GB";
+  for (const item of document.querySelectorAll("body *")) {
+    if (item.children.length || ["SCRIPT", "STYLE", "CODE", "PRE"].includes(item.tagName)) continue;
+    const current = item.textContent.trim();
+    if (!item.dataset.i18nSource && !Object.hasOwn(PT_TRANSLATIONS, current)) continue;
+    if (!item.dataset.i18nSource) item.dataset.i18nSource = current;
+    const source = item.dataset.i18nSource;
+    item.textContent = state.preferences.language === "pt-PT" ? (PT_TRANSLATIONS[source] || source) : source;
+  }
 }
 
 function navigate(view) {
-  if (!VIEW_TITLES[view] || (["users", "data"].includes(view) && !isAdmin())) view = "dashboard";
+  if (!VIEW_TITLES[view] || (["users", "settings", "data"].includes(view) && !isAdmin())) view = "dashboard";
   state.currentView = view;
   for (const section of document.querySelectorAll(".view")) {
     section.hidden = section.dataset.page !== view;
@@ -406,30 +506,20 @@ function navigate(view) {
 }
 
 function renderDashboard() {
-  const configuration = state.configuration;
-  const yamlActive = configuration && configuration.authority === "yaml";
-  const yamlDestinations = yamlActive ? configuration.outputs : [];
-  const yamlRoutes = yamlActive ? configuration.routes : [];
-  const activeDestinations = yamlActive
-    ? yamlDestinations.filter((item) => item.enabled && item.credential_configured).length
-    : state.destinations.filter((item) => item.enabled).length;
-  const activeRoutes = yamlActive
-    ? yamlRoutes.filter((item) => item.enabled).length
-    : state.routes.filter((item) => item.enabled).length;
-  const activeTokens = state.tokens.filter((item) => !item.revoked_at).length;
-  const completed = state.deliveries.filter((item) => item.outcome === "success").length;
+  const activeDestinations = state.destinations.filter((item) => item.enabled).length;
+  const activeRoutes = state.routes.filter((item) => item.enabled).length;
+  const activeTokens = state.tokens.filter((item) => !item.revoked_at && item.enabled !== false && item.credential_available !== false).length;
+  const completed = state.deliveries.filter((item) => ["delivered", "success"].includes(item.outcome)).length;
   const success = state.deliveries.length ? Math.round((completed / state.deliveries.length) * 100) : null;
-  byId("metric-destinations").textContent = yamlActive ? yamlDestinations.length : state.destinations.length;
-  byId("metric-destinations-note").textContent = `${activeDestinations} active${yamlActive ? " · YAML" : " · WebUI"}`;
+  byId("metric-destinations").textContent = state.destinations.length;
+  byId("metric-destinations-note").textContent = `${activeDestinations} active · config.yaml`;
   byId("metric-routes").textContent = activeRoutes;
-  byId("metric-routes-note").textContent = `${yamlActive ? yamlRoutes.length : state.routes.length} configured${yamlActive ? " · YAML" : " · WebUI"}`;
+  byId("metric-routes-note").textContent = `${state.routes.length} configured · config.yaml`;
   byId("metric-tokens").textContent = activeTokens;
   byId("metric-tokens-note").textContent = `${state.tokens.length} issued`;
   byId("metric-success").textContent = success === null ? "—" : `${success}%`;
   byId("metric-success-note").textContent = state.deliveries.length ? `${state.deliveries.length} recent attempts` : "No attempts yet";
-  byId("setup-destination").classList.toggle("complete", activeDestinations > 0);
-  byId("setup-route").classList.toggle("complete", activeRoutes > 0);
-  byId("setup-token").classList.toggle("complete", state.tokens.length > 0);
+  renderFlow();
   const container = byId("dashboard-deliveries");
   container.replaceChildren();
   if (!state.deliveries.length) {
@@ -437,9 +527,10 @@ function renderDashboard() {
     return;
   }
   for (const item of state.deliveries.slice(0, 6)) {
-    const outcome = item.outcome === "success" ? "success" : item.retryable ? "warning" : "danger";
+    const delivered = ["delivered", "success"].includes(item.outcome);
+    const outcome = delivered ? "success" : item.retryable ? "warning" : "danger";
     container.append(element("div", { className: "activity-item" }, [
-      element("span", { className: "event-indicator", text: item.outcome === "success" ? "✓" : "!" }),
+      element("span", { className: "event-indicator", text: delivered ? "✓" : "!" }),
       element("div", {}, [
         element("strong", { text: item.title || "Untitled event" }),
         element("small", { text: `${item.source} · ${item.severity} · attempt ${item.attempt_number}` }),
@@ -449,16 +540,39 @@ function renderDashboard() {
   }
 }
 
+function renderFlow() {
+  const container = byId("dashboard-flow");
+  container.replaceChildren();
+  const enabledRoutes = state.routes.filter((item) => item.enabled);
+  const routedDestinations = new Set();
+  for (const route of enabledRoutes) {
+    const destination = state.destinations.find((item) => item.id === route.destination_id);
+    if (destination) routedDestinations.add(destination.id);
+    container.append(element("div", { className: "flow-row" }, [
+      element("div", { className: "flow-node source-node" }, [element("strong", { text: route.source }), element("small", { text: route.source === "*" ? "Every source" : "Event source" })]),
+      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: "→" }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow", text: "→" })]),
+      element("div", { className: "flow-node destination-node" }, [element("strong", { text: destination ? destination.name : "Missing destination" }), element("small", { text: destination ? (OUTPUT_NAMES[destination.output_type] || destination.output_type) : "Configuration error" })]),
+    ]));
+  }
+  for (const destination of state.destinations.filter((item) => item.enabled && !routedDestinations.has(item.id))) {
+    container.append(element("div", { className: "flow-row unrouted" }, [
+      element("div", { className: "flow-node muted-node" }, [element("strong", { text: "No source" }), element("small", { text: "Unrouted" })]),
+      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: "·" }), element("div", {}, [element("strong", { text: "No active route" }), element("small", { text: "Destination is enabled but unused" })]), element("span", { className: "flow-arrow", text: "→" })]),
+      element("div", { className: "flow-node destination-node" }, [element("strong", { text: destination.name }), element("small", { text: OUTPUT_NAMES[destination.output_type] || destination.output_type })]),
+    ]));
+  }
+  if (!container.children.length) empty(container, "No active signal flow", "Enable a destination and route to display it here.");
+}
+
 function renderDestinations() {
   const container = byId("destination-list");
   container.replaceChildren();
-  const yamlDestinations = state.configuration ? state.configuration.outputs : [];
-  if (!state.destinations.length && !yamlDestinations.length) {
+  if (!state.destinations.length) {
     empty(container, "No destinations", "Add an output to preview payloads and receive routed events.");
     return;
   }
   for (const item of state.destinations) {
-    const editable = ownResource(item) || isAdmin();
+    const editable = isAdmin();
     const actions = element("div", { className: "resource-actions" }, [
       actionButton("Preview", "preview-destination", item.id),
     ]);
@@ -469,7 +583,7 @@ function renderDestinations() {
         actionButton("Delete", "delete-destination", item.id, "danger"),
       );
     }
-    const ownership = ownResource(item) ? "Owned by you" : "Shared destination";
+    const ownership = "Shared configuration";
     const meta = element("div", { className: "resource-meta" }, [
       badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning"),
       badge(item.shared ? "Shared" : "Private"),
@@ -482,32 +596,9 @@ function renderDestinations() {
           element("div", {}, [element("strong", { text: item.name }), element("small", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · ${ownership}` })]),
         ]),
       ]),
-      element("div", { className: "resource-meta" }, [badge("WebUI managed", "success")]),
+      element("div", { className: "resource-meta" }, [badge("config.yaml", "success")]),
       meta,
       actions,
-    ]));
-  }
-  for (const item of yamlDestinations) {
-    const authoritative = Boolean(item.authority);
-    const credentialStyle = item.credential_configured ? "success" : "warning";
-    container.append(element("article", { className: "resource-card yaml-resource" }, [
-      element("div", { className: "resource-heading" }, [
-        element("div", { className: "resource-identity" }, [
-          element("span", { className: "resource-icon", text: item.output_type.slice(0, 2) }),
-          element("div", {}, [
-            element("strong", { text: item.target }),
-            element("small", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · config.yaml` }),
-          ]),
-        ]),
-      ]),
-      element("div", { className: "resource-meta" }, [
-        badge("YAML managed"),
-        badge(authoritative ? "Active authority" : "Rollback fallback", authoritative ? "success" : "warning"),
-        badge(item.credential_configured ? "Credentials set" : "No credentials", credentialStyle),
-      ]),
-      element("p", { className: "resource-note", text: authoritative
-        ? "This destination is active through the mounted configuration. Preview the safe takeover to manage it here."
-        : "Retained in config.yaml for immediate routing rollback; WebUI routing is active." }),
     ]));
   }
 }
@@ -529,39 +620,27 @@ function filterSummary(filters) {
 function renderRoutes() {
   const body = byId("route-table");
   body.replaceChildren();
-  const yamlRoutes = state.configuration ? state.configuration.routes : [];
-  byId("route-empty").hidden = state.routes.length > 0 || yamlRoutes.length > 0;
-  if (!state.routes.length && !yamlRoutes.length) {
+  byId("route-empty").hidden = state.routes.length > 0;
+  if (!state.routes.length) {
     byId("route-empty").replaceChildren(element("strong", { text: "No routes" }), element("span", { text: "Create a route after adding a destination." }));
     return;
   }
   for (const item of state.routes) {
-    const actions = element("div", { className: "row-actions" }, [
+    const actions = element("div", { className: "row-actions" });
+    if (isAdmin()) actions.append(
       actionButton("Edit", "edit-route", item.id),
       actionButton(item.enabled ? "Disable" : "Enable", "toggle-route", item.id),
       actionButton("Delete", "delete-route", item.id, "danger"),
-    ]);
+    );
     body.append(element("tr", {}, [
       element("td", {}, element("strong", { text: item.name })),
       element("td", { text: item.source }),
       element("td", { text: destinationName(item.destination_id) }),
       element("td", {}, element("small", { text: filterSummary(item.filters) })),
       element("td", { text: item.priority }),
-      element("td", {}, badge("WebUI", "success")),
+      element("td", {}, badge("config.yaml", "success")),
       element("td", {}, badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning")),
       element("td", {}, actions),
-    ]));
-  }
-  for (const item of yamlRoutes) {
-    body.append(element("tr", { className: "yaml-row" }, [
-      element("td", {}, [element("strong", { text: item.name }), element("small", { text: "Mounted config.yaml" })]),
-      element("td", { text: item.source }),
-      element("td", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · ${item.target}` }),
-      element("td", {}, element("small", { text: filterSummary(item.filters) })),
-      element("td", { text: "—" }),
-      element("td", {}, badge("YAML")),
-      element("td", {}, badge(item.authority ? "Active" : "Fallback", item.authority ? "success" : "warning")),
-      element("td", {}, element("small", { text: item.authority ? "Migrate to edit" : "Rollback copy" })),
     ]));
   }
 }
@@ -575,17 +654,19 @@ function renderTokens() {
     return;
   }
   for (const item of state.tokens) {
-    const revoked = Boolean(item.revoked_at);
+    const yamlManaged = item.management === "yaml";
+    const unavailable = yamlManaged && item.credential_available === false;
+    const revoked = Boolean(item.revoked_at) || item.enabled === false || unavailable;
     const actions = element("div", { className: "row-actions" });
-    if (!revoked) {
+    if (!revoked && !yamlManaged) {
       actions.append(actionButton("Rotate", "rotate-token", item.id), actionButton("Revoke", "revoke-token", item.id, "danger"));
     }
     body.append(element("tr", {}, [
-      element("td", {}, [element("strong", { text: item.name }), element("small", { text: `Version ${item.version}` })]),
+      element("td", {}, [element("strong", { text: item.name }), element("small", { text: yamlManaged ? `config.yaml · ${item.credential_source}` : `Platform · version ${item.version}` })]),
       element("td", { text: item.source_scopes.join(", ") || "None" }),
       element("td", { text: `${item.rate_limit_per_minute}/min` }),
-      element("td", { text: relativeTime(item.last_used_at) }),
-      element("td", {}, badge(revoked ? "Revoked" : "Active", revoked ? "danger" : "success")),
+      element("td", { text: yamlManaged ? "Not tracked" : relativeTime(item.last_used_at) }),
+      element("td", {}, badge(unavailable ? "Credential unavailable" : revoked ? (yamlManaged ? "Disabled" : "Revoked") : "Active", revoked ? "danger" : "success")),
       element("td", {}, actions),
     ]));
   }
@@ -601,10 +682,11 @@ function renderDeliveries() {
     return;
   }
   for (const item of items) {
-    const style = item.outcome === "success" ? "success" : item.retryable ? "warning" : "danger";
+    const delivered = ["delivered", "success"].includes(item.outcome);
+    const style = delivered ? "success" : item.retryable ? "warning" : "danger";
     const error = item.safe_error || item.error_code || "No transport error reported";
     container.append(element("article", { className: "timeline-item" }, [
-      element("span", { className: "event-indicator", text: item.outcome === "success" ? "✓" : "!" }),
+      element("span", { className: "event-indicator", text: delivered ? "✓" : "!" }),
       element("div", {}, [
         element("strong", { text: item.title || "Untitled event" }),
         element("p", { text: `${item.source} · ${item.severity} · ${error}` }),
@@ -695,27 +777,21 @@ function renderConfiguration() {
   }
   const configuration = state.configuration;
   const summary = configuration.summary;
-  const yamlActive = configuration.authority === "yaml";
+  const sync = configuration.sync || { ready: true, errors: [] };
   panel.hidden = false;
-  byId("configuration-status-title").textContent = yamlActive
-    ? "Existing YAML routing is active"
-    : "WebUI routing is authoritative";
-  byId("configuration-status-copy").textContent = yamlActive
-    ? `${summary.outputs} destinations and ${summary.routes} routes were detected in config.yaml. They are visible below and can be migrated without sending credentials to the browser.`
-    : `${summary.outputs} YAML destinations and ${summary.routes} YAML routes are retained as an inactive rollback fallback. WebUI changes now control legacy SMTP and webhook deliveries.`;
+  byId("configuration-status-title").textContent = sync.ready ? "config.yaml is synchronized" : "config.yaml requires repair";
+  byId("configuration-status-copy").textContent = sync.ready
+    ? `${summary.outputs} destinations and ${summary.routes} routes use one authoritative mounted file. WebUI and external edits stay synchronized.`
+    : "Notifinho is preserving the last known-good runtime configuration. Repair the mounted file to resume synchronization.";
 
-  byId("configuration-card-title").textContent = yamlActive
-    ? "YAML routing is active"
-    : "WebUI routing is active";
-  byId("configuration-card-copy").textContent = yamlActive
-    ? "Preview the mounted configuration, create automatic backups, import supported destinations and routes, and switch delivery authority in one confirmed operation."
-    : "Legacy inputs remain YAML-managed. Destinations and routes are database-managed; the original YAML routing stays available for immediate rollback.";
+  byId("configuration-card-title").textContent = sync.ready ? "Unified YAML configuration is active" : "Mounted configuration is invalid";
+  byId("configuration-card-copy").textContent = "WebUI changes are validated, backed up, and written atomically to config.yaml. Valid external edits are detected before the next event or refresh.";
   const badges = byId("configuration-summary");
   badges.replaceChildren(
     badge(`${summary.inputs} inputs`),
-    badge(`${summary.outputs} YAML destinations`),
-    badge(`${summary.routes} YAML routes`),
-    badge(yamlActive ? "YAML authority" : "WebUI authority", yamlActive ? "warning" : "success"),
+    badge(`${summary.outputs} destinations`),
+    badge(`${summary.routes} routes`),
+    badge(sync.ready ? "Synchronized" : "Repair required", sync.ready ? "success" : "danger"),
   );
   const inputs = byId("configuration-inputs");
   inputs.replaceChildren();
@@ -730,9 +806,37 @@ function renderConfiguration() {
       ]));
     }
   }
-  byId("configuration-migrate").hidden = !configuration.migration_available;
-  byId("configuration-use-yaml").hidden = yamlActive;
-  byId("configuration-use-database").hidden = !yamlActive || state.routes.length === 0;
+  const error = byId("configuration-errors");
+  error.textContent = (sync.errors || []).join(" · ");
+  error.hidden = !(sync.errors || []).length;
+}
+
+function renderPreferences() {
+  if (state.sessionExpiresAt) byId("account-session").textContent = `Session expires ${formatTime(state.sessionExpiresAt)}`;
+  if (!isAdmin()) return;
+  byId("preference-language").value = state.preferences.language || "en-GB";
+  byId("preference-timezone").value = state.preferences.timezone || "Europe/Lisbon";
+  byId("preference-time-format").value = state.preferences.time_format || "24";
+  document.documentElement.lang = state.preferences.language || "en-GB";
+}
+
+async function savePreferences(event) {
+  event.preventDefault();
+  try {
+    const response = await request("/preferences", {
+      method: "PUT",
+      body: {
+        language: byId("preference-language").value,
+        timezone: byId("preference-timezone").value.trim(),
+        time_format: byId("preference-time-format").value,
+      },
+    });
+    state.preferences = response.preferences;
+    await loadWorkspace();
+    toast("Regional settings saved.");
+  } catch (error) {
+    toast(error.message || "Settings could not be saved.", "error");
+  }
 }
 
 function downloadDocument(documentValue) {
@@ -1007,7 +1111,7 @@ function openDestination(id = "") {
   byId("destination-id").value = item ? item.id : "";
   byId("destination-name").value = item ? item.name : "";
   byId("destination-type").value = item ? item.output_type : "discord";
-  byId("destination-name").disabled = Boolean(item);
+  byId("destination-name").disabled = false;
   byId("destination-type").disabled = Boolean(item);
   byId("destination-enabled").checked = item ? item.enabled : true;
   byId("destination-shared").checked = item ? item.shared : false;
@@ -1055,13 +1159,13 @@ async function saveDestination(event) {
     const settings = collectFields(byId("destination-settings"));
     const secret = collectFields(byId("destination-secrets"));
     const payload = {
+      name: byId("destination-name").value.trim(),
       settings,
       enabled: byId("destination-enabled").checked,
     };
     if (isAdmin()) payload.shared = byId("destination-shared").checked;
     if (Object.keys(secret).length) payload.secret = secret;
     if (!id) {
-      payload.name = byId("destination-name").value.trim();
       payload.output_type = byId("destination-type").value;
     }
     await request(id ? `/destinations/${id}` : "/destinations", { method: id ? "PATCH" : "POST", body: payload });
@@ -1224,6 +1328,7 @@ function openPreview(id) {
   byId("preview-destination-id").value = id;
   byId("preview-title").textContent = `Preview ${item.name}`;
   byId("preview-result").hidden = true;
+  byId("test-button").hidden = !isAdmin();
   clearError("preview-error");
   byId("preview-dialog").showModal();
 }
@@ -1259,7 +1364,13 @@ async function runPreview(event) {
     const result = byId("preview-result");
     result.textContent = JSON.stringify(response, null, 2);
     result.hidden = false;
-    toast(action === "test" ? "Test delivery completed." : "Preview generated.");
+    if (action === "test") {
+      const delivery = response.result || {};
+      const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.error_code || "No status returned";
+      toast(delivery.success ? `Test delivery sent successfully (${detail}).` : `Test delivery failed (${detail}).`, delivery.success ? "success" : "error");
+    } else {
+      toast("Preview generated.");
+    }
   } catch (error) {
     showError("preview-error", error);
   }
@@ -1421,6 +1532,7 @@ function bindEvents() {
   byId("user-form").addEventListener("submit", saveUser);
   byId("preview-form").addEventListener("submit", runPreview);
   byId("password-form").addEventListener("submit", changePassword);
+  byId("preferences-form").addEventListener("submit", savePreferences);
   byId("logout-button").addEventListener("click", logout);
   byId("copy-secret").addEventListener("click", copySecret);
   byId("refresh-button").addEventListener("click", refreshWorkspace);
@@ -1439,7 +1551,8 @@ function bindEvents() {
     state.pendingImport = null;
     byId("import-result").textContent = "";
     byId("portable-file").value = "";
-    byId("migration-file").value = "";
+    const migrationFile = byId("migration-file");
+    if (migrationFile) migrationFile.value = "";
     clearError("import-error");
   });
   byId("mobile-menu").addEventListener("click", () => {

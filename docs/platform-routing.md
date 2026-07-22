@@ -1,10 +1,9 @@
 # v2 user tokens, destinations, routes, and delivery history
 
 The platform state provides an ownership-enforcing backend service layer
-exposed through the [authenticated platform API](platform-api.md). v2.0.2 adds
-an explicit routing-authority boundary: YAML behavior is preserved until an
-administrator previews and confirms mounted-configuration takeover, after
-which the WebUI-managed database routes handle legacy inputs as well.
+exposed through the [authenticated platform API](platform-api.md). In v2.1.0,
+the mounted `config.yaml` is authoritative and SQLite mirrors it for delivery
+history, retries, previews, and test delivery.
 
 ## API tokens
 
@@ -105,28 +104,20 @@ Sensitive detail keys are replaced with `<redacted>`, and credential patterns
 inside other text are sanitized. Users see their own audit activity;
 administrators may inspect all activity.
 
-## Routing authority
+## Unified configuration authority
 
-`platform.routing_authority` accepts exactly `yaml` or `database` and defaults
-to `yaml` when omitted.
+Every output and route shown by the WebUI maps to one entry in `config.yaml`.
+Valid external edits are synchronized before routing and on WebUI refresh.
+Administrator changes are validated against the complete candidate document,
+backed up, and atomically written before the in-memory configuration reloads.
 
-- `yaml`: SMTP and native HTTP/Redfish/Home Assistant webhook notifications use
-  the original YAML router. The WebUI displays those resources as YAML-managed.
-- `database`: those same parsed notifications are delivered to every enabled
-  platform route owner through the platform adapters and recorded in delivery
-  history. The YAML outputs and routes are labelled rollback fallback.
+On the first v2.1.0 start, resources imported by v2.0.2 are matched to their
+existing YAML targets and routes. Remaining database-only resources are adopted
+into YAML once. `platform.routing_authority` is removed and replaced by
+`platform.configuration_model: unified_yaml_v1`; duplicate fallback rows are
+then removed from the user interface and runtime mirror.
 
-Authenticated `/api/v2/events` submissions always remain owner-scoped to the
-submitting session or application token. Routing-authority selection changes
-only the legacy SMTP and source-specific webhook pipeline.
-
-The mounted-configuration takeover imports supported destinations and routes
-before atomically changing authority. A legacy event therefore sees exactly one
-routing backend: there is no interval where both YAML and database delivery run
-for the same event. Disabled users, destinations, and routes never receive
-legacy events. Matching stays deterministic within each owner, and delivery
-history preserves the owner boundary.
-
-Returning to YAML requires an administrator confirmation and creates a fresh
-configuration backup. Database resources remain intact, so WebUI routing can be
-reactivated without repeating migration or re-importing credentials.
+Invalid external YAML is reported and does not replace the last known-good
+in-memory/runtime mirror. The operator must repair the mounted file. Listener
+binding changes such as ports and TLS certificates require a container restart;
+route, output credential, token, and presentation changes do not.

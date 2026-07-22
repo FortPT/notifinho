@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.0.2**.
+The current stable release is **v2.1.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -55,7 +55,7 @@ Current features include:
 - Local accounts, scoped application tokens, owned destinations and routes
 - Authenticated same-origin WebUI and `/api/v2` management/event API
 - Discord, Teams, Slack, generic webhook, MQTT, and ntfy platform destinations
-- Credential-free import/export, mounted-YAML inventory and takeover, and private state recovery
+- Credential-free import/export, live mounted-YAML synchronization, and private state recovery
 
 ---
 
@@ -97,13 +97,12 @@ port `8080` remains an explicit deployment choice. On first start, copy the
 short-lived setup token from container output and use it in the HTTPS WebUI to
 choose the first administrator credentials. No default password exists.
 
-Existing YAML installations are visible immediately after login. The WebUI
-shows YAML-managed inputs, Discord/Teams destinations, routes, and credential
-presence without returning secret values. From **Data tools**, an administrator
-can preview a fingerprinted server-side takeover that creates state and
-configuration backups, imports credentials directly into private secret files,
-and makes WebUI routes authoritative for the existing SMTP and webhook inputs.
-The original YAML routes remain available as a confirmed rollback fallback.
+Existing YAML installations are visible immediately after login. In v2.1.0,
+the mounted `config.yaml` is the single configuration authority: valid external
+edits appear in the WebUI, and administrator WebUI edits are validated, backed
+up, and written atomically to the same file. SQLite remains a private mirror
+for history, preview/test delivery, and retries; it is not a competing fallback
+configuration.
 
 ```yaml
 http:

@@ -1,52 +1,28 @@
 # Platform data portability and migration
 
 Notifinho provides administrator-only, preview-first tools for moving platform
-destinations and routes and for protecting private platform state. v2.0.2 also
-bridges the configuration mounted inside the running container so existing
-installations are visible immediately and can transfer routing authority
-without uploading their configuration back through the browser.
+destinations and routes and for protecting private platform state. v2.1.0 keeps
+the configuration mounted inside the running container authoritative while
+mirroring it privately for delivery operations.
 
 ## Mounted configuration inventory
 
-The WebUI reads `config.yaml` only on the server and returns a credential-free
-inventory containing recognized YAML inputs, Discord/Teams destination names,
-route sources and filters, enabled state, credential presence, and management
-authority. It never returns webhook URLs, shared secrets, passwords, token
-values, or masked placeholders that could be turned back into a secret.
+The WebUI reads `config.yaml` only on the server and returns credential-free
+resource metadata. It never returns webhook URLs, shared secrets, passwords,
+token values, hashes, environment values, or secret-file contents.
 
-While `platform.routing_authority` is `yaml` (the default), the inventory is
-labelled active and dashboard counts reflect the YAML pipeline. Platform
-destinations and routes remain independently available for authenticated
-`/api/v2/events` submissions.
+## Live mounted-configuration synchronization
 
-## Safe mounted-configuration takeover
+Every administrator destination, route, and regional-setting change validates
+the complete candidate document, creates a timestamped configuration backup,
+atomically replaces `config.yaml`, and reloads it. Valid external file edits are
+detected before routing and WebUI refresh. Invalid YAML does not replace the
+last known-good runtime state; Data tools reports the validation error until the
+operator repairs the file.
 
-An administrator can preview the live mounted file from **Data tools**. Apply
-requires the unchanged SHA-256 preview fingerprint and a separate confirmation.
-The server then performs these ordered operations:
-
-1. create a private, integrity-checked platform-state backup;
-2. import supported Discord/Teams credentials directly into owner-only secret
-   files without sending their values to the browser;
-3. create administrator-owned destinations and routes;
-4. atomically back up and update `config.yaml`; and
-5. set `platform.routing_authority: database`.
-
-The YAML outputs and routes are not deleted. They become an inactive rollback
-fallback. Existing SMTP, HTTP, Redfish, Home Assistant, presentation, security,
-and parser settings remain YAML-managed. Legacy SMTP and native webhook events
-now use the same database routes edited in the WebUI, so a WebUI change affects
-real existing sources rather than only `/api/v2/events`.
-
-Only one authority handles each legacy event. If the configuration switch
-fails, Notifinho removes the newly created routes, destinations, and secrets and
-keeps YAML authority. Name collisions, stale fingerprints, an already-complete
-migration, missing migratable routes, and invalid settings are rejected.
-
-The administrator can later choose **Use YAML fallback**. Notifinho creates
-another atomic configuration backup and changes only the authority flag. The
-database resources remain available for review and can be reactivated with
-**Use WebUI routing**; migration is not repeated.
+The first v2.1.0 synchronization matches v2.0.2-imported resources to their YAML
+counterparts and adopts any remaining database-only resources into YAML once.
+This removes fallback duplicates without losing configured credentials.
 
 ## Safe platform export
 
@@ -97,10 +73,8 @@ warning. Webhook values are accepted only as credential-free HTTPS URLs and
 never appear in the preview, audit event, or API response. Unsupported output
 types and match fields are rejected rather than guessed.
 
-Manual file migration is additive and does not change routing authority. Use it
-only for a YAML file from another server. For the configuration mounted in the
-current container, use the server-side takeover above; it owns backup creation,
-authority switching, and duplicate prevention.
+Manual v1 YAML import remains available through the API for compatibility. Its
+created resources are immediately adopted into the authoritative mounted file.
 
 ## Private state backups
 
@@ -139,9 +113,8 @@ the session CSRF token.
 | POST | `/api/v2/migrations/v1/preview` | validate and fingerprint v1.x YAML |
 | POST | `/api/v2/migrations/v1/import` | apply the unchanged confirmed YAML migration |
 | GET | `/api/v2/configuration/inventory` | inspect mounted configuration without secrets |
-| POST | `/api/v2/configuration/migration/preview` | preview the live server-side takeover |
-| POST | `/api/v2/configuration/migration/apply` | back up, import, and activate the unchanged preview |
-| PUT | `/api/v2/configuration/routing-authority` | confirm YAML fallback or WebUI reactivation |
+| GET | `/api/v2/preferences` | read mounted regional presentation settings |
+| PUT | `/api/v2/preferences` | update mounted regional presentation settings |
 | GET | `/api/v2/backups` | list verified server-side snapshots |
 | POST | `/api/v2/backups` | create a server-side snapshot |
 | POST | `/api/v2/backups/{id}/restore` | restore after exact-ID confirmation |

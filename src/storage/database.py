@@ -8,6 +8,7 @@ import stat
 import threading
 
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 
 from storage.migrations import LATEST_SCHEMA_VERSION, MIGRATIONS
@@ -47,6 +48,12 @@ class Database:
                 raise RuntimeError(
                     f"database schema {current} is newer than supported "
                     f"schema {LATEST_SCHEMA_VERSION}"
+                )
+            if 0 < current < LATEST_SCHEMA_VERSION:
+                self._backup_before_migration(
+                    connection,
+                    current,
+                    LATEST_SCHEMA_VERSION,
                 )
             recorded = {
                 int(row["version"]): str(row["name"])
@@ -151,3 +158,28 @@ class Database:
     def _enforce_file_mode(self) -> None:
         if self.path.exists() and not self.path.is_symlink():
             os.chmod(self.path, 0o600)
+
+    def _backup_before_migration(self, connection, current: int, target: int) -> Path:
+        directory = self.path.parent / "schema-backups"
+        directory.mkdir(mode=0o700, exist_ok=True)
+        os.chmod(directory, 0o700)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        destination = directory / (
+            f"notifinho-schema-{current}-before-{target}-{stamp}.db"
+        )
+        position = 1
+        while destination.exists():
+            destination = directory / (
+                f"notifinho-schema-{current}-before-{target}-{stamp}-{position}.db"
+            )
+            position += 1
+        backup = sqlite3.connect(destination)
+        try:
+            connection.backup(backup)
+        finally:
+            backup.close()
+        os.chmod(destination, 0o600)
+        backups = sorted(directory.glob("notifinho-schema-*.db"), reverse=True)
+        for obsolete in backups[3:]:
+            obsolete.unlink()
+        return destination

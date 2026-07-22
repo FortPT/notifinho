@@ -254,7 +254,19 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self._respond(405, {"Allow": "POST"})
 
     def _authenticated(self, path: str, query: str) -> bool:
-        expected = self.server.shared_secret
+        service = getattr(self.server.api, "config_service", None)
+        if service is not None and getattr(service, "reloadable", False):
+            service.refresh()
+            expected = str(
+                service.configuration.get(
+                    "http",
+                    "shared_secret",
+                    default="",
+                )
+                or ""
+            )
+        else:
+            expected = str(self.server.shared_secret or "")
         if not expected:
             return True
         supplied = self.headers.get("X-Notifinho-Token", "")
@@ -267,10 +279,13 @@ class HTTPHandler(BaseHTTPRequestHandler):
         )
 
     def _authenticated_application(self, application: str, path: str, query: str) -> bool:
+        service = getattr(self.server.api, "config_service", None)
+        if service is not None and getattr(service, "reloadable", False):
+            service.refresh()
         scoped_source = SCOPED_SOURCES.get(application)
         if not scoped_source:
             return self._authenticated(path, query)
-        if self.server.shared_secret and self._authenticated(path, query):
+        if str(self.server.shared_secret or "") and self._authenticated(path, query):
             return True
         principal = self.server.api.authorize_source(
             self.headers,

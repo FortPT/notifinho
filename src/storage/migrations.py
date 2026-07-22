@@ -185,6 +185,24 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        4,
+        "unified YAML configuration mirror",
+        (
+            "ALTER TABLE destinations ADD COLUMN configuration_key TEXT",
+            "ALTER TABLE routes ADD COLUMN configuration_key TEXT",
+            """
+            CREATE UNIQUE INDEX destinations_configuration_key
+            ON destinations(configuration_key)
+            WHERE configuration_key IS NOT NULL
+            """,
+            """
+            CREATE UNIQUE INDEX routes_configuration_key
+            ON routes(configuration_key)
+            WHERE configuration_key IS NOT NULL
+            """,
+        ),
+    ),
 )
 
 

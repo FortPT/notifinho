@@ -221,6 +221,8 @@ class PresentationMixin:
         if parsed.tzinfo is not None:
             parsed = parsed.astimezone(self._presentation_timezone())
 
+        if str(config.get("presentation", "time_format", default="24")) == "12":
+            return parsed.strftime("%d %b %Y • %I:%M %p")
         return parsed.strftime("%d %b %Y • %H:%M")
 
     def _presentation_timezone(self):

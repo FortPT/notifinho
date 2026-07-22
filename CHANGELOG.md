@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+## 2.1.0 - 2026-07-22
+
+### Added
+
+- Added a live, bidirectional `config.yaml` synchronization layer. Valid file
+  edits are detected before WebUI refreshes and event routing; administrator
+  WebUI edits are validated, backed up, and written atomically to that same
+  mounted file.
+- Added an Overview signal-flow map covering every active route and enabled
+  destination, while retaining operational metrics and recent deliveries.
+- Added global timezone, English/Portuguese language, and 12/24-hour settings.
+  Twelve-hour timestamps include AM/PM and remain on one line.
+- Added safe visibility for legacy YAML application-token metadata without
+  exposing token values, hashes, environment values, or secret-file contents.
+- Added automatic pre-schema-upgrade SQLite backups and schema 4 mirror keys.
+
+### Changed
+
+- Replaced the v2.0.2 database-authority takeover and duplicated YAML fallback
+  rows with one YAML-backed destination list and one YAML-backed route list.
+- Administrators can create, rename, edit, enable, disable, and delete shared
+  destinations and routes; users have read/preview access only.
+- Destination test delivery now reports the real success/failure result and is
+  restricted to administrators for shared YAML credentials.
+- The dashboard treats the persisted `delivered` outcome as success and no
+  longer shows the setup-oriented Quick Start panel.
+- Administrators can reset another user's password from Users; their own
+  password remains exclusively managed through Account security.
+
+### Security
+
+- Invalid external YAML never replaces the last known-good runtime state. The
+  WebUI reports the validation error until the operator repairs the file.
+- Nested credential objects are recursively redacted while non-secret token
+  metadata remains visible.
+
 ## 2.0.2 - 2026-07-22
 
 ### Added

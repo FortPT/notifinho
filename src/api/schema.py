@@ -10,27 +10,34 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from copy import deepcopy
 from urllib.parse import urlsplit
 
+from outputs.settings import OUTPUT_TYPES, normalize_output_settings
+
 
 _SECRET_KEY = re.compile(
     r"(?i)(authorization|api[_-]?key|password|secret|token|webhook)"
 )
 
 
-def mask_secrets(value):
+def mask_secrets(value, sensitive=False):
     if isinstance(value, dict):
         masked = {}
         for key, item in value.items():
-            if (
-                _SECRET_KEY.search(str(key))
-                and not isinstance(item, (dict, list))
-                and item not in (None, "", False)
-            ):
-                masked[key] = "<configured>"
-            else:
-                masked[key] = mask_secrets(item)
+            direct = bool(_SECRET_KEY.search(str(key)))
+            inherited = sensitive or (
+                direct
+                and isinstance(item, (dict, list))
+                and str(key).casefold()
+                in {"secret", "credential", "credentials", "authentication"}
+            )
+            masked[key] = mask_secrets(
+                item,
+                sensitive=inherited or (direct and not isinstance(item, (dict, list))),
+            )
         return masked
     if isinstance(value, list):
-        return [mask_secrets(item) for item in value]
+        return [mask_secrets(item, sensitive=sensitive) for item in value]
+    if sensitive and value not in (None, "", False):
+        return "<configured>"
     return deepcopy(value)
 
 
@@ -94,12 +101,17 @@ def validate_config(data) -> list[str]:
             errors.append(
                 "presentation.timezone must be a valid IANA timezone"
             )
+    if isinstance(presentation, dict) and "time_format" in presentation:
+        if str(presentation.get("time_format")) not in {"12", "24"}:
+            errors.append("presentation.time_format must be 12 or 24")
     api = data.get("api") or {}
     platform = data.get("platform") or {}
     webui = data.get("webui") or {}
     if isinstance(webui, dict):
         if "enabled" in webui and not isinstance(webui.get("enabled"), bool):
             errors.append("webui.enabled must be a boolean")
+        if "language" in webui and webui.get("language") not in {"en-GB", "pt-PT"}:
+            errors.append("webui.language must be en-GB or pt-PT")
     if isinstance(platform, dict):
         if "enabled" in platform and not isinstance(platform.get("enabled"), bool):
             errors.append("platform.enabled must be a boolean")
@@ -114,6 +126,8 @@ def validate_config(data) -> list[str]:
                 errors.append(
                     "platform.routing_authority must be yaml or database"
                 )
+        if "configuration_model" in platform and platform.get("configuration_model") != "unified_yaml_v1":
+            errors.append("platform.configuration_model must be unified_yaml_v1")
         if "backup_retention" in platform:
             retention = platform.get("backup_retention")
             if (
@@ -197,11 +211,46 @@ def validate_config(data) -> list[str]:
             if not isinstance(settings, dict):
                 errors.append(f"outputs.{output_name} must be an object")
                 continue
+            if output_name not in OUTPUT_TYPES:
+                errors.append(f"outputs.{output_name} is not a supported output type")
+                continue
             if "enabled" in settings and not isinstance(
                 settings.get("enabled"),
                 bool,
             ):
                 errors.append(f"outputs.{output_name}.enabled must be a boolean")
+            for target, destination in settings.items():
+                if target == "enabled":
+                    continue
+                prefix = f"outputs.{output_name}.{target}"
+                if not isinstance(destination, dict):
+                    errors.append(f"{prefix} must be an object")
+                    continue
+                if "enabled" in destination and not isinstance(destination.get("enabled"), bool):
+                    errors.append(f"{prefix}.enabled must be a boolean")
+                public_settings = destination.get("settings")
+                if public_settings is None:
+                    public_settings = {
+                        key: value
+                        for key, value in destination.items()
+                        if key not in {"enabled", "name", "settings", "shared", "secret", "webhook"}
+                    }
+                try:
+                    normalize_output_settings(output_name, public_settings or {})
+                except (TypeError, ValueError) as error:
+                    errors.append(f"{prefix}: {error}")
+                configured_secret = destination.get("secret")
+                if configured_secret is None:
+                    configured_secret = destination.get("webhook")
+                destination_enabled = (
+                    settings.get("enabled", True) is True
+                    and destination.get("enabled", True) is True
+                )
+                if output_name == "teams":
+                    if destination_enabled and configured_secret in (None, "", {}):
+                        errors.append(f"{prefix}.webhook is required")
+                    elif configured_secret not in (None, "", {}) and not _valid_https_url(configured_secret):
+                        errors.append(f"{prefix}.webhook must be a valid HTTPS URL")
     if isinstance(routing, dict):
         for source, route in routing.items():
             if not isinstance(route, dict):
@@ -218,8 +267,8 @@ def validate_config(data) -> list[str]:
                     continue
                 output = str(destination.get("output") or "").strip()
                 target = str(destination.get("target") or "").strip()
-                if output not in {"discord", "teams"}:
-                    errors.append(f"{prefix}.output must be discord or teams")
+                if output not in OUTPUT_TYPES:
+                    errors.append(f"{prefix}.output is not supported")
                     continue
                 if not target:
                     errors.append(f"{prefix}.target is required")
@@ -228,14 +277,17 @@ def validate_config(data) -> list[str]:
                 target_settings = settings.get(target) if isinstance(settings, dict) else None
                 if not isinstance(target_settings, dict):
                     errors.append(f"{prefix} references missing {output}.{target}")
-                elif not str(target_settings.get("webhook") or "").strip():
-                    errors.append(f"outputs.{output}.{target}.webhook is required")
-                elif output == "teams" and not _valid_https_url(
-                    target_settings.get("webhook")
-                ):
-                    errors.append(
-                        f"outputs.teams.{target}.webhook must be a valid HTTPS URL"
+                else:
+                    configured_secret = target_settings.get("secret")
+                    if configured_secret is None:
+                        configured_secret = target_settings.get("webhook")
+                    route_enabled = destination.get("enabled", True) is True
+                    target_enabled = (
+                        settings.get("enabled", True) is True
+                        and target_settings.get("enabled", True) is True
                     )
+                    if route_enabled and target_enabled and output in {"discord", "teams", "slack", "webhook"} and configured_secret in (None, "", {}):
+                        errors.append(f"outputs.{output}.{target} credentials are required")
     return errors
 
 

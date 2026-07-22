@@ -32,6 +32,12 @@ class APIService:
         self.configuration = configuration
         root = Path(__file__).resolve().parents[2]
         self.config_service = ConfigService(root / "config" / "config.yaml", configuration)
+        # Lightweight test and embedding configurations intentionally expose
+        # only ``get``. Live mounted-file synchronization is enabled only for
+        # the real reloadable Config implementation.
+        self.config_service.reloadable = callable(
+            getattr(configuration, "reload", None)
+        )
         self.audit = AuditLog(root / "logs" / "audit.log")
         self.authenticator = TokenAuthenticator(configuration)
         self.rate_limiter = RateLimiter()
@@ -66,6 +72,8 @@ class APIService:
         headers,
         client: str,
     ) -> APIResponse:
+        if getattr(self.config_service, "reloadable", False):
+            self.config_service.refresh()
         if not self.enabled:
             return APIResponse(404)
         if path.startswith("/api/v2/"):

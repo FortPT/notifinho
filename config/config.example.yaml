@@ -67,6 +67,12 @@ platform:
   # Keep true behind HTTPS. Set false only for isolated loopback development.
   secure_cookies: true
 
+# Same-origin v2 browser interface. This is served only when the HTTP listener,
+# API, platform state, and this switch are all enabled. Keep secure cookies on
+# and expose the interface only through a trusted HTTPS reverse proxy.
+webui:
+  enabled: false
+
 # v1.9 backend API. This is disabled by default. Publish it only on a trusted
 # network or behind an authenticated reverse proxy. Tokens must come from an
 # environment variable, a mode-0600 mounted file, or a precomputed SHA-256.

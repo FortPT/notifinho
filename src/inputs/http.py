@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlsplit
 from config import config
 from api.service import APIService
 from logger import log
+from webui.service import SECURITY_HEADERS, WebUIService
 
 
 ENDPOINTS = {
@@ -68,6 +69,10 @@ class HTTPServer(ThreadingHTTPServer):
             router,
             config,
             platform_database=platform_database,
+        )
+        self.webui = WebUIService(
+            config,
+            platform_available=platform_database is not None,
         )
         self._seen: dict[str, float] = {}
         self._seen_lock = threading.Lock()
@@ -193,6 +198,8 @@ class HTTPHandler(BaseHTTPRequestHandler):
         if request_url.path.startswith("/api/"):
             self._api_request("GET", request_url.path)
             return
+        if self._webui_request(request_url.path):
+            return
         self._unsupported_method()
 
     def do_PUT(self) -> None:  # noqa: N802
@@ -217,7 +224,27 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self._unsupported_method()
 
     def do_HEAD(self) -> None:  # noqa: N802
+        request_url = urlsplit(self.path)
+        if self._webui_request(request_url.path, head=True):
+            return
         self._unsupported_method()
+
+    def _webui_request(self, path: str, *, head: bool = False) -> bool:
+        response = self.server.webui.response(path)
+        if response is None:
+            return False
+        body = response.body
+        self.send_response(response.status)
+        if response.content_type:
+            self.send_header("Content-Type", response.content_type)
+        self.send_header("Cache-Control", response.cache_control)
+        for name, value in SECURITY_HEADERS:
+            self.send_header(name, value)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        if body and not head:
+            self.wfile.write(body)
+        return True
 
     def _unsupported_method(self) -> None:
         request_url = urlsplit(self.path)

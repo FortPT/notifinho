@@ -471,7 +471,7 @@ event can be delivered to multiple destinations without being parsed again.
 
 The v1.9 backend preserves this pipeline while adding Redfish hardware events,
 Home Assistant, authenticated event submission, and configuration-management
-foundations. The v2.0 WebUI will manage this same backend model rather than
+foundations. The v2.0 WebUI manages this same backend model rather than
 implementing a second routing engine.
 
 The first v2 platform phase adds an opt-in, migration-aware local state layer
@@ -486,6 +486,9 @@ for Discord, Teams, Slack, generic webhooks, MQTT, and ntfy.
 The fourth phase exposes those foundations through an opt-in
 [authenticated platform API](docs/platform-api.md) with local sessions, CSRF,
 owned-resource management, and user/application-scoped event submission.
+The fifth phase packages a responsive, same-origin
+[WebUI](docs/webui.md) for accounts, destinations, routes, application tokens,
+preview/test delivery, delivery history, and audit events.
 
 ---
 
@@ -713,6 +716,8 @@ The configuration is intentionally simple and organized into logical sections.
 | `http` | Native authenticated webhook listener configuration. |
 | `redfish` | Redfish duplicate-suppression behavior. |
 | `api` | Disabled-by-default backend API and scoped token definitions. |
+| `platform` | Disabled v2 local state, account, ownership, and secret boundary. |
+| `webui` | Disabled same-origin v2 browser interface. |
 | `routing` | Maps notification sources to outputs. |
 | `outputs` | Notification destinations (Discord, Teams, etc.). |
 | `notifications` | Product-specific notification preferences. |
@@ -746,6 +751,14 @@ http:
   port: 8080
   max_body_bytes: 1048576
   shared_secret: ""
+
+platform:
+  enabled: false
+  state_dir: "/notifinho/state"
+  secure_cookies: true
+
+webui:
+  enabled: false
 
 redfish:
   deduplication_window_seconds: 300
@@ -1648,7 +1661,9 @@ without duplicating parser, formatter, or routing logic in the browser.
   webhooks, MQTT, and ntfy, with strict outbound and secret boundaries
 - Authenticated `/api/v2` sessions, CSRF, owned-resource management, previews,
   safe history/audit reads, and source-scoped platform event submission
-- Responsive WebUI backed by the authenticated platform API
+- Responsive same-origin WebUI for the authenticated platform API, including
+  accounts, destinations, routes, application tokens, preview/test delivery,
+  delivery history, and audit events
 - Local administrator and user accounts with clear roles
 - User- and application-scoped event endpoints and API tokens
 - Private and shared destinations with secrets never returned to the browser

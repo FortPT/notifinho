@@ -22,6 +22,16 @@
 
 ### Added
 
+- Added a disabled-by-default, responsive, same-origin v2 WebUI for login,
+  account security, destinations, routes, application tokens, delivery
+  history, audit events, and administrator user management.
+- Added output-specific destination forms, write-only credential handling,
+  one-time token display, safe preview, confirmed test delivery, searchable
+  operational history, responsive navigation, and accessible dialogs.
+- Added a dependency-free packaged asset service with exact route allowlisting,
+  strict content security, frame, referrer, permission, cache, and MIME headers.
+- Added WebUI configuration, transport, packaging, semantic-markup, unsafe-DOM,
+  and browser-security regression coverage plus deployment documentation.
 - Added runtime-packaging, routing, configuration-validation, CI, Compose,
   and graceful-shutdown regression coverage.
 - Added an opt-in, migration-aware SQLite foundation for local users, hashed
@@ -65,6 +75,9 @@
 
 ### Compatibility
 
+- The WebUI is served only when `http.enabled`, `api.enabled`,
+  `platform.enabled`, and `webui.enabled` are all explicitly true. Existing
+  configurations omit the new switch and therefore retain current behavior.
 - Platform state remains disabled by default. Existing v1.x YAML tokens,
   routes, destinations, inputs, outputs, and delivery behavior are unchanged.
 - Platform tokens, routes, and delivery services are exposed only when the

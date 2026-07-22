@@ -244,6 +244,18 @@ def test_configuration_validation_accepts_disabled_platform_state():
 
 
 @pytest.mark.parametrize("value", ["false", 0, 1, None, []])
+def test_configuration_validation_rejects_non_boolean_webui_switches(value):
+    errors = validate_config({"webui": {"enabled": value}})
+
+    assert "webui.enabled must be a boolean" in errors
+
+
+@pytest.mark.parametrize("value", [True, False])
+def test_configuration_validation_accepts_boolean_webui_switches(value):
+    assert validate_config({"webui": {"enabled": value}}) == []
+
+
+@pytest.mark.parametrize("value", ["false", 0, 1, None, []])
 def test_configuration_validation_rejects_non_boolean_secure_cookie_switch(value):
     errors = validate_config({
         "platform": {

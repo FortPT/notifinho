@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#07111f">
+  <title>Notifinho</title>
+  <link rel="icon" href="/ui/icon.png" type="image/png">
+  <link rel="stylesheet" href="/ui/styles.css">
+  <script src="/ui/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <section id="login-view" class="login-view" aria-labelledby="login-title">
+    <div class="login-atmosphere" aria-hidden="true"></div>
+    <div class="login-card">
+      <div class="brand brand-login">
+        <span class="brand-mark"><img src="/ui/icon.png" alt=""></span>
+        <span><strong>Notifinho</strong><small>Notification control plane</small></span>
+      </div>
+      <div class="login-copy">
+        <p class="eyebrow">Self-hosted infrastructure alerts</p>
+        <h1 id="login-title">Welcome back</h1>
+        <p>Sign in to manage destinations, routing, and application access.</p>
+      </div>
+      <form id="login-form" class="stack" autocomplete="on">
+        <label>
+          <span>Username</span>
+          <input id="login-username" name="username" autocomplete="username" required maxlength="80">
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <p id="login-error" class="form-error" role="alert" hidden></p>
+        <button class="button primary full" type="submit">Sign in</button>
+      </form>
+      <p class="login-note">Use HTTPS when accessing Notifinho outside an isolated loopback environment.</p>
+    </div>
+  </section>
+
+  <div id="app-shell" class="app-shell" hidden>
+    <aside class="sidebar" aria-label="Primary navigation">
+      <div class="brand">
+        <span class="brand-mark"><img src="/ui/icon.png" alt=""></span>
+        <span><strong>Notifinho</strong><small>Control plane</small></span>
+      </div>
+      <nav id="primary-nav" class="nav-list">
+        <button class="nav-item active" type="button" data-view="dashboard" aria-current="page">
+          <span class="nav-icon" aria-hidden="true">⌂</span><span>Overview</span>
+        </button>
+        <button class="nav-item" type="button" data-view="destinations">
+          <span class="nav-icon" aria-hidden="true">◎</span><span>Destinations</span>
+        </button>
+        <button class="nav-item" type="button" data-view="routes">
+          <span class="nav-icon" aria-hidden="true">↗</span><span>Routes</span>
+        </button>
+        <button class="nav-item" type="button" data-view="tokens">
+          <span class="nav-icon" aria-hidden="true">◇</span><span>Applications</span>
+        </button>
+        <button class="nav-item" type="button" data-view="deliveries">
+          <span class="nav-icon" aria-hidden="true">≋</span><span>Delivery history</span>
+        </button>
+        <button class="nav-item" type="button" data-view="audit">
+          <span class="nav-icon" aria-hidden="true">◷</span><span>Audit log</span>
+        </button>
+        <button id="users-nav" class="nav-item" type="button" data-view="users" hidden>
+          <span class="nav-icon" aria-hidden="true">♙</span><span>Users</span>
+        </button>
+      </nav>
+      <div class="sidebar-footer">
+        <button class="profile-chip" type="button" data-view="account">
+          <span id="profile-avatar" class="avatar" aria-hidden="true">N</span>
+          <span><strong id="profile-name">Account</strong><small id="profile-role">User</small></span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button id="mobile-menu" class="icon-button mobile-only" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
+        <div>
+          <p class="eyebrow" id="page-kicker">Workspace</p>
+          <h1 id="page-title">Overview</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="connection-state" class="status-dot success">Connected</span>
+          <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh current view">↻</button>
+        </div>
+      </header>
+
+      <main id="main-content" class="content" tabindex="-1">
+        <section id="view-dashboard" class="view" data-page="dashboard">
+          <div class="hero-panel">
+            <div>
+              <p class="eyebrow">Notification operations</p>
+              <h2>Everything important, routed deliberately.</h2>
+              <p>Connect applications, build focused routes, and keep delivery behavior visible from one private workspace.</p>
+            </div>
+            <button class="button primary" type="button" data-action="new-destination">Add destination</button>
+          </div>
+          <div class="metric-grid" aria-label="Workspace summary">
+            <article class="metric-card"><span>Destinations</span><strong id="metric-destinations">—</strong><small id="metric-destinations-note">Loading</small></article>
+            <article class="metric-card"><span>Active routes</span><strong id="metric-routes">—</strong><small id="metric-routes-note">Loading</small></article>
+            <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small id="metric-tokens-note">Loading</small></article>
+            <article class="metric-card"><span>Recent success</span><strong id="metric-success">—</strong><small id="metric-success-note">Last 100 attempts</small></article>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-heading"><div><p class="eyebrow">Latest activity</p><h3>Recent deliveries</h3></div><button class="text-button" type="button" data-view="deliveries">View all</button></div>
+              <div id="dashboard-deliveries" class="activity-list"></div>
+            </article>
+            <article class="panel setup-panel">
+              <div class="panel-heading"><div><p class="eyebrow">Quick start</p><h3>Complete your signal path</h3></div></div>
+              <ol class="setup-list">
+                <li id="setup-destination"><span>1</span><div><strong>Create a destination</strong><small>Discord, Teams, Slack, webhook, MQTT, or ntfy.</small></div></li>
+                <li id="setup-route"><span>2</span><div><strong>Add a route</strong><small>Match source, host, event, severity, and status.</small></div></li>
+                <li id="setup-token"><span>3</span><div><strong>Issue an application token</strong><small>Submit source-scoped events without sharing your login.</small></div></li>
+              </ol>
+            </article>
+          </div>
+        </section>
+
+        <section id="view-destinations" class="view" data-page="destinations" hidden>
+          <div class="section-toolbar"><div><h2>Destinations</h2><p>Private and shared places where notifications are delivered.</p></div><button class="button primary" type="button" data-action="new-destination">Add destination</button></div>
+          <div id="destination-list" class="resource-grid"></div>
+        </section>
+
+        <section id="view-routes" class="view" data-page="routes" hidden>
+          <div class="section-toolbar"><div><h2>Routes</h2><p>Send matching events to an owned or shared destination.</p></div><button class="button primary" type="button" data-action="new-route">Add route</button></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
+        </section>
+
+        <section id="view-tokens" class="view" data-page="tokens" hidden>
+          <div class="section-toolbar"><div><h2>Applications</h2><p>Source-scoped credentials for event submission. Values appear once.</p></div><button class="button primary" type="button" data-action="new-token">Issue token</button></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Sources</th><th>Rate limit</th><th>Last used</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="token-table"></tbody></table></div><div id="token-empty" class="empty-state" hidden></div></div>
+        </section>
+
+        <section id="view-deliveries" class="view" data-page="deliveries" hidden>
+          <div class="section-toolbar"><div><h2>Delivery history</h2><p>Safe transport outcomes for the latest 100 attempts.</p></div><label class="search-field"><span class="sr-only">Search deliveries</span><input id="delivery-search" type="search" placeholder="Search source, title, or outcome"></label></div>
+          <div id="delivery-list" class="timeline"></div>
+        </section>
+
+        <section id="view-audit" class="view" data-page="audit" hidden>
+          <div class="section-toolbar"><div><h2>Audit log</h2><p>Ownership-aware account and configuration activity.</p></div><label class="search-field"><span class="sr-only">Search audit events</span><input id="audit-search" type="search" placeholder="Search action or outcome"></label></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Resource</th><th>Outcome</th><th>Details</th></tr></thead><tbody id="audit-table"></tbody></table></div><div id="audit-empty" class="empty-state" hidden></div></div>
+        </section>
+
+        <section id="view-users" class="view" data-page="users" hidden>
+          <div class="section-toolbar"><div><h2>Users</h2><p>Local accounts and administrative access.</p></div><button class="button primary" type="button" data-action="new-user">Add user</button></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>User</th><th>Role</th><th>Last login</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="user-table"></tbody></table></div></div>
+        </section>
+
+        <section id="view-account" class="view" data-page="account" hidden>
+          <div class="section-toolbar"><div><h2>Account security</h2><p>Change your password or end the current session.</p></div></div>
+          <div class="account-grid">
+            <article class="panel identity-card"><span id="account-avatar" class="avatar large">N</span><div><h3 id="account-name">Account</h3><p id="account-role">User</p><small id="account-session">Session active</small></div></article>
+            <article class="panel"><div class="panel-heading"><div><h3>Change password</h3><p>This signs out every active session, including this one.</p></div></div><form id="password-form" class="stack compact"><label><span>Current password</span><input name="current_password" type="password" autocomplete="current-password" required></label><label><span>New password</span><input name="new_password" type="password" autocomplete="new-password" minlength="12" required></label><label><span>Confirm new password</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required></label><button class="button primary" type="submit">Update password</button></form></article>
+            <article class="panel danger-panel"><div><h3>End session</h3><p>Revoke this browser session and return to the sign-in screen.</p></div><button id="logout-button" class="button danger" type="button">Sign out</button></article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="destination-dialog" class="modal">
+    <form id="destination-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Output</p><h2 id="destination-dialog-title">Add destination</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <input id="destination-id" type="hidden">
+      <div class="form-grid">
+        <label class="wide"><span>Name</span><input id="destination-name" required maxlength="120" placeholder="Operations alerts"></label>
+        <label><span>Type</span><select id="destination-type" required><option value="discord">Discord</option><option value="teams">Microsoft Teams</option><option value="slack">Slack</option><option value="webhook">Generic webhook</option><option value="mqtt">MQTT</option><option value="ntfy">ntfy</option></select></label>
+        <label class="switch-field"><input id="destination-enabled" type="checkbox" checked><span>Enabled</span></label>
+        <label id="destination-shared-field" class="switch-field"><input id="destination-shared" type="checkbox"><span>Shared with users</span></label>
+      </div>
+      <fieldset><legend>Connection and presentation</legend><p id="destination-help" class="field-help"></p><div id="destination-settings" class="form-grid"></div></fieldset>
+      <fieldset><legend>Write-only credentials</legend><p class="field-help">Stored credentials are never returned to this browser. Leave every credential field blank while editing to keep the current value.</p><div id="destination-secrets" class="form-grid"></div></fieldset>
+      <p id="destination-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button id="destination-submit" class="button primary" value="default">Save destination</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="route-dialog" class="modal">
+    <form id="route-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Routing</p><h2 id="route-dialog-title">Add route</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <input id="route-id" type="hidden">
+      <div class="form-grid">
+        <label class="wide"><span>Name</span><input id="route-name" required maxlength="120" placeholder="Critical home lab events"></label>
+        <label><span>Source</span><input id="route-source" required maxlength="80" placeholder="home_lab"></label>
+        <label><span>Destination</span><select id="route-destination" required></select></label>
+        <label><span>Priority</span><input id="route-priority" type="number" min="0" max="1000" value="100" required></label>
+        <label class="switch-field"><input id="route-enabled" type="checkbox" checked><span>Enabled</span></label>
+      </div>
+      <fieldset><legend>Optional filters</legend><p class="field-help">Comma-separated values. Hosts and events support shell-style wildcards.</p><div class="form-grid"><label><span>Severities</span><input id="route-severities" placeholder="warning, critical"></label><label><span>Statuses</span><input id="route-statuses" placeholder="active, resolved"></label><label><span>Hosts</span><input id="route-hosts" placeholder="nas-*, hypervisor-01"></label><label><span>Events</span><input id="route-events" placeholder="backup.*, disk.*"></label></div></fieldset>
+      <p id="route-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button primary" value="default">Save route</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="token-dialog" class="modal small-modal">
+    <form id="token-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Application access</p><h2>Issue token</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <div class="stack compact"><label><span>Name</span><input id="token-name" required maxlength="120" placeholder="Home lab automation"></label><label><span>Allowed sources</span><input id="token-sources" required placeholder="home_lab, backup_service"><small>Comma-separated. Administrators may use <code>*</code>.</small></label><label><span>Requests per minute</span><input id="token-rate" type="number" min="1" max="10000" value="60" required></label></div>
+      <p id="token-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button primary" value="default">Issue token</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="user-dialog" class="modal small-modal">
+    <form id="user-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Local account</p><h2>Add user</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <div class="stack compact"><label><span>Username</span><input id="user-name" autocomplete="off" required maxlength="80"></label><label><span>Temporary password</span><input id="user-password" type="password" autocomplete="new-password" minlength="12" required></label><label><span>Role</span><select id="user-role"><option value="user">User</option><option value="admin">Administrator</option></select></label></div>
+      <p id="user-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button primary" value="default">Create user</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="preview-dialog" class="modal preview-modal">
+    <form id="preview-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Safe sample</p><h2 id="preview-title">Preview destination</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <input id="preview-destination-id" type="hidden">
+      <div class="form-grid"><label><span>Source</span><input id="preview-source" value="home_lab" required></label><label><span>Severity</span><select id="preview-severity"><option>information</option><option>warning</option><option>critical</option></select></label><label class="wide"><span>Title</span><input id="preview-event-title" value="Synthetic Notifinho preview" required></label><label class="wide"><span>Message</span><textarea id="preview-message" rows="3" required>This is a safe sample event generated in the WebUI.</textarea></label></div>
+      <div class="preview-actions"><button id="preview-button" class="button primary" value="preview">Generate preview</button><button id="test-button" class="button danger" value="test">Send test delivery</button></div>
+      <p class="field-help">Test delivery contacts the configured destination. Preview never sends data.</p>
+      <p id="preview-error" class="form-error" role="alert" hidden></p>
+      <pre id="preview-result" class="code-result" tabindex="0" hidden></pre>
+    </form>
+  </dialog>
+
+  <dialog id="secret-dialog" class="modal small-modal">
+    <div class="modal-heading"><div><p class="eyebrow">Shown once</p><h2 id="secret-title">Application token</h2></div><button class="icon-button" type="button" data-close-dialog="secret-dialog" aria-label="Close">×</button></div>
+    <p>Copy this value now. Notifinho stores only its digest and cannot show it again.</p>
+    <div class="secret-value"><code id="secret-value"></code><button id="copy-secret" class="button secondary" type="button">Copy</button></div>
+    <div class="modal-actions"><button class="button primary" type="button" data-close-dialog="secret-dialog">I saved it</button></div>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="modal small-modal">
+    <div class="modal-heading"><div><p class="eyebrow">Please confirm</p><h2 id="confirm-title">Confirm action</h2></div></div>
+    <p id="confirm-message"></p>
+    <div class="modal-actions"><button id="confirm-cancel" class="button secondary" type="button">Cancel</button><button id="confirm-accept" class="button danger" type="button">Confirm</button></div>
+  </dialog>
+
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

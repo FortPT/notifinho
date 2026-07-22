@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v1.9.7**.
+The current stable release is **v2.0.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -52,6 +52,10 @@ Current features include:
 - Repository and transfer statistics
 - VM-level backup reporting
 - Extensible formatter/output system
+- Opt-in local accounts, scoped application tokens, owned destinations and routes
+- Authenticated same-origin WebUI and `/api/v2` management/event API
+- Discord, Teams, Slack, generic webhook, MQTT, and ntfy platform destinations
+- Credential-free import/export, previewed v1.x migration, and private state recovery
 
 ---
 
@@ -177,7 +181,7 @@ https://github.com/FortPT/notifinho
 
 ---
 
-## Roadmap
+## v2.0 platform
 
 - Migration-aware SQLite state, local account/login protection, hashed
   sessions/CSRF, ownership records, and owner-only secret rotation
@@ -204,8 +208,8 @@ https://github.com/FortPT/notifinho
 - Broader real-system Redfish compatibility validation
 - Additional UniFi event variants
 
-Telegram and other destination adapters remain candidates for the v2.x series
-after the v2.0 security, routing, and core output model are stable.
+Telegram and other destination adapters remain candidates for later v2.x
+releases.
 
 ---
 

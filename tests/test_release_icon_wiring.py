@@ -1,4 +1,4 @@
-"""Permanent v1.9.7 release icon wiring regressions."""
+"""Permanent release icon wiring regressions."""
 
 import json
 from pathlib import Path

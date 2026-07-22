@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 2.0.0 - 2026-07-22
+
 ### Changed
 
 - Added pull-request and main-branch CI, automated dependency update checks,

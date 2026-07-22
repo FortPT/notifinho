@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v1.9.7-blue" alt="Stable release v1.9.7">
+  <img src="https://img.shields.io/badge/stable-v2.0.0-blue" alt="Stable release v2.0.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,22 +49,25 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v1.9.7** |
-| **Next Planned Release** | **v2.0.0** |
+| **Current Stable Release** | **v2.0.0** |
+| **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
 
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-Notifinho v1.9.7 permanently pins official Teams and Discord icon URLs to the
-exact stable release commit and uploads packaged thumbnails for Discord
-Components V2. The accepted v1.9.6 presentation, machine-local timestamps,
-device aliases, and trusted Dell audit suppression remain unchanged. Existing
-endpoints, parsers, routes, targets, secrets, and
-the Supermicro BMC, HPE iLO, Dell iDRAC, Home Assistant, Portainer, Proxmox VE,
-Synology DSM, and native UniFi integrations remain compatible. Notifinho consumes
-emitted SMTP or webhook notifications; it
+See the [v2.0.0 release notes](docs/releases/v2.0.0.md) for upgrade, rollback,
+security, and release-acceptance guidance.
+
+Notifinho v2.0.0 adds an opt-in, self-hosted notification platform with local
+accounts, user-owned destinations and routes, scoped application tokens,
+six output adapters, preview and test delivery, searchable history and audit,
+a responsive same-origin WebUI, credential-free portability, v1.x migration,
+and integrity-checked state recovery. Existing YAML configuration, SMTP and
+webhook inputs, routes, Discord and Teams targets, parsers, and formatters
+remain compatible because the platform and WebUI stay disabled until explicitly
+enabled. Notifinho consumes emitted SMTP or webhook notifications; it
 does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
 enabled with STARTTLS and SMTP AUTH; see the
@@ -1652,7 +1655,7 @@ routing, parser, timestamp, configuration, or secret contract changes.
 
 ---
 
-## 📅 v2.0.0 — User-facing notification platform
+## ✅ v2.0.0 — User-facing notification platform
 
 v2.0.0 turns the completed notification engine into a self-service platform
 without duplicating parser, formatter, or routing logic in the browser.

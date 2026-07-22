@@ -38,3 +38,14 @@ def test_production_compose_applies_runtime_hardening():
     assert service["user"] == "${NOTIFINHO_UID:-1000}:${NOTIFINHO_GID:-1000}"
     assert "${NOTIFINHO_STATE_DIR:-./state}:/notifinho/state" in service["volumes"]
     assert service["environment"]["NOTIFINHO_STATE_DIR"] == "/notifinho/state"
+
+
+def test_ci_validates_webui_compose_and_production_image():
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "actions/setup-node@v4" in workflow
+    assert "node --check src/webui/app.js" in workflow
+    assert "docker compose -f compose.production.yaml config" in workflow
+    assert "docker build --tag notifinho:ci ." in workflow

@@ -13,7 +13,44 @@
 <body>
   <a class="skip-link" href="#main-content">Skip to content</a>
 
-  <section id="login-view" class="login-view" aria-labelledby="login-title">
+  <section id="bootstrap-view" class="login-view" aria-labelledby="bootstrap-title" hidden>
+    <div class="login-atmosphere" aria-hidden="true"></div>
+    <div class="login-card">
+      <div class="brand brand-login">
+        <span class="brand-mark"><img src="/ui/icon.png" alt=""></span>
+        <span><strong>Notifinho</strong><small>Secure first-run setup</small></span>
+      </div>
+      <div class="login-copy">
+        <p class="eyebrow">Create the first administrator</p>
+        <h1 id="bootstrap-title">Welcome to Notifinho</h1>
+        <p>Copy the single-use setup token from the container output, then choose your administrator credentials.</p>
+      </div>
+      <form id="bootstrap-form" class="stack" autocomplete="off">
+        <label>
+          <span>Setup token</span>
+          <input id="bootstrap-token" name="token" type="password" autocomplete="off" required>
+        </label>
+        <label>
+          <span>Administrator username</span>
+          <input id="bootstrap-username" name="username" value="administrator" autocomplete="username" required maxlength="64">
+        </label>
+        <label>
+          <span>Password</span>
+          <input id="bootstrap-password" name="password" type="password" autocomplete="new-password" minlength="12" required>
+        </label>
+        <label>
+          <span>Confirm password</span>
+          <input id="bootstrap-confirm" name="confirm_password" type="password" autocomplete="new-password" minlength="12" required>
+        </label>
+        <p id="bootstrap-expiry" class="login-note"></p>
+        <p id="bootstrap-error" class="form-error" role="alert" hidden></p>
+        <button class="button primary full" type="submit">Create administrator</button>
+      </form>
+      <p class="login-note">The token is stored only as a SHA-256 digest, expires after 30 minutes, and becomes unusable immediately after setup.</p>
+    </div>
+  </section>
+
+  <section id="login-view" class="login-view" aria-labelledby="login-title" hidden>
     <div class="login-atmosphere" aria-hidden="true"></div>
     <div class="login-card">
       <div class="brand brand-login">

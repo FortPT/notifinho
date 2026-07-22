@@ -14,6 +14,7 @@ from __future__ import annotations
 import signal
 import sys
 import time
+from datetime import datetime, timezone
 from threading import Event
 
 from config import config
@@ -23,6 +24,7 @@ from inputs.smtp import SMTPInput
 from logger import log
 from router import Router
 from storage.runtime import initialize_state
+from storage.bootstrap import BootstrapStore
 from version import APP_NAME, VERSION
 
 
@@ -60,6 +62,27 @@ def main() -> int:
                 "Platform state initialized (schema %s).",
                 state_database.schema_version,
             )
+
+            bootstrap = BootstrapStore(state_database).rotate_for_startup()
+            if bootstrap is not None:
+                expires = datetime.fromtimestamp(
+                    bootstrap.expires_at,
+                    tz=timezone.utc,
+                ).isoformat()
+                print("", flush=True)
+                print("SECURE FIRST-RUN SETUP REQUIRED", flush=True)
+                print(
+                    "Open the Notifinho WebUI over HTTPS and enter this "
+                    "single-use setup token:",
+                    flush=True,
+                )
+                print(bootstrap.token, flush=True)
+                print(f"Token expires at {expires}.", flush=True)
+                print(
+                    "It rotates when Notifinho restarts until an administrator exists.",
+                    flush=True,
+                )
+                print("", flush=True)
 
         dispatcher = Dispatcher()
 

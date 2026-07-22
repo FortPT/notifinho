@@ -335,6 +335,7 @@ def test_application_lifecycle_starts_and_stops_smtp_and_http(monkeypatch):
     monkeypatch.setattr(main_module, "Router", lambda: object())
     monkeypatch.setattr(main_module, "SMTPInput", SMTP)
     monkeypatch.setattr(main_module, "HTTPInput", HTTP)
+    monkeypatch.setattr(main_module, "initialize_state", lambda _config: None)
     monkeypatch.setattr(
         main_module.time,
         "sleep",

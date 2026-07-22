@@ -24,10 +24,10 @@ smtp:
     # required: false
 
 # Native infrastructure webhook listener and local backend API transport.
-# Keep disabled unless the container port is intentionally published and
-# protected by firewall rules and, when available, the shared secret.
+# It is enabled for the local WebUI. Publishing the container port remains an
+# explicit deployment choice; use a firewall and trusted HTTPS reverse proxy.
 http:
-  enabled: false
+  enabled: true
   host: "0.0.0.0"
   port: 8080
   max_body_bytes: 1048576
@@ -57,13 +57,15 @@ home_assistant:
         device: "Office printer"
         endpoint: "192.0.2.20"
 
-# Persistent v2 platform API state. Keep disabled until a local administrator
-# is bootstrapped and HTTPS/reverse-proxy access is ready. The directory must
-# be absolute inside the container and writable by the configured non-root
-# UID/GID.
+# Persistent v2 platform API state. First startup produces a short-lived,
+# single-use setup token in container output; the WebUI uses it to create the
+# first administrator without a default password. The directory must be
+# absolute inside the container and writable by the configured non-root UID/GID.
 platform:
-  enabled: false
-  state_dir: "/notifinho/state"
+  enabled: true
+  # Safe for upgrades that already persist /notifinho/config. The hardened
+  # production Compose file overrides this with its dedicated /notifinho/state.
+  state_dir: "/notifinho/config/platform-state"
   # Retain the newest private server-side state backups (1-100).
   backup_retention: 20
   # Keep true behind HTTPS. Set false only for isolated loopback development.
@@ -73,13 +75,14 @@ platform:
 # API, platform state, and this switch are all enabled. Keep secure cookies on
 # and expose the interface only through a trusted HTTPS reverse proxy.
 webui:
-  enabled: false
+  enabled: true
 
-# v1.9 backend API. This is disabled by default. Publish it only on a trusted
-# network or behind an authenticated reverse proxy. Tokens must come from an
-# environment variable, a mode-0600 mounted file, or a precomputed SHA-256.
+# Backend API transport for the WebUI and optional v1-compatible API. Management
+# endpoints still require a browser session or explicitly configured token.
+# Tokens must come from an environment variable, a mode-0600 mounted file, or
+# a precomputed SHA-256.
 api:
-  enabled: false
+  enabled: true
   tokens:
     admin:
       enabled: false

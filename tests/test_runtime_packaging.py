@@ -40,6 +40,21 @@ def test_production_compose_applies_runtime_hardening():
     assert service["environment"]["NOTIFINHO_STATE_DIR"] == "/notifinho/state"
 
 
+def test_public_configuration_enables_secure_webui_bootstrap_defaults():
+    configuration = yaml.safe_load(
+        (ROOT / "config" / "config.example.yaml").read_text(encoding="utf-8")
+    )
+
+    assert configuration["http"]["enabled"] is True
+    assert configuration["api"]["enabled"] is True
+    assert configuration["platform"]["enabled"] is True
+    assert configuration["platform"]["secure_cookies"] is True
+    assert configuration["platform"]["state_dir"] == (
+        "/notifinho/config/platform-state"
+    )
+    assert configuration["webui"]["enabled"] is True
+
+
 def test_ci_validates_webui_compose_and_production_image():
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
         encoding="utf-8"

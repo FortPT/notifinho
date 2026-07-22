@@ -239,7 +239,7 @@ def test_schema_one_database_upgrades_to_user_routing_schema(tmp_path):
         connection.execute("PRAGMA user_version = 1")
         connection.commit()
 
-    assert database.migrate() == 2
+    assert database.migrate() == LATEST_SCHEMA_VERSION
     with database.connect() as connection:
         columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(api_tokens)")
@@ -247,5 +247,42 @@ def test_schema_one_database_upgrades_to_user_routing_schema(tmp_path):
         migration = connection.execute(
             "SELECT name FROM schema_migrations WHERE version = 2"
         ).fetchone()[0]
+        bootstrap_migration = connection.execute(
+            "SELECT name FROM schema_migrations WHERE version = 3"
+        ).fetchone()[0]
     assert {"version", "updated_at"} <= columns
     assert migration == "user routing and delivery foundation"
+    assert bootstrap_migration == "secure first-run bootstrap"
+
+
+def test_missing_platform_switch_enables_persistent_legacy_config_fallback(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.delenv("NOTIFINHO_STATE_DIR", raising=False)
+    monkeypatch.setattr(
+        "storage.runtime.DEFAULT_STATE_DIRECTORY",
+        str(tmp_path / "config" / "platform-state"),
+    )
+
+    database = initialize_state(Configuration({}))
+
+    assert database is not None
+    assert database.path == tmp_path / "config" / "platform-state" / "notifinho.db"
+    assert database.schema_version == LATEST_SCHEMA_VERSION
+
+
+def test_implicit_platform_state_failure_preserves_legacy_pipeline(
+    monkeypatch,
+    capsys,
+):
+    monkeypatch.setattr(
+        "storage.runtime.Database.migrate",
+        lambda _database: (_ for _ in ()).throw(PermissionError("read only")),
+    )
+
+    assert initialize_state(Configuration({})) is None
+    assert "legacy notification pipeline will continue" in capsys.readouterr().err
+
+    with pytest.raises(PermissionError, match="read only"):
+        initialize_state(Configuration({"platform": {"enabled": True}}))

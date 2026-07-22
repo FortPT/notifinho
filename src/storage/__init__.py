@@ -9,6 +9,7 @@ from storage.api_tokens import (
 )
 from storage.audit_events import AuditEvent, AuditEventStore
 from storage.backups import StateBackup, StateBackupStore
+from storage.bootstrap import BootstrapCredential, BootstrapStatus, BootstrapStore
 from storage.delivery import (
     DeliveryAttempt,
     DeliveryHistoryStore,
@@ -30,6 +31,9 @@ __all__ = [
     "APITokenStore",
     "AuditEvent",
     "AuditEventStore",
+    "BootstrapCredential",
+    "BootstrapStatus",
+    "BootstrapStore",
     "StateBackup",
     "StateBackupStore",
     "Database",

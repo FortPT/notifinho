@@ -70,7 +70,7 @@ class WebUIService:
     @property
     def enabled(self) -> bool:
         return self.platform_available and all(
-            self.configuration.get(section, "enabled", default=False) is True
+            self.configuration.get(section, "enabled", default=True) is True
             for section in ("http", "api", "platform", "webui")
         )
 

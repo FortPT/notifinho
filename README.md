@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.0.0-blue" alt="Stable release v2.0.0">
+  <img src="https://img.shields.io/badge/stable-v2.0.1-blue" alt="Stable release v2.0.1">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.0.0** |
+| **Current Stable Release** | **v2.0.1** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,17 +57,22 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.0.0 release notes](docs/releases/v2.0.0.md) for upgrade, rollback,
+See the [v2.0.1 release notes](docs/releases/v2.0.1.md) for upgrade, rollback,
 security, and release-acceptance guidance.
 
-Notifinho v2.0.0 adds an opt-in, self-hosted notification platform with local
+Notifinho v2 adds a self-hosted notification platform with local
 accounts, user-owned destinations and routes, scoped application tokens,
 six output adapters, preview and test delivery, searchable history and audit,
 a responsive same-origin WebUI, credential-free portability, v1.x migration,
 and integrity-checked state recovery. Existing YAML configuration, SMTP and
 webhook inputs, routes, Discord and Teams targets, parsers, and formatters
-remain compatible because the platform and WebUI stay disabled until explicitly
-enabled. Notifinho consumes emitted SMTP or webhook notifications; it
+remain compatible because the platform database is additive and does not
+replace the YAML delivery pipeline. Fresh installations and legacy
+configurations that omit the v2 switches enable the WebUI automatically;
+explicit `enabled: false` settings remain authoritative. First startup emits a
+short-lived, single-use setup token so the operator can choose the first
+administrator credentials in the browser without a default password or CLI
+bootstrap. Notifinho consumes emitted SMTP or webhook notifications; it
 does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
 enabled with STARTTLS and SMTP AUTH; see the
@@ -447,11 +452,11 @@ Router
             +-> destination formatter -> Discord output
             `-> destination formatter -> Microsoft Teams output
 
-Backend control plane (disabled by default)
+Backend control plane
     |- source-scoped and administrator tokens
     |- health, masked config, validation, logs, preview, and test-send
     |- atomic config updates, backups, rate limits, and audit records
-    `- opt-in SQLite state, local accounts, hashed sessions/CSRF,
+    `- SQLite state, local accounts, hashed sessions/CSRF,
        scoped tokens, owned routes/destinations, secret files, and history
 ```
 
@@ -722,9 +727,9 @@ The configuration is intentionally simple and organized into logical sections.
 | `smtp` | SMTP listener, STARTTLS, and authentication configuration. |
 | `http` | Native authenticated webhook listener configuration. |
 | `redfish` | Redfish duplicate-suppression behavior. |
-| `api` | Disabled-by-default backend API and scoped token definitions. |
-| `platform` | Disabled v2 local state, account, ownership, and secret boundary. |
-| `webui` | Disabled same-origin v2 browser interface. |
+| `api` | Session-protected backend API and optional scoped token definitions. |
+| `platform` | Persistent local state, account, ownership, and secret boundary. |
+| `webui` | Same-origin browser interface with single-use first-run setup. |
 | `routing` | Maps notification sources to outputs. |
 | `outputs` | Notification destinations (Discord, Teams, etc.). |
 | `notifications` | Product-specific notification preferences. |
@@ -751,27 +756,27 @@ smtp:
     password_file: ""
 
 # Native webhook input used by all HTTP source adapters and the backend API.
-# Keep disabled unless port 8080 is intentionally published.
+# Publishing port 8080 remains an explicit deployment choice.
 http:
-  enabled: false
+  enabled: true
   host: 0.0.0.0
   port: 8080
   max_body_bytes: 1048576
   shared_secret: ""
 
 platform:
-  enabled: false
+  enabled: true
   state_dir: "/notifinho/state"
   secure_cookies: true
 
 webui:
-  enabled: false
+  enabled: true
 
 redfish:
   deduplication_window_seconds: 300
 
 api:
-  enabled: false
+  enabled: true
   tokens:
     home_assistant:
       enabled: false
@@ -1695,6 +1700,21 @@ upgrade, and rollback guidance.
 Telegram and additional destination adapters remain candidates for the v2.x
 series after the core v2.0 transports and self-service security model are
 stable.
+
+---
+
+## ✅ v2.0.1 — Default WebUI and secure first-run setup
+
+v2.0.1 makes the authenticated platform and same-origin WebUI available by
+default on fresh installations and compatible upgrades. First startup creates
+a short-lived, single-use setup token and prints it only to container output;
+the operator uses that token over HTTPS to choose the first administrator
+username and password. There is no shared default password and no
+first-visitor-wins registration. Explicit `enabled: false` settings remain
+authoritative, existing accounts skip setup, and the original YAML
+notification pipeline remains compatible. See the
+[v2.0.1 release notes](docs/releases/v2.0.1.md) for deployment, security,
+upgrade, acceptance, and schema-aware rollback guidance.
 
 ---
 

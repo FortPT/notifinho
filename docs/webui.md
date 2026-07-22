@@ -4,9 +4,10 @@ Phase 5 packages a responsive, dependency-free browser interface in the
 Notifinho image. It uses the authenticated `/api/v2` contract over the same
 origin and never reads or writes the YAML configuration directly.
 
-## Activation
+## Default activation
 
-The WebUI is deliberately gated by four switches:
+The WebUI is enabled by default and remains gated by four switches so an
+operator can explicitly disable any layer:
 
 ```yaml
 http:
@@ -26,9 +27,11 @@ webui:
   enabled: true
 ```
 
-Bootstrap the first administrator with `tools/manage_users.py`, restart
-Notifinho, and open the HTTPS URL for port 8080. The interface is served at
-`/`; its packaged assets live below `/ui/`.
+On the first start, read the single-use setup token from container output and
+open the HTTPS URL for port 8080. The first-run screen lets you choose the
+administrator username and password. No default account exists, and no shell
+command is required. The interface is served at `/`; packaged assets live
+below `/ui/`.
 
 Keep `platform.secure_cookies: true` outside isolated loopback development.
 The login session is unusable over plain HTTP with secure cookies enabled by

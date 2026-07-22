@@ -16,6 +16,7 @@ from outputs.settings import normalize_output_settings
 from storage.api_tokens import APITokenStore
 from storage.audit_events import AuditEventStore
 from storage.backups import StateBackupStore
+from storage.bootstrap import BootstrapStore
 from storage.delivery import DeliveryHistoryStore, PlatformDeliveryService
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
@@ -40,6 +41,7 @@ class PlatformAPI:
         self.configuration = configuration
         self.audit = AuditEventStore(database)
         self.users = UserStore(database)
+        self.bootstrap = BootstrapStore(database, users=self.users)
         self.sessions = SessionStore(database)
         self.tokens = APITokenStore(database, audit=self.audit)
         self.secrets = SecretStore(database)
@@ -76,6 +78,7 @@ class PlatformAPI:
         )
         self.token_limiter = RateLimiter()
         self.login_limiter = RateLimiter()
+        self.bootstrap_limiter = RateLimiter()
         self.session_limiter = RateLimiter()
 
     @property
@@ -89,6 +92,8 @@ class PlatformAPI:
     def handle(self, method, path, payload, headers, client) -> APIResponse:
         method = str(method or "").upper()
         try:
+            if path == "/api/v2/bootstrap":
+                return self._bootstrap(method, payload, client)
             if path == "/api/v2/session" and method == "POST":
                 return self._login(payload, client)
             if path == "/api/v2/events" and method == "POST":
@@ -179,6 +184,59 @@ class PlatformAPI:
             credentials.session_id,
             "success",
         )
+        return self._session_response(user, credentials)
+
+    def _bootstrap(self, method, payload, client) -> APIResponse:
+        status = self.bootstrap.status()
+        if method == "GET":
+            return APIResponse(
+                200,
+                {
+                    "required": status.required,
+                    "expires_at": status.expires_at,
+                },
+                (("Cache-Control", "no-store"),),
+            )
+        if method != "POST":
+            return self._method_not_allowed("GET, POST")
+        if not status.required:
+            return APIResponse(409, {"error": "platform setup is already complete"})
+        limiter_principal = Principal(
+            name="platform-bootstrap",
+            role="application",
+            sources=frozenset(),
+            rate_limit_per_minute=5,
+        )
+        if not self.bootstrap_limiter.allow(limiter_principal, str(client)):
+            return APIResponse(429, {"error": "rate limit exceeded"})
+        if not isinstance(payload, dict) or set(payload) != {
+            "token",
+            "username",
+            "password",
+        }:
+            return APIResponse(400, {"error": "request is invalid"})
+        try:
+            user = self.bootstrap.consume(
+                str(payload.get("token") or ""),
+                str(payload.get("username") or ""),
+                str(payload.get("password") or ""),
+            )
+        except PermissionError:
+            self.audit.write(None, "platform.bootstrap", "user", None, "denied")
+            return APIResponse(401, {"error": "setup token is invalid or expired"})
+        except ValueError:
+            return APIResponse(400, {"error": "setup account details are invalid"})
+        self.audit.write(
+            user.actor,
+            "platform.bootstrap",
+            "user",
+            user.id,
+            "success",
+        )
+        return self._session_response(user)
+
+    def _session_response(self, user, credentials=None) -> APIResponse:
+        credentials = credentials or self.sessions.create(user.id)
         headers = (
             ("Set-Cookie", credentials.cookie(secure=self.secure_cookies)),
             ("Set-Cookie", self._csrf_cookie(credentials.csrf_token)),

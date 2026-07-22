@@ -206,10 +206,28 @@ function expireSession() {
   state.user = null;
   state.csrf = "";
   byId("app-shell").hidden = true;
+  byId("bootstrap-view").hidden = true;
   byId("login-view").hidden = false;
   byId("login-password").value = "";
   byId("login-error").hidden = true;
   byId("login-username").focus();
+}
+
+function showBootstrap(status) {
+  state.user = null;
+  state.csrf = "";
+  byId("app-shell").hidden = true;
+  byId("login-view").hidden = true;
+  byId("bootstrap-view").hidden = false;
+  const fragment = window.location.hash.slice(1);
+  if (fragment.startsWith("setup=")) {
+    byId("bootstrap-token").value = decodeURIComponent(fragment.slice(6));
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+  byId("bootstrap-expiry").textContent = status.expires_at
+    ? `This setup token expires ${formatTime(status.expires_at)}.`
+    : "The setup token has expired. Restart Notifinho to rotate it, then check the new container output.";
+  (byId("bootstrap-token").value ? byId("bootstrap-username") : byId("bootstrap-token")).focus();
 }
 
 function showApp(session) {
@@ -263,6 +281,54 @@ async function login(event) {
   } finally {
     if (submit) submit.disabled = false;
   }
+}
+
+async function bootstrapAdministrator(event) {
+  event.preventDefault();
+  clearError("bootstrap-error");
+  const submit = event.submitter;
+  const password = byId("bootstrap-password").value;
+  if (password !== byId("bootstrap-confirm").value) {
+    showError("bootstrap-error", new APIError(400, "The passwords do not match."));
+    return;
+  }
+  if (submit) submit.disabled = true;
+  try {
+    const session = await request("/bootstrap", {
+      method: "POST",
+      body: {
+        token: byId("bootstrap-token").value.trim(),
+        username: byId("bootstrap-username").value.trim(),
+        password,
+      },
+    });
+    byId("bootstrap-token").value = "";
+    byId("bootstrap-password").value = "";
+    byId("bootstrap-confirm").value = "";
+    byId("bootstrap-view").hidden = true;
+    showApp(session);
+    await loadWorkspace();
+  } catch (error) {
+    showError("bootstrap-error", error);
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+}
+
+async function initialize() {
+  try {
+    const status = await request("/bootstrap");
+    if (status.required) {
+      showBootstrap(status);
+      return;
+    }
+  } catch (error) {
+    if (!(error instanceof APIError) || error.status !== 404) {
+      byId("login-error").textContent = error.message || "Notifinho is not reachable.";
+      byId("login-error").hidden = false;
+    }
+  }
+  await restoreSession();
 }
 
 async function loadWorkspace() {
@@ -1210,6 +1276,7 @@ async function handleClick(event) {
 }
 
 function bindEvents() {
+  byId("bootstrap-form").addEventListener("submit", bootstrapAdministrator);
   byId("login-form").addEventListener("submit", login);
   byId("destination-form").addEventListener("submit", saveDestination);
   byId("destination-type").addEventListener("change", () => renderDestinationFields());
@@ -1252,4 +1319,4 @@ function bindEvents() {
 }
 
 bindEvents();
-restoreSession();
+initialize();

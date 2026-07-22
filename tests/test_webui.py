@@ -107,6 +107,21 @@ def test_webui_service_is_explicitly_gated_and_has_no_path_mapping():
         assert disabled.response("/ui/app.js").status == 404
 
 
+def test_webui_is_default_on_but_every_explicit_disable_is_authoritative():
+    service = WebUIService(Configuration({}), root=ROOT, platform_available=True)
+
+    assert service.enabled is True
+    assert service.response("/").status == 200
+
+    for section in ("http", "api", "platform", "webui"):
+        disabled = WebUIService(
+            Configuration({section: {"enabled": False}}),
+            root=ROOT,
+            platform_available=True,
+        )
+        assert disabled.enabled is False
+
+
 def test_native_http_serves_get_and_head_with_strict_browser_headers(
     monkeypatch,
     tmp_path,
@@ -156,6 +171,8 @@ def test_webui_markup_is_semantic_external_and_complete():
     inspector.feed(markup)
 
     required = {
+        "bootstrap-form",
+        "bootstrap-token",
         "login-form",
         "app-shell",
         "primary-nav",
@@ -188,6 +205,7 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
     script = (ROOT / "src" / "webui" / "app.js").read_text(encoding="utf-8")
 
     for endpoint in (
+        "/bootstrap",
         "/session",
         "/destinations",
         "/routes",

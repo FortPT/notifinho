@@ -2,6 +2,37 @@
 
 ## Unreleased
 
+## 2.0.1 - 2026-07-22
+
+### Changed
+
+- Enabled the HTTP listener, platform API, persistent platform state, and
+  same-origin WebUI by default while continuing to honor every explicit
+  `enabled: false` setting.
+- Changed the missing-state-directory fallback to
+  `/notifinho/config/platform-state`, preserving first-run state for legacy
+  upgrades that already persist the configuration mount. Production Compose
+  continues to use its dedicated `/notifinho/state` mount.
+- Kept the legacy SMTP/webhook pipeline running when an upgraded configuration
+  omits the platform switch but its existing configuration mount is not
+  writable; explicit platform enablement continues to fail closed.
+
+### Added
+
+- Added an image-managed first-run flow that rotates a cryptographically random
+  setup token on startup until an account exists, stores only its SHA-256
+  digest, expires it after 30 minutes, rate-limits attempts, and consumes it
+  after creating the first administrator.
+- Added a responsive first-run WebUI that accepts the one-time container-output
+  token and lets the operator choose the initial administrator username and
+  password without running an account-management command.
+
+### Security
+
+- No shared default password or unauthenticated first-visitor registration is
+  introduced. Existing account databases skip bootstrap, secure cookies remain
+  enabled, and the setup token is invalid after use or restart.
+
 ## 2.0.0 - 2026-07-22
 
 ### Changed

@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
+import sys
 
 from pathlib import Path
 
 from storage.database import Database
 
 
-DEFAULT_STATE_DIRECTORY = "/notifinho/state"
+DEFAULT_STATE_DIRECTORY = "/notifinho/config/platform-state"
 
 
 def state_directory(configuration) -> Path:
@@ -27,10 +28,23 @@ def state_directory(configuration) -> Path:
 
 
 def initialize_state(configuration) -> Database | None:
-    """Migrate platform state only when the unfinished v2 layer is enabled."""
+    """Initialize platform state unless an operator explicitly disables it."""
 
-    if configuration.get("platform", "enabled", default=False) is not True:
+    enabled = configuration.get("platform", "enabled", default=None)
+    if enabled is False:
         return None
     database = Database(state_directory(configuration) / "notifinho.db")
-    database.migrate()
+    try:
+        database.migrate()
+    except OSError as error:
+        if enabled is True:
+            raise
+        print(
+            "WARNING: automatic WebUI state could not be initialized; "
+            "the legacy notification pipeline will continue. Configure a "
+            f"writable platform.state_dir to enable the WebUI ({error}).",
+            file=sys.stderr,
+            flush=True,
+        )
+        return None
     return database

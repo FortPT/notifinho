@@ -794,3 +794,71 @@ def test_platform_api_is_absent_without_initialized_platform_database():
         {},
         "127.0.0.1",
     ).status == 404
+
+
+def test_first_run_bootstrap_creates_admin_session_and_consumes_token(
+    tmp_path,
+    monkeypatch,
+):
+    database = Database(tmp_path / "state" / "notifinho.db")
+    database.migrate()
+
+    def users(database_value):
+        return UserStore(database_value, password_hasher=fast_hash)
+
+    monkeypatch.setattr(platform_module, "UserStore", users)
+    config = Configuration({
+        "api": {"enabled": True},
+        "platform": {"enabled": True, "secure_cookies": False},
+    })
+    service = APIService(
+        Dispatcher(),
+        Router(),
+        config,
+        platform_database=database,
+    )
+    credential = service.platform.bootstrap.rotate_for_startup()
+
+    status = service.handle_http(
+        "GET", "/api/v2/bootstrap", None, {}, "127.0.0.1"
+    )
+    denied = service.handle_http(
+        "POST",
+        "/api/v2/bootstrap",
+        {"token": "wrong", "username": "administrator", "password": PASSWORD},
+        {},
+        "127.0.0.1",
+    )
+    created = service.handle_http(
+        "POST",
+        "/api/v2/bootstrap",
+        {
+            "token": credential.token,
+            "username": "administrator",
+            "password": PASSWORD,
+        },
+        {},
+        "127.0.0.1",
+    )
+    repeated = service.handle_http(
+        "POST",
+        "/api/v2/bootstrap",
+        {
+            "token": credential.token,
+            "username": "another-admin",
+            "password": "another secure password",
+        },
+        {},
+        "127.0.0.1",
+    )
+
+    assert status.status == 200
+    assert status.payload["required"] is True
+    assert status.payload["expires_at"] == credential.expires_at
+    assert denied.status == 401
+    assert created.status == 200
+    assert created.payload["user"]["role"] == "admin"
+    assert any(name == "Set-Cookie" for name, _value in created.headers)
+    assert repeated.status == 409
+    assert credential.token.encode() not in database.path.read_bytes()
+    assert users(database).count() == 1

@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 2.2.1 - 2026-07-22
+
+### Fixed
+
+- Fixed the administrator configuration inventory after a route action writes
+  a semantic priority such as `normal`, preserving the route's enabled state
+  and returning its normalized numeric and named priority.
+- Isolated WebUI workspace requests so a failed component no longer prevents
+  successful destinations, routes, deliveries, or other sections from
+  rendering.
+- Preserved an authenticated session when a non-authentication workspace
+  request fails and added a visible component-specific failure notice.
+
 ## 2.2.0 - 2026-07-22
 
 ### Added

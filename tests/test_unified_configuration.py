@@ -11,9 +11,12 @@ from api.config_service import ConfigService
 from api.schema import mask_secrets
 from api.security import hash_password
 from storage.configuration_sync import CONFIGURATION_MODEL, UnifiedConfigurationService
+from storage.configuration_bridge import ConfigurationBridgeService
+from storage.backups import StateBackupStore
 from storage.database import Database
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
+from storage.portability import PlatformPortabilityService
 from storage.routes import RouteStore
 from storage.secrets import SecretStore
 from storage.users import UserStore
@@ -262,6 +265,33 @@ def test_shared_destination_channel_and_semantic_priority_round_trip(unified):
     )
     assert mirrored.shared is True
     assert route.priority == 25
+
+
+def test_route_toggle_writes_named_priority_that_inventory_can_reload(unified):
+    unified["service"].synchronize()
+    route = unified["service"].list_routes(unified["admin"])[0]
+    updated = unified["service"].update_route(
+        unified["admin"],
+        route.id,
+        {"enabled": False, "priority": "normal"},
+    )
+    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
+    configured = saved["routing"]["dell_idrac"]["outputs"][0]
+
+    database = unified["database"]
+    bridge = ConfigurationBridgeService(
+        unified["config_service"],
+        PlatformPortabilityService(database),
+        StateBackupStore(database),
+    )
+    inventory_route = bridge.inventory(unified["admin"])["routes"][0]
+
+    assert updated.enabled is False
+    assert configured["enabled"] is False
+    assert configured["priority"] == "normal"
+    assert inventory_route["enabled"] is False
+    assert inventory_route["priority"] == 50
+    assert inventory_route["priority_name"] == "normal"
 
 
 def test_inputs_applications_and_external_backup_settings_are_file_backed(unified, tmp_path):

@@ -14,6 +14,7 @@ from storage.audit_events import AuditEventStore
 from storage.backups import StateBackupStore
 from storage.ownership import Actor
 from storage.portability import PlatformPortabilityService
+from storage.routes import route_priority_name, route_priority_value
 
 
 ROUTING_AUTHORITIES = {"yaml", "database"}
@@ -310,7 +311,12 @@ class ConfigurationBridgeService:
                     "target": target,
                     "filters": deepcopy(match),
                     "enabled": entry.get("enabled", True) is True,
-                    "priority": int(entry.get("priority", 100 + position)),
+                    "priority": route_priority_value(
+                        entry.get("priority", 100 + position)
+                    ),
+                    "priority_name": route_priority_name(
+                        entry.get("priority", 100 + position)
+                    ),
                     "management": "yaml",
                     "authority": authority == "yaml",
                     "migratable": output_type in {"discord", "teams"},

@@ -252,6 +252,10 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
     assert 'dataset: { action: "toggle-input", id: item.name }' in script
     assert 'outputIcon(item.output_type)' in script
     assert 'capitalize(item.priority_name || "normal")' in script
+    assert "Promise.allSettled" in script
+    assert "state.workspaceErrors.push" in script
+    assert 'component: "Workspace"' in script
+    assert "const values = await Promise.all" not in script
     assert 'if (!self)' in script
     assert 'headers["X-CSRF-Token"]' in script
     assert "navigator.clipboard.writeText" in script
@@ -267,6 +271,28 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
         "new Function",
     ):
         assert forbidden not in script
+
+
+def test_webui_keeps_workspace_visible_and_identifies_partial_api_failures():
+    markup = (ROOT / "src" / "webui" / "index.html").read_text(encoding="utf-8")
+    script = (ROOT / "src" / "webui" / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="workspace-alert"' in markup
+    assert 'id="workspace-alert-list"' in markup
+    assert 'role="alert"' in markup
+    for component in (
+        "Destinations",
+        "Routes",
+        "Applications",
+        "Delivery history",
+        "Configuration inventory",
+        "Backup settings",
+    ):
+        assert f'["{component}", request(' in script
+    session_request = script.index('session = await request("/session")')
+    session_show = script.index("showApp(session);", session_request)
+    workspace_load = script.index("await loadWorkspace();", session_show)
+    assert session_request < session_show < workspace_load
 
 
 def test_production_image_already_packages_webui_and_icon():

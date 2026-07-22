@@ -91,12 +91,14 @@ proxy or firewall to approved senders. Port `8025` is SMTP and must not be sent
 through an HTTP reverse proxy.
 
 The opt-in platform API requires local account bootstrap plus
-`http.enabled`, `api.enabled`, and `platform.enabled`. Keep
+`http.enabled`, `api.enabled`, and `platform.enabled`. The packaged browser
+interface additionally requires `webui.enabled`. Keep
 `platform.secure_cookies: true`, publish `/api/v2` only through HTTPS, disable
 proxy caching, preserve duplicate `Set-Cookie` response headers, and apply
 request/body limits. Do not rewrite `Authorization`, `Cookie`, or
 `X-CSRF-Token`. See the [platform API guide](platform-api.md) before enabling
-the endpoint outside isolated development.
+the endpoint outside isolated development and the [WebUI guide](webui.md) for
+the browser security boundary.
 
 ## Rollback
 

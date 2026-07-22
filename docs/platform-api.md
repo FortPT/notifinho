@@ -2,11 +2,11 @@
 
 Phase 4 exposes the local-account, ownership, routing, output, history, and
 audit foundations through an opt-in `/api/v2` JSON API. It also provides the
-user/application event-ingestion path used by platform routes.
+user/application event-ingestion path used by platform routes. Phase 5 adds a
+same-origin browser client for this contract; see the [WebUI guide](webui.md).
 
-The API is backend-only in this phase. It does not include a WebUI, automatic
-v1.x YAML import, or a production migration. Existing YAML inputs and routes
-continue to operate independently.
+The API does not include automatic v1.x YAML import or an implicit production
+migration. Existing YAML inputs and routes continue to operate independently.
 
 ## Activation boundary
 

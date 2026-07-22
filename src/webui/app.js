@@ -1,0 +1,1071 @@
+"use strict";
+
+const API = "/api/v2";
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const VIEW_TITLES = {
+  dashboard: ["Workspace", "Overview"],
+  destinations: ["Outputs", "Destinations"],
+  routes: ["Routing", "Routes"],
+  tokens: ["Access", "Applications"],
+  deliveries: ["Operations", "Delivery history"],
+  audit: ["Security", "Audit log"],
+  users: ["Administration", "Users"],
+  account: ["Profile", "Account security"],
+};
+const OUTPUT_NAMES = {
+  discord: "Discord",
+  teams: "Microsoft Teams",
+  slack: "Slack",
+  webhook: "Generic webhook",
+  mqtt: "MQTT",
+  ntfy: "ntfy",
+};
+const state = {
+  user: null,
+  csrf: "",
+  currentView: "dashboard",
+  destinations: [],
+  routes: [],
+  tokens: [],
+  deliveries: [],
+  audit: [],
+  users: [],
+  sessionExpiresAt: null,
+  confirmResolve: null,
+};
+
+const byId = (id) => document.getElementById(id);
+
+function element(tag, options = {}, children = []) {
+  const item = document.createElement(tag);
+  if (options.className) item.className = options.className;
+  if (options.text !== undefined) item.textContent = String(options.text);
+  if (options.title) item.title = options.title;
+  if (options.type) item.type = options.type;
+  if (options.value !== undefined) item.value = String(options.value);
+  if (options.disabled) item.disabled = true;
+  if (options.hidden) item.hidden = true;
+  for (const [name, value] of Object.entries(options.attributes || {})) {
+    item.setAttribute(name, String(value));
+  }
+  for (const [name, value] of Object.entries(options.dataset || {})) {
+    item.dataset[name] = String(value);
+  }
+  const values = Array.isArray(children) ? children : [children];
+  for (const child of values) {
+    if (child === null || child === undefined) continue;
+    item.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  }
+  return item;
+}
+
+function actionButton(label, action, id, style = "secondary") {
+  return element("button", {
+    className: `button small ${style}`,
+    text: label,
+    type: "button",
+    dataset: { action, id },
+  });
+}
+
+function badge(label, style = "") {
+  return element("span", { className: `badge ${style}`.trim(), text: label });
+}
+
+function initials(name) {
+  return String(name || "N").trim().slice(0, 1).toUpperCase() || "N";
+}
+
+function readCsrfCookie() {
+  const names = new Set(["__Host-notifinho_csrf", "notifinho_csrf"]);
+  for (const pair of document.cookie.split(";")) {
+    const [rawName, ...rest] = pair.trim().split("=");
+    if (names.has(rawName)) return decodeURIComponent(rest.join("="));
+  }
+  return "";
+}
+
+class APIError extends Error {
+  constructor(status, message) {
+    super(message || "Request failed");
+    this.status = status;
+  }
+}
+
+async function request(path, options = {}) {
+  const method = String(options.method || "GET").toUpperCase();
+  const headers = { Accept: "application/json" };
+  let body;
+  if (options.body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    body = JSON.stringify(options.body);
+  }
+  if (!SAFE_METHODS.has(method)) {
+    const csrf = state.csrf || readCsrfCookie();
+    if (csrf) headers["X-CSRF-Token"] = csrf;
+  }
+  let response;
+  try {
+    response = await fetch(`${API}${path}`, {
+      method,
+      headers,
+      body,
+      credentials: "same-origin",
+      cache: "no-store",
+    });
+  } catch (_error) {
+    setConnection(false);
+    throw new APIError(0, "Notifinho is not reachable.");
+  }
+  setConnection(true);
+  const raw = await response.text();
+  let payload = null;
+  if (raw) {
+    try {
+      payload = JSON.parse(raw);
+    } catch (_error) {
+      throw new APIError(response.status, "The server returned an invalid response.");
+    }
+  }
+  if (!response.ok) {
+    if (response.status === 401 && state.user && path !== "/session") expireSession();
+    throw new APIError(response.status, payload && payload.error);
+  }
+  return payload;
+}
+
+function setConnection(connected) {
+  const item = byId("connection-state");
+  item.textContent = connected ? "Connected" : "Offline";
+  item.classList.toggle("success", connected);
+  item.classList.toggle("error", !connected);
+}
+
+function showError(id, error) {
+  const item = byId(id);
+  item.textContent = error instanceof APIError ? error.message : "The request could not be completed.";
+  item.hidden = false;
+}
+
+function clearError(id) {
+  const item = byId(id);
+  item.textContent = "";
+  item.hidden = true;
+}
+
+function toast(message, style = "") {
+  const item = element("div", { className: `toast ${style}`.trim(), text: message });
+  byId("toast-region").append(item);
+  window.setTimeout(() => item.remove(), 4200);
+}
+
+function empty(container, title, copy) {
+  container.replaceChildren(
+    element("div", { className: "empty-state" }, [
+      element("strong", { text: title }),
+      element("span", { text: copy }),
+    ]),
+  );
+}
+
+function formatTime(value) {
+  if (value === null || value === undefined || value === "") return "Never";
+  const number = Number(value);
+  const date = new Date(number < 10_000_000_000 ? number * 1000 : number);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function relativeTime(value) {
+  if (!value) return "Never";
+  const seconds = Number(value) < 10_000_000_000 ? Number(value) : Number(value) / 1000;
+  const delta = Math.round(seconds - Date.now() / 1000);
+  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const absolute = Math.abs(delta);
+  if (absolute < 60) return formatter.format(delta, "second");
+  if (absolute < 3600) return formatter.format(Math.round(delta / 60), "minute");
+  if (absolute < 86400) return formatter.format(Math.round(delta / 3600), "hour");
+  return formatter.format(Math.round(delta / 86400), "day");
+}
+
+function isAdmin() {
+  return state.user && state.user.role === "admin";
+}
+
+function ownResource(item) {
+  return item && state.user && item.owner_user_id === state.user.id;
+}
+
+function expireSession() {
+  state.user = null;
+  state.csrf = "";
+  byId("app-shell").hidden = true;
+  byId("login-view").hidden = false;
+  byId("login-password").value = "";
+  byId("login-error").hidden = true;
+  byId("login-username").focus();
+}
+
+function showApp(session) {
+  state.user = session.user;
+  state.sessionExpiresAt = session.expires_at;
+  state.csrf = session.csrf_token || readCsrfCookie();
+  byId("login-view").hidden = true;
+  byId("app-shell").hidden = false;
+  byId("users-nav").hidden = !isAdmin();
+  const name = state.user.username;
+  const role = state.user.role;
+  for (const id of ["profile-avatar", "account-avatar"]) byId(id).textContent = initials(name);
+  for (const id of ["profile-name", "account-name"]) byId(id).textContent = name;
+  byId("profile-role").textContent = role;
+  byId("account-role").textContent = role === "admin" ? "Administrator" : "User";
+  byId("account-session").textContent = `Session expires ${formatTime(session.expires_at)}`;
+}
+
+async function restoreSession() {
+  try {
+    const session = await request("/session");
+    showApp(session);
+    await loadWorkspace();
+  } catch (error) {
+    if (!(error instanceof APIError) || ![401, 404].includes(error.status)) {
+      byId("login-error").textContent = error.message || "Notifinho is not reachable.";
+      byId("login-error").hidden = false;
+    }
+    expireSession();
+  }
+}
+
+async function login(event) {
+  event.preventDefault();
+  clearError("login-error");
+  const submit = event.submitter;
+  if (submit) submit.disabled = true;
+  try {
+    const session = await request("/session", {
+      method: "POST",
+      body: {
+        username: byId("login-username").value.trim(),
+        password: byId("login-password").value,
+      },
+    });
+    showApp(session);
+    await loadWorkspace();
+  } catch (error) {
+    showError("login-error", error);
+  } finally {
+    if (submit) submit.disabled = false;
+  }
+}
+
+async function loadWorkspace() {
+  const tasks = [
+    request("/destinations"),
+    request("/routes"),
+    request("/tokens"),
+    request("/deliveries"),
+    request("/audit-events"),
+  ];
+  if (isAdmin()) tasks.push(request("/users"));
+  const results = await Promise.all(tasks);
+  state.destinations = results[0].destinations;
+  state.routes = results[1].routes;
+  state.tokens = results[2].tokens;
+  state.deliveries = results[3].deliveries;
+  state.audit = results[4].audit_events;
+  state.users = isAdmin() ? results[5].users : [];
+  renderAll();
+  const requested = window.location.hash.slice(1);
+  navigate(VIEW_TITLES[requested] && (requested !== "users" || isAdmin()) ? requested : state.currentView);
+}
+
+async function refreshWorkspace() {
+  const button = byId("refresh-button");
+  button.disabled = true;
+  try {
+    await loadWorkspace();
+    toast("Workspace refreshed.");
+  } catch (error) {
+    toast(error.message || "Refresh failed.", "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function renderAll() {
+  renderDashboard();
+  renderDestinations();
+  renderRoutes();
+  renderTokens();
+  renderDeliveries();
+  renderAudit();
+  renderUsers();
+}
+
+function navigate(view) {
+  if (!VIEW_TITLES[view] || (view === "users" && !isAdmin())) view = "dashboard";
+  state.currentView = view;
+  for (const section of document.querySelectorAll(".view")) {
+    section.hidden = section.dataset.page !== view;
+  }
+  for (const button of document.querySelectorAll("[data-view]")) {
+    const active = button.dataset.view === view && button.classList.contains("nav-item");
+    button.classList.toggle("active", active);
+    if (active) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  }
+  const [kicker, title] = VIEW_TITLES[view];
+  byId("page-kicker").textContent = kicker;
+  byId("page-title").textContent = title;
+  window.history.replaceState(null, "", `#${view}`);
+  byId("app-shell").classList.remove("nav-open");
+  byId("mobile-menu").setAttribute("aria-expanded", "false");
+  byId("main-content").focus({ preventScroll: true });
+}
+
+function renderDashboard() {
+  const activeDestinations = state.destinations.filter((item) => item.enabled).length;
+  const activeRoutes = state.routes.filter((item) => item.enabled).length;
+  const activeTokens = state.tokens.filter((item) => !item.revoked_at).length;
+  const completed = state.deliveries.filter((item) => item.outcome === "success").length;
+  const success = state.deliveries.length ? Math.round((completed / state.deliveries.length) * 100) : null;
+  byId("metric-destinations").textContent = state.destinations.length;
+  byId("metric-destinations-note").textContent = `${activeDestinations} enabled`;
+  byId("metric-routes").textContent = activeRoutes;
+  byId("metric-routes-note").textContent = `${state.routes.length} configured`;
+  byId("metric-tokens").textContent = activeTokens;
+  byId("metric-tokens-note").textContent = `${state.tokens.length} issued`;
+  byId("metric-success").textContent = success === null ? "—" : `${success}%`;
+  byId("metric-success-note").textContent = state.deliveries.length ? `${state.deliveries.length} recent attempts` : "No attempts yet";
+  byId("setup-destination").classList.toggle("complete", state.destinations.length > 0);
+  byId("setup-route").classList.toggle("complete", state.routes.length > 0);
+  byId("setup-token").classList.toggle("complete", state.tokens.length > 0);
+  const container = byId("dashboard-deliveries");
+  container.replaceChildren();
+  if (!state.deliveries.length) {
+    empty(container, "No deliveries yet", "Submitted events will appear here after a route matches.");
+    return;
+  }
+  for (const item of state.deliveries.slice(0, 6)) {
+    const outcome = item.outcome === "success" ? "success" : item.retryable ? "warning" : "danger";
+    container.append(element("div", { className: "activity-item" }, [
+      element("span", { className: "event-indicator", text: item.outcome === "success" ? "✓" : "!" }),
+      element("div", {}, [
+        element("strong", { text: item.title || "Untitled event" }),
+        element("small", { text: `${item.source} · ${item.severity} · attempt ${item.attempt_number}` }),
+      ]),
+      element("div", {}, [badge(item.outcome, outcome), element("small", { text: relativeTime(item.completed_at || item.created_at) })]),
+    ]));
+  }
+}
+
+function renderDestinations() {
+  const container = byId("destination-list");
+  container.replaceChildren();
+  if (!state.destinations.length) {
+    empty(container, "No destinations", "Add an output to preview payloads and receive routed events.");
+    return;
+  }
+  for (const item of state.destinations) {
+    const editable = ownResource(item) || isAdmin();
+    const actions = element("div", { className: "resource-actions" }, [
+      actionButton("Preview", "preview-destination", item.id),
+    ]);
+    if (editable) {
+      actions.append(
+        actionButton("Edit", "edit-destination", item.id),
+        actionButton(item.enabled ? "Disable" : "Enable", "toggle-destination", item.id),
+        actionButton("Delete", "delete-destination", item.id, "danger"),
+      );
+    }
+    const ownership = ownResource(item) ? "Owned by you" : "Shared destination";
+    const meta = element("div", { className: "resource-meta" }, [
+      badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning"),
+      badge(item.shared ? "Shared" : "Private"),
+      badge(item.secret_configured ? "Credentials set" : "No credentials", item.secret_configured ? "success" : "warning"),
+    ]);
+    container.append(element("article", { className: "resource-card" }, [
+      element("div", { className: "resource-heading" }, [
+        element("div", { className: "resource-identity" }, [
+          element("span", { className: "resource-icon", text: item.output_type.slice(0, 2) }),
+          element("div", {}, [element("strong", { text: item.name }), element("small", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · ${ownership}` })]),
+        ]),
+      ]),
+      meta,
+      actions,
+    ]));
+  }
+}
+
+function destinationName(id) {
+  const item = state.destinations.find((candidate) => candidate.id === id);
+  return item ? item.name : "Unavailable destination";
+}
+
+function filterSummary(filters) {
+  const parts = [];
+  for (const key of ["severities", "statuses", "hosts", "events"]) {
+    const values = filters && filters[key];
+    if (Array.isArray(values) && values.length) parts.push(`${key}: ${values.join(", ")}`);
+  }
+  return parts.join(" · ") || "All matching events";
+}
+
+function renderRoutes() {
+  const body = byId("route-table");
+  body.replaceChildren();
+  byId("route-empty").hidden = state.routes.length > 0;
+  if (!state.routes.length) {
+    byId("route-empty").replaceChildren(element("strong", { text: "No routes" }), element("span", { text: "Create a route after adding a destination." }));
+    return;
+  }
+  for (const item of state.routes) {
+    const actions = element("div", { className: "row-actions" }, [
+      actionButton("Edit", "edit-route", item.id),
+      actionButton(item.enabled ? "Disable" : "Enable", "toggle-route", item.id),
+      actionButton("Delete", "delete-route", item.id, "danger"),
+    ]);
+    body.append(element("tr", {}, [
+      element("td", {}, element("strong", { text: item.name })),
+      element("td", { text: item.source }),
+      element("td", { text: destinationName(item.destination_id) }),
+      element("td", {}, element("small", { text: filterSummary(item.filters) })),
+      element("td", { text: item.priority }),
+      element("td", {}, badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning")),
+      element("td", {}, actions),
+    ]));
+  }
+}
+
+function renderTokens() {
+  const body = byId("token-table");
+  body.replaceChildren();
+  byId("token-empty").hidden = state.tokens.length > 0;
+  if (!state.tokens.length) {
+    byId("token-empty").replaceChildren(element("strong", { text: "No application tokens" }), element("span", { text: "Issue a source-scoped token for an event producer." }));
+    return;
+  }
+  for (const item of state.tokens) {
+    const revoked = Boolean(item.revoked_at);
+    const actions = element("div", { className: "row-actions" });
+    if (!revoked) {
+      actions.append(actionButton("Rotate", "rotate-token", item.id), actionButton("Revoke", "revoke-token", item.id, "danger"));
+    }
+    body.append(element("tr", {}, [
+      element("td", {}, [element("strong", { text: item.name }), element("small", { text: `Version ${item.version}` })]),
+      element("td", { text: item.source_scopes.join(", ") || "None" }),
+      element("td", { text: `${item.rate_limit_per_minute}/min` }),
+      element("td", { text: relativeTime(item.last_used_at) }),
+      element("td", {}, badge(revoked ? "Revoked" : "Active", revoked ? "danger" : "success")),
+      element("td", {}, actions),
+    ]));
+  }
+}
+
+function renderDeliveries() {
+  const query = byId("delivery-search").value.trim().toLowerCase();
+  const items = state.deliveries.filter((item) => JSON.stringify([item.source, item.title, item.outcome, item.safe_error, item.error_code]).toLowerCase().includes(query));
+  const container = byId("delivery-list");
+  container.replaceChildren();
+  if (!items.length) {
+    empty(container, query ? "No matching deliveries" : "No delivery history", query ? "Try a different search." : "Delivery attempts appear after matched events are submitted.");
+    return;
+  }
+  for (const item of items) {
+    const style = item.outcome === "success" ? "success" : item.retryable ? "warning" : "danger";
+    const error = item.safe_error || item.error_code || "No transport error reported";
+    container.append(element("article", { className: "timeline-item" }, [
+      element("span", { className: "event-indicator", text: item.outcome === "success" ? "✓" : "!" }),
+      element("div", {}, [
+        element("strong", { text: item.title || "Untitled event" }),
+        element("p", { text: `${item.source} · ${item.severity} · ${error}` }),
+        element("div", { className: "resource-meta" }, [badge(item.outcome, style), badge(`Attempt ${item.attempt_number}`), item.response_status ? badge(`HTTP ${item.response_status}`) : null]),
+      ]),
+      element("div", { className: "timeline-meta" }, [element("span", { text: formatTime(item.completed_at || item.created_at) }), element("small", { text: item.retryable ? "Retryable" : "Final" })]),
+    ]));
+  }
+}
+
+function renderAudit() {
+  const query = byId("audit-search").value.trim().toLowerCase();
+  const items = state.audit.filter((item) => JSON.stringify([item.action, item.resource_type, item.outcome, item.details]).toLowerCase().includes(query));
+  const body = byId("audit-table");
+  body.replaceChildren();
+  byId("audit-empty").hidden = items.length > 0;
+  if (!items.length) {
+    byId("audit-empty").replaceChildren(element("strong", { text: query ? "No matching audit events" : "No audit events" }), element("span", { text: query ? "Try a different search." : "Security-relevant activity appears here." }));
+    return;
+  }
+  for (const item of items) {
+    const details = item.details && Object.keys(item.details).length ? JSON.stringify(item.details) : "—";
+    body.append(element("tr", {}, [
+      element("td", { text: formatTime(item.created_at) }),
+      element("td", {}, element("strong", { text: item.action })),
+      element("td", { text: item.resource_type }),
+      element("td", {}, badge(item.outcome, item.outcome === "success" ? "success" : "danger")),
+      element("td", {}, element("small", { text: details })),
+    ]));
+  }
+}
+
+function renderUsers() {
+  const body = byId("user-table");
+  body.replaceChildren();
+  if (!isAdmin()) return;
+  for (const item of state.users) {
+    const self = item.id === state.user.id;
+    const actions = element("div", { className: "row-actions" });
+    if (!self) {
+      actions.append(
+        actionButton("Reset password", "reset-user", item.id),
+        actionButton(item.enabled ? "Disable" : "Enable", "toggle-user", item.id, item.enabled ? "danger" : "secondary"),
+      );
+    }
+    body.append(element("tr", {}, [
+      element("td", {}, [element("strong", { text: item.username }), element("small", { text: self ? "Current account" : item.id.slice(0, 8) })]),
+      element("td", { text: item.role }),
+      element("td", { text: formatTime(item.last_login_at) }),
+      element("td", {}, badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "danger")),
+      element("td", {}, actions),
+    ]));
+  }
+}
+
+function formField(definition, value) {
+  const label = element("label", { className: definition.wide ? "wide" : "" });
+  label.append(element("span", { text: definition.label }));
+  let input;
+  if (definition.kind === "select") {
+    input = element("select", { dataset: { field: definition.key, valueType: definition.valueType || "string" } });
+    for (const choice of definition.choices) input.append(element("option", { value: choice[0], text: choice[1] }));
+  } else if (definition.kind === "textarea") {
+    input = element("textarea", { dataset: { field: definition.key, valueType: definition.valueType || "string" }, attributes: { rows: definition.rows || 3 } });
+  } else {
+    input = element("input", {
+      type: definition.kind === "password" ? "password" : definition.kind === "number" ? "number" : "text",
+      dataset: { field: definition.key, valueType: definition.valueType || "string" },
+      attributes: definition.attributes || {},
+    });
+  }
+  if (definition.kind === "checkbox") {
+    label.className = "switch-field";
+    label.replaceChildren();
+    input = element("input", { type: "checkbox", dataset: { field: definition.key, valueType: "boolean" } });
+    input.checked = Boolean(value === undefined ? definition.default : value);
+    label.append(input, element("span", { text: definition.label }));
+    if (definition.help) label.append(element("small", { text: definition.help }));
+    return label;
+  } else if (value !== undefined && value !== null) {
+    input.value = definition.valueType === "json" ? JSON.stringify(value, null, 2) : definition.valueType === "list" && Array.isArray(value) ? value.join(", ") : String(value);
+  } else if (definition.default !== undefined) {
+    input.value = String(definition.default);
+  }
+  if (definition.required) input.required = true;
+  label.append(input);
+  if (definition.help) label.append(element("small", { text: definition.help }));
+  return label;
+}
+
+function destinationDefinition(type) {
+  const adminPrivate = isAdmin() ? [{ key: "allow_private_network", label: "Allow private-network target", kind: "checkbox", default: false }] : [];
+  const definitions = {
+    discord: {
+      help: "Discord components-v2 formatting with source-aware fallback.",
+      settings: [{ key: "components_v2", label: "Use Components v2", kind: "checkbox", default: true }],
+      secrets: [{ key: "url", label: "Webhook URL", kind: "password", required: true, wide: true }],
+    },
+    teams: {
+      help: "Microsoft Teams workflow or incoming webhook delivery.",
+      settings: [],
+      secrets: [{ key: "url", label: "Webhook URL", kind: "password", required: true, wide: true }],
+    },
+    slack: {
+      help: "Slack Block Kit delivery to an official Slack webhook host.",
+      settings: [{ key: "include_metadata", label: "Include event metadata", kind: "checkbox", default: true }],
+      secrets: [{ key: "url", label: "Slack webhook URL", kind: "password", required: true, wide: true }],
+    },
+    webhook: {
+      help: "Bounded JSON delivery with optional headers, templating, and HMAC signing.",
+      settings: [
+        { key: "method", label: "Method", kind: "select", choices: [["POST", "POST"], ["PUT", "PUT"], ["PATCH", "PATCH"]], default: "POST" },
+        { key: "timeout_seconds", label: "Timeout (seconds)", kind: "number", valueType: "number", default: 15, attributes: { min: 1, max: 30 } },
+        { key: "headers", label: "Public headers (JSON)", kind: "textarea", valueType: "json", default: "{}", wide: true },
+        { key: "body_template", label: "Optional body template (JSON)", kind: "textarea", valueType: "optional-json", wide: true },
+        { key: "sign_hmac", label: "Sign payload with HMAC", kind: "checkbox", default: false },
+        ...adminPrivate,
+      ],
+      secrets: [
+        { key: "url", label: "Destination URL", kind: "password", required: true, wide: true },
+        { key: "hmac_secret", label: "HMAC secret", kind: "password" },
+        { key: "headers", label: "Secret headers (JSON)", kind: "textarea", valueType: "optional-json", wide: true },
+      ],
+    },
+    mqtt: {
+      help: "Publish the stable event envelope to a bounded MQTT topic.",
+      settings: [
+        { key: "host", label: "Broker host", required: true },
+        { key: "port", label: "Port", kind: "number", valueType: "number", default: 8883, attributes: { min: 1, max: 65535 } },
+        { key: "topic", label: "Topic", required: true, wide: true },
+        { key: "qos", label: "QoS", kind: "select", valueType: "number", choices: [["0", "0"], ["1", "1"], ["2", "2"]], default: 1 },
+        { key: "keepalive_seconds", label: "Keepalive (seconds)", kind: "number", valueType: "number", default: 60, attributes: { min: 10, max: 300 } },
+        { key: "client_id", label: "Client ID" },
+        { key: "tls", label: "Use TLS", kind: "checkbox", default: true },
+        { key: "retain", label: "Retain messages", kind: "checkbox", default: false },
+        ...adminPrivate,
+      ],
+      secrets: [{ key: "username", label: "Username", kind: "password" }, { key: "password", label: "Password", kind: "password" }],
+    },
+    ntfy: {
+      help: "Publish to a hosted or self-hosted ntfy server.",
+      settings: [
+        { key: "server", label: "Server URL", required: true, wide: true },
+        { key: "topic", label: "Topic", required: true },
+        { key: "priority", label: "Priority", kind: "select", choices: [["min", "Minimum"], ["low", "Low"], ["default", "Default"], ["high", "High"], ["max", "Maximum"]], default: "default" },
+        { key: "tags", label: "Tags", valueType: "list", help: "Comma-separated" },
+        { key: "title", label: "Title template", default: "${title}" },
+        { key: "timeout_seconds", label: "Timeout (seconds)", kind: "number", valueType: "number", default: 15, attributes: { min: 1, max: 30 } },
+        { key: "include_action", label: "Include safe action link", kind: "checkbox", default: true },
+        ...adminPrivate,
+      ],
+      secrets: [{ key: "token", label: "Access token", kind: "password", wide: true }, { key: "username", label: "Username", kind: "password" }, { key: "password", label: "Password", kind: "password" }],
+    },
+  };
+  return definitions[type];
+}
+
+function renderDestinationFields(settings = {}) {
+  const type = byId("destination-type").value;
+  const definition = destinationDefinition(type);
+  byId("destination-help").textContent = definition.help;
+  const settingsContainer = byId("destination-settings");
+  const secretsContainer = byId("destination-secrets");
+  settingsContainer.replaceChildren(...definition.settings.map((field) => formField(field, settings[field.key])));
+  secretsContainer.replaceChildren(...definition.secrets.map((field) => formField(field)));
+  const editing = Boolean(byId("destination-id").value);
+  for (const input of secretsContainer.querySelectorAll("[required]")) input.required = !editing;
+}
+
+function openDestination(id = "") {
+  const item = state.destinations.find((candidate) => candidate.id === id);
+  byId("destination-form").reset();
+  clearError("destination-error");
+  byId("destination-id").value = item ? item.id : "";
+  byId("destination-name").value = item ? item.name : "";
+  byId("destination-type").value = item ? item.output_type : "discord";
+  byId("destination-name").disabled = Boolean(item);
+  byId("destination-type").disabled = Boolean(item);
+  byId("destination-enabled").checked = item ? item.enabled : true;
+  byId("destination-shared").checked = item ? item.shared : false;
+  byId("destination-shared-field").hidden = !isAdmin();
+  byId("destination-dialog-title").textContent = item ? `Edit ${item.name}` : "Add destination";
+  byId("destination-submit").textContent = item ? "Save changes" : "Add destination";
+  renderDestinationFields(item ? item.settings : {});
+  byId("destination-dialog").showModal();
+}
+
+function collectFields(container) {
+  const result = {};
+  for (const input of container.querySelectorAll("[data-field]")) {
+    const key = input.dataset.field;
+    const type = input.dataset.valueType;
+    if (type === "boolean") {
+      result[key] = input.checked;
+    } else if (type === "number") {
+      result[key] = Number(input.value);
+    } else if (type === "list") {
+      result[key] = splitList(input.value);
+    } else if (type === "json" || type === "optional-json") {
+      if (!input.value.trim() && type === "optional-json") continue;
+      try {
+        result[key] = JSON.parse(input.value || "{}");
+      } catch (_error) {
+        throw new Error(`${input.previousElementSibling.textContent} must contain valid JSON.`);
+      }
+    } else if (input.value.trim()) {
+      result[key] = input.value.trim();
+    }
+  }
+  return result;
+}
+
+async function saveDestination(event) {
+  event.preventDefault();
+  if (event.submitter && event.submitter.value === "cancel") {
+    byId("destination-dialog").close();
+    return;
+  }
+  clearError("destination-error");
+  const id = byId("destination-id").value;
+  try {
+    const settings = collectFields(byId("destination-settings"));
+    const secret = collectFields(byId("destination-secrets"));
+    const payload = {
+      settings,
+      enabled: byId("destination-enabled").checked,
+    };
+    if (isAdmin()) payload.shared = byId("destination-shared").checked;
+    if (Object.keys(secret).length) payload.secret = secret;
+    if (!id) {
+      payload.name = byId("destination-name").value.trim();
+      payload.output_type = byId("destination-type").value;
+    }
+    await request(id ? `/destinations/${id}` : "/destinations", { method: id ? "PATCH" : "POST", body: payload });
+    byId("destination-dialog").close();
+    await loadWorkspace();
+    toast(id ? "Destination updated." : "Destination added.");
+  } catch (error) {
+    showError("destination-error", error);
+  }
+}
+
+function splitList(value) {
+  return [...new Set(String(value || "").split(",").map((item) => item.trim()).filter(Boolean))];
+}
+
+function setRouteOptions(selected = "") {
+  const select = byId("route-destination");
+  select.replaceChildren();
+  for (const item of state.destinations.filter((candidate) => candidate.enabled || candidate.id === selected)) {
+    select.append(element("option", { value: item.id, text: `${item.name} (${OUTPUT_NAMES[item.output_type] || item.output_type})` }));
+  }
+  if (selected) select.value = selected;
+}
+
+function openRoute(id = "") {
+  if (!state.destinations.length) {
+    toast("Add a destination before creating a route.", "error");
+    navigate("destinations");
+    return;
+  }
+  const item = state.routes.find((candidate) => candidate.id === id);
+  byId("route-form").reset();
+  clearError("route-error");
+  byId("route-id").value = item ? item.id : "";
+  byId("route-name").value = item ? item.name : "";
+  byId("route-source").value = item ? item.source : "";
+  byId("route-priority").value = item ? item.priority : 100;
+  byId("route-enabled").checked = item ? item.enabled : true;
+  setRouteOptions(item ? item.destination_id : "");
+  for (const key of ["severities", "statuses", "hosts", "events"]) {
+    byId(`route-${key}`).value = item && item.filters[key] ? item.filters[key].join(", ") : "";
+  }
+  byId("route-dialog-title").textContent = item ? `Edit ${item.name}` : "Add route";
+  byId("route-dialog").showModal();
+}
+
+async function saveRoute(event) {
+  event.preventDefault();
+  if (event.submitter && event.submitter.value === "cancel") {
+    byId("route-dialog").close();
+    return;
+  }
+  clearError("route-error");
+  const id = byId("route-id").value;
+  const filters = {};
+  for (const key of ["severities", "statuses", "hosts", "events"]) {
+    const values = splitList(byId(`route-${key}`).value);
+    if (values.length) filters[key] = values;
+  }
+  try {
+    await request(id ? `/routes/${id}` : "/routes", {
+      method: id ? "PATCH" : "POST",
+      body: {
+        name: byId("route-name").value.trim(),
+        source: byId("route-source").value.trim(),
+        destination_id: byId("route-destination").value,
+        priority: Number(byId("route-priority").value),
+        enabled: byId("route-enabled").checked,
+        filters,
+      },
+    });
+    byId("route-dialog").close();
+    await loadWorkspace();
+    toast(id ? "Route updated." : "Route added.");
+  } catch (error) {
+    showError("route-error", error);
+  }
+}
+
+function openToken() {
+  byId("token-form").reset();
+  byId("token-rate").value = 60;
+  clearError("token-error");
+  byId("token-dialog").showModal();
+}
+
+async function saveToken(event) {
+  event.preventDefault();
+  if (event.submitter && event.submitter.value === "cancel") {
+    byId("token-dialog").close();
+    return;
+  }
+  clearError("token-error");
+  try {
+    const response = await request("/tokens", {
+      method: "POST",
+      body: {
+        name: byId("token-name").value.trim(),
+        source_scopes: splitList(byId("token-sources").value),
+        rate_limit_per_minute: Number(byId("token-rate").value),
+      },
+    });
+    byId("token-dialog").close();
+    revealSecret(response.value, response.token.name);
+    await loadWorkspace();
+  } catch (error) {
+    showError("token-error", error);
+  }
+}
+
+function revealSecret(value, name) {
+  byId("secret-title").textContent = `${name} token`;
+  byId("secret-value").textContent = value;
+  byId("secret-dialog").showModal();
+}
+
+function openUser(id = "") {
+  const item = state.users.find((candidate) => candidate.id === id);
+  const dialog = byId("user-dialog");
+  const form = byId("user-form");
+  form.reset();
+  clearError("user-error");
+  form.dataset.mode = item ? "reset" : "create";
+  form.dataset.id = item ? item.id : "";
+  byId("user-name").value = item ? item.username : "";
+  byId("user-name").disabled = Boolean(item);
+  byId("user-role").closest("label").hidden = Boolean(item);
+  dialog.querySelector("h2").textContent = item ? `Reset ${item.username}` : "Add user";
+  form.querySelector(".button.primary").textContent = item ? "Reset password" : "Create user";
+  dialog.showModal();
+}
+
+async function saveUser(event) {
+  event.preventDefault();
+  if (event.submitter && event.submitter.value === "cancel") {
+    byId("user-dialog").close();
+    return;
+  }
+  clearError("user-error");
+  const form = byId("user-form");
+  try {
+    if (form.dataset.mode === "reset") {
+      await request(`/users/${form.dataset.id}/password`, { method: "PUT", body: { password: byId("user-password").value } });
+      toast("Password reset and active sessions revoked.");
+    } else {
+      await request("/users", { method: "POST", body: { username: byId("user-name").value.trim(), password: byId("user-password").value, role: byId("user-role").value } });
+      toast("User created.");
+    }
+    byId("user-dialog").close();
+    await loadWorkspace();
+  } catch (error) {
+    showError("user-error", error);
+  }
+}
+
+function openPreview(id) {
+  const item = state.destinations.find((candidate) => candidate.id === id);
+  if (!item) return;
+  byId("preview-form").reset();
+  byId("preview-destination-id").value = id;
+  byId("preview-title").textContent = `Preview ${item.name}`;
+  byId("preview-result").hidden = true;
+  clearError("preview-error");
+  byId("preview-dialog").showModal();
+}
+
+function sampleEvent() {
+  return {
+    schema: "notifinho.event.v1",
+    source: byId("preview-source").value.trim(),
+    title: byId("preview-event-title").value.trim(),
+    message: byId("preview-message").value.trim(),
+    severity: byId("preview-severity").value,
+    status: "active",
+    metadata: { host: "webui-safe-preview" },
+  };
+}
+
+async function runPreview(event) {
+  event.preventDefault();
+  const action = event.submitter && event.submitter.value;
+  if (action === "cancel") {
+    byId("preview-dialog").close();
+    return;
+  }
+  if (!action) return;
+  clearError("preview-error");
+  const destinationId = byId("preview-destination-id").value;
+  if (action === "test") {
+    const accepted = await confirmAction("Send a real test delivery?", "This contacts the configured destination using the safe sample event.", "Send test");
+    if (!accepted) return;
+  }
+  try {
+    const response = await request(`/destinations/${destinationId}/${action}`, { method: "POST", body: { event: sampleEvent() } });
+    const result = byId("preview-result");
+    result.textContent = JSON.stringify(response, null, 2);
+    result.hidden = false;
+    toast(action === "test" ? "Test delivery completed." : "Preview generated.");
+  } catch (error) {
+    showError("preview-error", error);
+  }
+}
+
+function confirmAction(title, message, acceptLabel = "Confirm") {
+  byId("confirm-title").textContent = title;
+  byId("confirm-message").textContent = message;
+  byId("confirm-accept").textContent = acceptLabel;
+  byId("confirm-dialog").showModal();
+  return new Promise((resolve) => {
+    state.confirmResolve = resolve;
+  });
+}
+
+function resolveConfirm(value) {
+  byId("confirm-dialog").close();
+  if (state.confirmResolve) state.confirmResolve(value);
+  state.confirmResolve = null;
+}
+
+async function resourceAction(action, id) {
+  try {
+    if (action === "toggle-destination") {
+      const item = state.destinations.find((candidate) => candidate.id === id);
+      await request(`/destinations/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
+      toast(`Destination ${item.enabled ? "disabled" : "enabled"}.`);
+    } else if (action === "delete-destination") {
+      const accepted = await confirmAction("Delete destination?", "Deletion is permanent and is rejected while a route still uses this destination.", "Delete");
+      if (!accepted) return;
+      await request(`/destinations/${id}`, { method: "DELETE" });
+      toast("Destination deleted.");
+    } else if (action === "toggle-route") {
+      const item = state.routes.find((candidate) => candidate.id === id);
+      await request(`/routes/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
+      toast(`Route ${item.enabled ? "disabled" : "enabled"}.`);
+    } else if (action === "delete-route") {
+      const accepted = await confirmAction("Delete route?", "Events will stop using this route immediately.", "Delete");
+      if (!accepted) return;
+      await request(`/routes/${id}`, { method: "DELETE" });
+      toast("Route deleted.");
+    } else if (action === "rotate-token") {
+      const accepted = await confirmAction("Rotate application token?", "The current value stops working immediately.", "Rotate");
+      if (!accepted) return;
+      const response = await request(`/tokens/${id}/rotate`, { method: "POST", body: {} });
+      revealSecret(response.value, response.token.name);
+    } else if (action === "revoke-token") {
+      const accepted = await confirmAction("Revoke application token?", "Revocation is immediate and cannot be undone.", "Revoke");
+      if (!accepted) return;
+      await request(`/tokens/${id}/revoke`, { method: "POST", body: {} });
+      toast("Token revoked.");
+    } else if (action === "toggle-user") {
+      const item = state.users.find((candidate) => candidate.id === id);
+      const accepted = await confirmAction(`${item.enabled ? "Disable" : "Enable"} ${item.username}?`, item.enabled ? "Disabling the account revokes every active session." : "The user will be able to sign in again.", item.enabled ? "Disable" : "Enable");
+      if (!accepted) return;
+      await request(`/users/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
+      toast(`User ${item.enabled ? "disabled" : "enabled"}.`);
+    }
+    await loadWorkspace();
+  } catch (error) {
+    toast(error.message || "The action failed.", "error");
+  }
+}
+
+async function changePassword(event) {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  if (form.get("new_password") !== form.get("confirm_password")) {
+    toast("New password confirmation does not match.", "error");
+    return;
+  }
+  const accepted = await confirmAction("Change password and sign out?", "Every active session for this account will be revoked.", "Change password");
+  if (!accepted) return;
+  try {
+    await request("/account/password", { method: "PUT", body: { current_password: form.get("current_password"), new_password: form.get("new_password") } });
+    expireSession();
+    toast("Password changed. Sign in again.");
+  } catch (error) {
+    toast(error.message || "Password change failed.", "error");
+  }
+}
+
+async function logout() {
+  try {
+    await request("/session", { method: "DELETE" });
+  } catch (_error) {
+    // The browser still clears local state if the session already expired.
+  }
+  expireSession();
+}
+
+async function copySecret() {
+  try {
+    await navigator.clipboard.writeText(byId("secret-value").textContent);
+    toast("Token copied.");
+  } catch (_error) {
+    toast("Copy was blocked. Select the token and copy it manually.", "error");
+  }
+}
+
+async function handleClick(event) {
+  const target = event.target.closest("button");
+  if (!target) return;
+  if (target.dataset.view) {
+    navigate(target.dataset.view);
+    return;
+  }
+  if (target.dataset.closeDialog) {
+    byId(target.dataset.closeDialog).close();
+    return;
+  }
+  const action = target.dataset.action;
+  const id = target.dataset.id || "";
+  if (action === "new-destination") openDestination();
+  else if (action === "edit-destination") openDestination(id);
+  else if (action === "preview-destination") openPreview(id);
+  else if (action === "new-route") openRoute();
+  else if (action === "edit-route") openRoute(id);
+  else if (action === "new-token") openToken();
+  else if (action === "new-user") openUser();
+  else if (action === "reset-user") openUser(id);
+  else if (action) await resourceAction(action, id);
+}
+
+function bindEvents() {
+  byId("login-form").addEventListener("submit", login);
+  byId("destination-form").addEventListener("submit", saveDestination);
+  byId("destination-type").addEventListener("change", () => renderDestinationFields());
+  byId("route-form").addEventListener("submit", saveRoute);
+  byId("token-form").addEventListener("submit", saveToken);
+  byId("user-form").addEventListener("submit", saveUser);
+  byId("preview-form").addEventListener("submit", runPreview);
+  byId("password-form").addEventListener("submit", changePassword);
+  byId("logout-button").addEventListener("click", logout);
+  byId("copy-secret").addEventListener("click", copySecret);
+  byId("refresh-button").addEventListener("click", refreshWorkspace);
+  byId("delivery-search").addEventListener("input", renderDeliveries);
+  byId("audit-search").addEventListener("input", renderAudit);
+  byId("confirm-cancel").addEventListener("click", () => resolveConfirm(false));
+  byId("confirm-accept").addEventListener("click", () => resolveConfirm(true));
+  byId("confirm-dialog").addEventListener("cancel", (event) => {
+    event.preventDefault();
+    resolveConfirm(false);
+  });
+  byId("secret-dialog").addEventListener("close", () => {
+    byId("secret-value").textContent = "";
+  });
+  byId("mobile-menu").addEventListener("click", () => {
+    const shell = byId("app-shell");
+    const open = shell.classList.toggle("nav-open");
+    byId("mobile-menu").setAttribute("aria-expanded", String(open));
+  });
+  document.addEventListener("click", handleClick);
+  window.addEventListener("hashchange", () => {
+    const view = window.location.hash.slice(1);
+    if (state.user && VIEW_TITLES[view]) navigate(view);
+  });
+}
+
+bindEvents();
+restoreSession();

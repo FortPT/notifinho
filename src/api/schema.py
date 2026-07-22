@@ -72,6 +72,7 @@ def validate_config(data) -> list[str]:
         "presentation",
         "api",
         "platform",
+        "webui",
     ):
         if section in data and not isinstance(data[section], dict):
             errors.append(f"{section} must be an object")
@@ -95,6 +96,10 @@ def validate_config(data) -> list[str]:
             )
     api = data.get("api") or {}
     platform = data.get("platform") or {}
+    webui = data.get("webui") or {}
+    if isinstance(webui, dict):
+        if "enabled" in webui and not isinstance(webui.get("enabled"), bool):
+            errors.append("webui.enabled must be a boolean")
     if isinstance(platform, dict):
         if "enabled" in platform and not isinstance(platform.get("enabled"), bool):
             errors.append("platform.enabled must be a boolean")

@@ -187,7 +187,8 @@ https://github.com/FortPT/notifinho
   Teams, Slack, generic webhooks, MQTT, and ntfy
 - Opt-in authenticated `/api/v2` sessions, CSRF, owned-resource management,
   preview/test endpoints, and source-scoped platform event submission
-- Responsive v2.0 WebUI
+- Responsive, same-origin v2.0 WebUI for accounts, destinations, routes,
+  application tokens, preview/test delivery, history, and audit
 - Local administrator and user accounts
 - User- and application-scoped event endpoints and API tokens
 - Private/shared destinations and user-owned routing

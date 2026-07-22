@@ -203,6 +203,63 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        5,
+        "v2.2 operations and presentation",
+        (
+            "ALTER TABLE users ADD COLUMN avatar_data TEXT",
+            "ALTER TABLE api_tokens ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1))",
+            "ALTER TABLE delivery_attempts ADD COLUMN input_type TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE delivery_attempts ADD COLUMN device_name TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE delivery_attempts ADD COLUMN event_name TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE delivery_attempts ADD COLUMN event_description TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE delivery_attempts ADD COLUMN event_status TEXT NOT NULL DEFAULT ''",
+            """
+            CREATE TABLE application_usage (
+                application_name TEXT PRIMARY KEY,
+                last_used_at INTEGER NOT NULL,
+                request_count INTEGER NOT NULL DEFAULT 1 CHECK (request_count >= 1)
+            )
+            """,
+            """
+            CREATE TABLE notices (
+                id TEXT PRIMARY KEY,
+                created_by_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+                name TEXT NOT NULL,
+                message TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (
+                    status IN ('information', 'warning', 'severe')
+                ),
+                kind TEXT NOT NULL CHECK (
+                    kind IN ('announcement', 'system_error', 'update')
+                ),
+                system_key TEXT UNIQUE,
+                persistent INTEGER NOT NULL DEFAULT 0 CHECK (persistent IN (0, 1)),
+                created_at INTEGER NOT NULL,
+                resolved_at INTEGER
+            )
+            """,
+            "CREATE INDEX notices_active_created ON notices(resolved_at, created_at DESC)",
+            """
+            CREATE TABLE notice_dismissals (
+                notice_id TEXT NOT NULL REFERENCES notices(id) ON DELETE CASCADE,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                dismissed_at INTEGER NOT NULL,
+                PRIMARY KEY (notice_id, user_id)
+            )
+            """,
+            """
+            CREATE TABLE backup_schedule_runs (
+                period_key TEXT PRIMARY KEY,
+                started_at INTEGER NOT NULL,
+                completed_at INTEGER,
+                outcome TEXT,
+                backup_id TEXT,
+                external_path TEXT
+            )
+            """,
+        ),
+    ),
 )
 
 

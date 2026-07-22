@@ -20,6 +20,35 @@ from storage.validation import normalized_identifier, normalized_name
 
 
 _FILTER_KEYS = {"hosts", "events", "severities", "statuses"}
+ROUTE_PRIORITY_VALUES = {
+    "critical": 10,
+    "high": 25,
+    "normal": 50,
+    "low": 75,
+    "lowest": 100,
+}
+
+
+def route_priority_value(value) -> int:
+    if isinstance(value, str) and value.strip().casefold() in ROUTE_PRIORITY_VALUES:
+        return ROUTE_PRIORITY_VALUES[value.strip().casefold()]
+    number = int(value)
+    if not 0 <= number <= 1000:
+        raise ValueError("route priority must be between 0 and 1000")
+    return number
+
+
+def route_priority_name(value) -> str:
+    number = route_priority_value(value)
+    if number <= 10:
+        return "critical"
+    if number <= 25:
+        return "high"
+    if number <= 50:
+        return "normal"
+    if number <= 75:
+        return "low"
+    return "lowest"
 
 
 @dataclass(frozen=True)
@@ -66,9 +95,7 @@ class RouteStore:
         if normalized_source == "*" and not actor.is_admin:
             raise PermissionError("wildcard routes require an administrator")
         encoded_filters = self._filters(filters or {})
-        bounded_priority = int(priority)
-        if not 0 <= bounded_priority <= 1000:
-            raise ValueError("route priority must be between 0 and 1000")
+        bounded_priority = route_priority_value(priority)
         route_id = uuid.uuid4().hex
         now = int(self.clock())
         try:
@@ -216,9 +243,9 @@ class RouteStore:
         encoded_filters = self._filters(
             json.loads(str(row["filters_json"])) if filters is None else filters,
         )
-        bounded_priority = int(row["priority"] if priority is None else priority)
-        if not 0 <= bounded_priority <= 1000:
-            raise ValueError("route priority must be between 0 and 1000")
+        bounded_priority = route_priority_value(
+            row["priority"] if priority is None else priority
+        )
         if enabled is None:
             enabled_value = bool(row["enabled"])
         elif isinstance(enabled, bool):

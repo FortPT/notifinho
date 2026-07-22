@@ -33,3 +33,10 @@ The Redfish mark is used in accordance with the
 [DMTF Redfish logo guidelines](https://www.dmtf.org/sites/default/files/standards/documents/DSP4015_1.0.pdf).
 Product names and marks remain trademarks of their respective owners. Their
 presence identifies the notification source and does not imply endorsement.
+
+## WebUI output icons
+
+The Discord, MQTT, and ntfy SVG paths in this directory are from Simple Icons
+16.27.0, distributed under CC0-1.0. Brand names and logos remain trademarks of
+their respective owners. The icons are used only to identify configured output
+types in the private Notifinho WebUI.

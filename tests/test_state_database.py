@@ -58,6 +58,10 @@ def test_database_migration_is_idempotent_and_records_all_foundation_tables(tmp_
         "routes",
         "audit_events",
         "delivery_attempts",
+        "notices",
+        "notice_dismissals",
+        "application_usage",
+        "backup_schedule_runs",
     } <= tables
     assert (migration["version"], migration["name"]) == (
         1,
@@ -253,6 +257,9 @@ def test_schema_one_database_upgrades_to_user_routing_schema(tmp_path):
         configuration_migration = connection.execute(
             "SELECT name FROM schema_migrations WHERE version = 4"
         ).fetchone()[0]
+        operations_migration = connection.execute(
+            "SELECT name FROM schema_migrations WHERE version = 5"
+        ).fetchone()[0]
         destination_columns = {
             row["name"] for row in connection.execute("PRAGMA table_info(destinations)")
         }
@@ -260,6 +267,7 @@ def test_schema_one_database_upgrades_to_user_routing_schema(tmp_path):
     assert migration == "user routing and delivery foundation"
     assert bootstrap_migration == "secure first-run bootstrap"
     assert configuration_migration == "unified YAML configuration mirror"
+    assert operations_migration == "v2.2 operations and presentation"
     assert "configuration_key" in destination_columns
     assert len(list((database.path.parent / "schema-backups").glob("*.db"))) == 1
 

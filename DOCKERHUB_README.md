@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.1.0**.
+The current stable release is **v2.2.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -73,9 +73,9 @@ and persistent configuration/log mounts.
 ```bash
 cp .env.example .env
 cp config/config.example.yaml config/config.yaml
-mkdir -p logs/emails secrets state
+mkdir -p logs/emails secrets state external-backups
 chmod 600 .env config/config.yaml
-chmod 700 logs logs/emails secrets state
+chmod 700 logs logs/emails secrets state external-backups
 docker compose -f compose.production.yaml config
 docker compose -f compose.production.yaml up -d
 ```
@@ -97,12 +97,18 @@ port `8080` remains an explicit deployment choice. On first start, copy the
 short-lived setup token from container output and use it in the HTTPS WebUI to
 choose the first administrator credentials. No default password exists.
 
-Existing YAML installations are visible immediately after login. In v2.1.0,
+Existing YAML installations are visible immediately after login. In v2.2.0,
 the mounted `config.yaml` is the single configuration authority: valid external
 edits appear in the WebUI, and administrator WebUI edits are validated, backed
 up, and written atomically to the same file. SQLite remains a private mirror
 for history, preview/test delivery, and retries; it is not a competing fallback
 configuration.
+
+The v2.2.0 WebUI adds notices, time-range Overview metrics, complete route-flow
+status, application usage controls, profile pictures, health checks, and
+scheduled state backups. To use NFS or SMB, mount the share on the Docker host,
+bind it to `/notifinho/external-backups`, and select that container path under
+Inputs & backups. Notifinho does not mount shares or store share credentials.
 
 ```yaml
 http:

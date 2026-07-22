@@ -44,6 +44,11 @@ class DeliveryAttempt:
     safe_error: str
     created_at: int
     completed_at: int
+    input_type: str = ""
+    device_name: str = ""
+    event_name: str = ""
+    event_description: str = ""
+    event_status: str = ""
 
 
 @dataclass(frozen=True)
@@ -90,6 +95,31 @@ class DeliveryHistoryStore:
         )
         error_code = self._safe(result.error_code, 64)
         safe_error = self._safe(result.safe_error, 500)
+        metadata = notification.metadata or {}
+        input_type = self._safe(metadata.get("_input_type") or "HTTP", 32)
+        device_name = self._safe(
+            metadata.get("host")
+            or metadata.get("hostname")
+            or metadata.get("device")
+            or metadata.get("node"),
+            256,
+        )
+        event_name = self._safe(
+            metadata.get("event_name")
+            or metadata.get("event")
+            or metadata.get("event_type")
+            or notification.title
+            or notification.subject,
+            256,
+        )
+        event_description = self._safe(
+            notification.body or notification.title or notification.subject,
+            1000,
+        )
+        event_status = self._safe(
+            metadata.get("status") or metadata.get("state") or notification.status,
+            64,
+        )
         response_status = (
             int(result.response_status) if result.response_status is not None else None
         )
@@ -100,8 +130,9 @@ class DeliveryHistoryStore:
                     id, delivery_id, owner_user_id, route_id, destination_id,
                     source, title, severity, outcome, attempt_number,
                     retryable, response_status, error_code, safe_error,
-                    created_at, completed_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, completed_at, input_type, device_name,
+                    event_name, event_description, event_status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     attempt_id,
@@ -120,6 +151,11 @@ class DeliveryHistoryStore:
                     safe_error or None,
                     now,
                     now,
+                    input_type,
+                    device_name,
+                    event_name,
+                    event_description,
+                    event_status,
                 ),
             )
         return self.get(Actor(str(owner_user_id), "user"), attempt_id)
@@ -154,6 +190,46 @@ class DeliveryHistoryStore:
                 ).fetchall()
         return [self._attempt(row) for row in rows]
 
+    def metrics(self, actor: Actor, since: int) -> dict:
+        """Return final delivery outcomes for a server-side history window."""
+
+        where = "created_at >= ?"
+        parameters: list[object] = [int(since)]
+        if not actor.is_admin:
+            where += " AND owner_user_id = ?"
+            parameters.append(actor.user_id)
+        with self.database.connect() as connection:
+            row = connection.execute(
+                f"""
+                WITH latest AS (
+                    SELECT delivery_id, MAX(attempt_number) AS attempt_number
+                    FROM delivery_attempts
+                    WHERE {where}
+                    GROUP BY delivery_id
+                )
+                SELECT
+                    COUNT(*) AS requests,
+                    SUM(CASE WHEN attempts.outcome = 'delivered' THEN 1 ELSE 0 END) AS delivered
+                FROM latest
+                JOIN delivery_attempts AS attempts
+                  ON attempts.delivery_id = latest.delivery_id
+                 AND attempts.attempt_number = latest.attempt_number
+                """,
+                tuple(parameters),
+            ).fetchone()
+            sources = connection.execute(
+                f"SELECT COUNT(DISTINCT source) FROM delivery_attempts WHERE {where}",
+                tuple(parameters),
+            ).fetchone()[0]
+        requests = int(row["requests"] or 0)
+        delivered = int(row["delivered"] or 0)
+        return {
+            "requests": requests,
+            "delivered": delivered,
+            "success_percent": round(delivered * 100 / requests) if requests else None,
+            "observed_sources": int(sources or 0),
+        }
+
     def _safe(self, value, maximum: int) -> str:
         return sanitize_text(value)[:maximum]
 
@@ -184,6 +260,11 @@ class DeliveryHistoryStore:
             safe_error=str(row["safe_error"] or ""),
             created_at=int(row["created_at"]),
             completed_at=int(row["completed_at"]),
+            input_type=str(row["input_type"] or "") if "input_type" in row.keys() else "",
+            device_name=str(row["device_name"] or "") if "device_name" in row.keys() else "",
+            event_name=str(row["event_name"] or "") if "event_name" in row.keys() else "",
+            event_description=str(row["event_description"] or "") if "event_description" in row.keys() else "",
+            event_status=str(row["event_status"] or "") if "event_status" in row.keys() else "",
         )
 
 

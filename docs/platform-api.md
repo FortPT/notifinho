@@ -5,7 +5,7 @@ audit foundations through the `/api/v2` JSON API. It also provides the
 user/application event-ingestion path used by platform routes. Phase 5 adds a
 same-origin browser client for this contract; see the [WebUI guide](webui.md).
 
-v2.1.0 exposes credential-free mounted YAML metadata and administrator-only
+v2.2.0 exposes credential-free mounted YAML metadata and administrator-only
 atomic mutations. The browser never receives destination or application-token
 credential material.
 
@@ -82,10 +82,17 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | GET | `/api/v2/users/{id}/tokens` | administrator session | list an owner's token metadata |
 | GET | `/api/v2/users/{id}/routes` | administrator session | list an owner's routes |
 | PUT | `/api/v2/account/password` | session + CSRF | change the current password |
+| PUT/DELETE | `/api/v2/account/avatar` | session + CSRF | set or remove the current profile picture |
+| GET/POST | `/api/v2/notices` | session / administrator + CSRF | list or publish operational notices |
+| POST | `/api/v2/notices/{id}/dismiss` | session + CSRF | dismiss an ordinary notice for this account |
+| GET | `/api/v2/metrics/{range}` | session | return Overview metrics for 10m, 1h, 1d, 1m, or 1y |
+| GET | `/api/v2/health-checks` | session | run safe operational checks |
+| GET/PUT | `/api/v2/backup-settings` | administrator + CSRF for PUT | inspect or update backup schedule and target |
 | GET | `/api/v2/tokens` | session | list current-user token metadata |
 | POST | `/api/v2/tokens` | session + CSRF | create and return a token once |
 | POST | `/api/v2/tokens/{id}/rotate` | owner/admin + CSRF | rotate and return a token once |
 | POST | `/api/v2/tokens/{id}/revoke` | owner/admin + CSRF | revoke a token permanently |
+| PATCH/DELETE | `/api/v2/tokens/{id}` | owner/admin + CSRF | enable, disable, or delete an application |
 | GET | `/api/v2/destinations` | session | list YAML-backed destinations |
 | POST | `/api/v2/destinations` | administrator + CSRF | create in YAML with a write-only secret |
 | GET | `/api/v2/destinations/{id}` | visible session | return secret-free metadata |

@@ -48,19 +48,25 @@ directly to the Internet.
 ## Included workflows
 
 - local login, logout, current-session status, and password change;
-- responsive overview with every active source → route → destination path and
-  recent deliveries;
+- administrator notice publishing, per-user ordinary-notice dismissal, and
+  lifecycle-bound system error/update notices;
+- responsive overview with every active, disabled, or unhealthy source → route
+  → destination path, five server-side history ranges, and recent deliveries;
 - private/shared destination creation, editing, enable/disable, deletion,
   preview, and explicit test delivery;
 - output-specific settings and write-only credential forms for Discord,
   Microsoft Teams, Slack, generic webhooks, MQTT, and ntfy;
 - user-owned route creation, filtering, editing, ordering, enable/disable, and
   deletion;
-- one-time application-token creation and rotation plus permanent revocation;
-- searchable delivery history and audit events;
-- administrator account creation, enable/disable, and password reset;
+- one-time application-token creation and rotation plus enable/disable and
+  deletion for both issued and YAML-managed applications;
+- searchable device/event/input delivery history, audit events, and operational
+  health checks;
+- administrator account creation, enable/disable, and password reset plus
+  account-owned profile pictures;
 - administrator-only safe JSON export/import, mounted YAML synchronization,
-  private state backup, and confirmed restore;
+  private state backup, scheduled host-mounted NFS/SMB copies, and confirmed
+  restore;
 - English/Portuguese, IANA timezone, and 12/24-hour global presentation
   settings; and
 - account-aware navigation that hides administrator controls from users.
@@ -70,7 +76,7 @@ forms. Token values exist in the page only until the one-time value dialog is
 closed. The application does not persist credentials, CSRF values, or API
 responses in `localStorage` or `sessionStorage`.
 
-Existing installations do not appear empty. v2.1.0 shows one list of mounted
+Existing installations do not appear empty. v2.2.0 shows one list of mounted
 YAML destinations and routes. Administrators can edit the shared file-backed
 resources; users can inspect and preview them but cannot mutate credentials or
 routing. Existing `api.tokens` entries are shown as safe metadata, including

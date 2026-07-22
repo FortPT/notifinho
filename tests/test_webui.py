@@ -187,9 +187,14 @@ def test_webui_markup_is_semantic_external_and_complete():
         "view-settings",
         "view-data",
         "view-account",
-        "configuration-status",
-        "configuration-summary",
         "configuration-inputs",
+        "notice-composer",
+        "notice-panel",
+        "history-range",
+        "dashboard-flow",
+        "health-check-list",
+        "backup-settings-form",
+        "avatar-form",
         "preferences-form",
         "destination-dialog",
         "route-dialog",
@@ -229,6 +234,11 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
         "/configuration/migration/apply",
         "/configuration/routing-authority",
         "/backups",
+        "/backup-settings",
+        "/notices",
+        "/health-checks",
+        "/account/avatar",
+        "/metrics/",
         "/account/password",
     ):
         assert endpoint in script
@@ -238,6 +248,10 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
     assert '["delivered", "success"].includes(item.outcome)' in script
     assert 'delivery.success ? `Test delivery sent successfully (${detail}).`' in script
     assert 'actionButton("Reset password", "reset-user", item.id)' in script
+    assert 'dataset: { action: "toggle-token", id: item.id }' in script
+    assert 'dataset: { action: "toggle-input", id: item.name }' in script
+    assert 'outputIcon(item.output_type)' in script
+    assert 'capitalize(item.priority_name || "normal")' in script
     assert 'if (!self)' in script
     assert 'headers["X-CSRF-Token"]' in script
     assert "navigator.clipboard.writeText" in script

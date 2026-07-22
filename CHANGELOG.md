@@ -2,6 +2,44 @@
 
 ## Unreleased
 
+## 2.2.0 - 2026-07-22
+
+### Added
+
+- Added administrator announcements and account-specific notice dismissal.
+  Configuration, routing, backup, and update notices remain visible until the
+  underlying condition is resolved and then clear automatically.
+- Added server-side Overview metrics for 10 minutes, 1 hour, 1 day, 1 month,
+  and 1 year, including active resources, request volume, and delivery success.
+- Added complete routing-flow status, semantic priority names and ordering,
+  channel labels, original packaged Discord/MQTT/ntfy icons, and disabled or
+  unhealthy route visibility.
+- Added application usage counters, enable/disable/delete controls, account
+  profile pictures, delivery device/event/input fields, and operational health
+  checks alongside the audit log.
+- Added daily, weekly, and monthly private-state backup scheduling with safe
+  copying to host-mounted NFS or SMB storage.
+
+### Changed
+
+- Reworked Destinations, Routes, Applications, Users, Delivery history, and
+  Inputs & backups so status badges are direct controls and configuration-only
+  labels no longer leak into ordinary resource presentation.
+- Destination preview now uses the selected output with a representative live
+  source, destination sharing persists through YAML synchronization, and route
+  filters use named priority, severity, and status choices.
+- Increased the navigation brand icon size and made dismissed notice panels
+  collapse without leaving layout gaps.
+
+### Security
+
+- Profile pictures accept only signature-validated PNG, JPEG, or WebP data up
+  to 256 KiB and remain inside protected platform state.
+- External backups require a bounded existing host-mounted directory; the
+  application does not mount NFS/SMB itself or handle network-share passwords.
+- Schema 5 preserves an automatic pre-upgrade SQLite snapshot and retains the
+  last-known-good unified configuration when external YAML is invalid.
+
 ## 2.1.0 - 2026-07-22
 
 ### Added

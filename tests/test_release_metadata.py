@@ -35,6 +35,18 @@ def test_release_notes_and_docker_hub_metadata_are_current():
     assert "current stable release is **v2.0.0**" in docker_hub
 
 
+def test_production_quick_starts_prepare_platform_state_mount():
+    for path in (ROOT / "README.md", ROOT / "DOCKERHUB_README.md"):
+        document = path.read_text(encoding="utf-8")
+        assert "mkdir -p logs/emails secrets state" in document
+        assert "chmod 700 logs logs/emails secrets state" in document
+
+
+def test_release_notes_record_completed_publication_and_roadmap():
+    notes = (ROOT / "docs" / "releases" / "v2.0.0.md").read_text(encoding="utf-8")
+    assert "All roadmap issues listed above were closed as completed" in notes
+
+
 def test_release_deployment_defaults_are_versioned():
     environment = (ROOT / ".env.example").read_text(encoding="utf-8")
     compose = (ROOT / "compose.production.yaml").read_text(encoding="utf-8")

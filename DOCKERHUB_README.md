@@ -73,9 +73,9 @@ and persistent configuration/log mounts.
 ```bash
 cp .env.example .env
 cp config/config.example.yaml config/config.yaml
-mkdir -p logs/emails secrets
+mkdir -p logs/emails secrets state
 chmod 600 .env config/config.yaml
-chmod 700 logs logs/emails secrets
+chmod 700 logs logs/emails secrets state
 docker compose -f compose.production.yaml config
 docker compose -f compose.production.yaml up -d
 ```

@@ -106,6 +106,9 @@
         <button id="users-nav" class="nav-item" type="button" data-view="users" hidden>
           <span class="nav-icon" aria-hidden="true">♙</span><span>Users</span>
         </button>
+        <button id="settings-nav" class="nav-item" type="button" data-view="settings" hidden>
+          <span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span>
+        </button>
         <button id="data-nav" class="nav-item" type="button" data-view="data" hidden>
           <span class="nav-icon" aria-hidden="true">⇄</span><span>Data tools</span>
         </button>
@@ -151,29 +154,24 @@
             <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small id="metric-tokens-note">Loading</small></article>
             <article class="metric-card"><span>Recent success</span><strong id="metric-success">—</strong><small id="metric-success-note">Last 100 attempts</small></article>
           </div>
-          <div class="dashboard-grid">
-            <article class="panel">
-              <div class="panel-heading"><div><p class="eyebrow">Latest activity</p><h3>Recent deliveries</h3></div><button class="text-button" type="button" data-view="deliveries">View all</button></div>
-              <div id="dashboard-deliveries" class="activity-list"></div>
-            </article>
-            <article class="panel setup-panel">
-              <div class="panel-heading"><div><p class="eyebrow">Quick start</p><h3>Complete your signal path</h3></div></div>
-              <ol class="setup-list">
-                <li id="setup-destination"><span>1</span><div><strong>Create a destination</strong><small>Discord, Teams, Slack, webhook, MQTT, or ntfy.</small></div></li>
-                <li id="setup-route"><span>2</span><div><strong>Add a route</strong><small>Match source, host, event, severity, and status.</small></div></li>
-                <li id="setup-token"><span>3</span><div><strong>Issue an application token</strong><small>Submit source-scoped events without sharing your login.</small></div></li>
-              </ol>
-            </article>
-          </div>
+          <article class="panel flow-panel">
+            <div class="panel-heading"><div><p class="eyebrow">Active signal flow</p><h3>Sources, routes, and destinations</h3></div><small>Every enabled route is shown; unused enabled destinations appear separately.</small></div>
+            <div class="flow-head" aria-hidden="true"><span>Source</span><span>Route</span><span>Destination</span></div>
+            <div id="dashboard-flow" class="flow-map"></div>
+          </article>
+          <article class="panel dashboard-deliveries-panel">
+            <div class="panel-heading"><div><p class="eyebrow">Latest activity</p><h3>Recent deliveries</h3></div><button class="text-button" type="button" data-view="deliveries">View all</button></div>
+            <div id="dashboard-deliveries" class="activity-list"></div>
+          </article>
         </section>
 
         <section id="view-destinations" class="view" data-page="destinations" hidden>
-          <div class="section-toolbar"><div><h2>Destinations</h2><p>Private and shared places where notifications are delivered.</p></div><button class="button primary" type="button" data-action="new-destination">Add destination</button></div>
+          <div class="section-toolbar"><div><h2>Destinations</h2><p>Places where notifications are delivered. config.yaml is authoritative.</p></div><button id="add-destination-button" class="button primary" type="button" data-action="new-destination">Add destination</button></div>
           <div id="destination-list" class="resource-grid"></div>
         </section>
 
         <section id="view-routes" class="view" data-page="routes" hidden>
-          <div class="section-toolbar"><div><h2>Routes</h2><p>Send matching events to an owned or shared destination.</p></div><button class="button primary" type="button" data-action="new-route">Add route</button></div>
+          <div class="section-toolbar"><div><h2>Routes</h2><p>Send matching events to a configured destination.</p></div><button id="add-route-button" class="button primary" type="button" data-action="new-route">Add route</button></div>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Management</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
         </section>
 
@@ -197,18 +195,27 @@
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>User</th><th>Role</th><th>Last login</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="user-table"></tbody></table></div></div>
         </section>
 
+        <section id="view-settings" class="view" data-page="settings" hidden>
+          <div class="section-toolbar"><div><h2>Settings</h2><p>Regional presentation settings used across Notifinho and its WebUI.</p></div></div>
+          <article class="panel settings-card">
+            <div class="panel-heading"><div><p class="eyebrow">Regional settings</p><h3>Language, timezone, and clock</h3><p>Timezone also controls timestamps generated by Notifinho notification formatters.</p></div></div>
+            <form id="preferences-form" class="form-grid">
+              <label><span>Language</span><select id="preference-language"><option value="en-GB">English (United Kingdom)</option><option value="pt-PT">Português (Portugal)</option></select></label>
+              <label><span>Timezone</span><input id="preference-timezone" list="timezone-suggestions" required placeholder="Europe/Lisbon"><datalist id="timezone-suggestions"><option value="Europe/Lisbon"><option value="Europe/London"><option value="Europe/Madrid"><option value="Europe/Paris"><option value="UTC"><option value="America/New_York"><option value="America/Los_Angeles"></datalist></label>
+              <label><span>Time format</span><select id="preference-time-format"><option value="24">24-hour</option><option value="12">12-hour (AM/PM)</option></select></label>
+              <div class="wide"><button class="button primary" type="submit">Save settings</button></div>
+            </form>
+          </article>
+        </section>
+
         <section id="view-data" class="view" data-page="data" hidden>
           <div class="section-toolbar"><div><h2>Data tools</h2><p>Preview migrations, export safe configuration, and manage private server-side backups.</p></div></div>
           <div class="data-tools-grid">
             <article class="panel data-tool-card configuration-card">
-              <div><p class="eyebrow">Mounted config.yaml</p><h3 id="configuration-card-title">Inspecting configuration</h3><p id="configuration-card-copy">Notifinho reads the mounted configuration on the server. Credentials are never returned to this browser.</p></div>
+              <div><p class="eyebrow">Mounted config.yaml</p><h3 id="configuration-card-title">Inspecting configuration</h3><p id="configuration-card-copy">The mounted file is the single source of truth. WebUI edits are validated and written atomically; external file edits are detected automatically.</p></div>
               <div id="configuration-summary" class="configuration-summary"></div>
               <div id="configuration-inputs" class="configuration-inputs"></div>
-              <div class="button-row">
-                <button id="configuration-migrate" class="button primary" type="button" data-action="preview-local-migration" hidden>Preview safe takeover</button>
-                <button id="configuration-use-yaml" class="button secondary" type="button" data-action="use-yaml-routing" hidden>Use YAML fallback</button>
-                <button id="configuration-use-database" class="button secondary" type="button" data-action="use-database-routing" hidden>Use WebUI routing</button>
-              </div>
+              <div id="configuration-errors" class="form-error" role="alert" hidden></div>
             </article>
             <article class="panel data-tool-card">
               <div><p class="eyebrow">Portable configuration</p><h3>Export destinations and routes</h3><p>Downloads owner-aware settings without passwords, application tokens, or destination credentials.</p></div>
@@ -220,9 +227,7 @@
               <button class="button secondary" type="button" data-action="preview-portable">Preview JSON import</button>
             </article>
             <article class="panel data-tool-card">
-              <div><p class="eyebrow">Another server</p><h3>Import a YAML file manually</h3><p>Use this only for a configuration that is not mounted in this container. The server-side takeover above is safer for the current installation.</p></div>
-              <label><span>v1.x YAML configuration</span><input id="migration-file" type="file" accept="application/yaml,text/yaml,.yaml,.yml"></label>
-              <button class="button secondary" type="button" data-action="preview-migration">Preview YAML migration</button>
+              <div><p class="eyebrow">Configuration portability</p><h3>Use the mounted YAML file</h3><p>Copy or edit <code>config.yaml</code> directly when moving between servers. Notifinho validates it, creates backups for WebUI writes, and reflects valid external changes automatically.</p></div>
             </article>
             <article class="panel data-tool-card backup-card">
               <div><p class="eyebrow">Private state</p><h3>Server-side backups</h3><p>Includes the SQLite database and secret files. Backup contents never leave the server through this API.</p></div>

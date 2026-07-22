@@ -515,6 +515,96 @@ h3 {
   grid-template-columns: minmax(0, 1.5fr) minmax(290px, 0.8fr);
 }
 
+.flow-panel {
+  margin-bottom: 1rem;
+}
+
+.flow-head,
+.flow-row {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: minmax(150px, 0.7fr) minmax(260px, 1.5fr) minmax(180px, 0.8fr);
+}
+
+.flow-head {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  padding: 0.7rem 0.25rem 0.4rem;
+  text-transform: uppercase;
+}
+
+.flow-map {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.flow-row {
+  align-items: stretch;
+}
+
+.flow-node,
+.flow-route {
+  align-items: center;
+  background: rgba(7, 17, 31, 0.52);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  display: flex;
+  min-width: 0;
+  padding: 0.72rem 0.85rem;
+}
+
+.flow-node {
+  background: linear-gradient(135deg, rgba(72, 214, 186, 0.09), rgba(113, 168, 255, 0.05));
+  flex-direction: column;
+  justify-content: center;
+}
+
+.flow-node strong,
+.flow-node small,
+.flow-route strong,
+.flow-route small {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flow-node small,
+.flow-route small {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.flow-route {
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.flow-route > div {
+  min-width: 0;
+  text-align: center;
+}
+
+.flow-arrow {
+  color: var(--accent);
+  flex: 0 0 auto;
+  font-size: 1.1rem;
+}
+
+.flow-row.unrouted {
+  opacity: 0.7;
+}
+
+.dashboard-deliveries-panel {
+  margin-top: 1rem;
+}
+
+.settings-card {
+  max-width: 900px;
+}
+
 .panel {
   padding: 1.35rem;
 }
@@ -847,6 +937,12 @@ tbody tr:last-child td {
   color: var(--muted);
   font-size: 0.72rem;
   text-align: right;
+  white-space: nowrap;
+}
+
+#audit-table td:first-child,
+#user-table td:nth-child(3) {
+  white-space: nowrap;
 }
 
 .button,
@@ -1318,6 +1414,17 @@ dialog::backdrop {
 }
 
 @media (max-width: 780px) {
+  .flow-head {
+    display: none;
+  }
+
+  .flow-row {
+    grid-template-columns: 1fr;
+  }
+
+  .flow-route {
+    min-height: 68px;
+  }
   .app-shell {
     display: block;
   }

@@ -39,7 +39,16 @@ class ConfigurationBridgeService:
     def inventory(self, actor: Actor) -> dict:
         self._require_admin(actor)
         source = self.config_service.source_text()
-        data = self._decode(source)
+        source_valid = True
+        try:
+            data = self._decode(source)
+        except ValueError:
+            source_valid = False
+            snapshot = getattr(self.config_service.configuration, "snapshot", None)
+            if callable(snapshot):
+                data = snapshot()
+            else:
+                data = deepcopy(getattr(self.config_service.configuration, "data", {}))
         authority = self._authority(data)
         outputs = self._outputs(data, authority)
         routes = self._routes(data, authority)
@@ -60,6 +69,7 @@ class ConfigurationBridgeService:
         migratable_routes = sum(1 for item in routes if item["migratable"])
         return {
             "authority": authority,
+            "source_valid": source_valid,
             "fingerprint": fingerprint,
             "inputs": inputs,
             "outputs": outputs,
@@ -252,14 +262,19 @@ class ConfigurationBridgeService:
             for target, settings in group.items():
                 if target == "enabled" or not isinstance(settings, dict):
                     continue
-                webhook = str(settings.get("webhook") or "").strip()
-                configured = bool(webhook and "PASTE_" not in webhook.upper())
+                credential = settings.get("secret")
+                if credential is None:
+                    credential = settings.get("webhook")
+                configured = bool(
+                    credential not in (None, "", {})
+                    and "PASTE_" not in str(credential).upper()
+                )
                 result.append({
                     "id": f"yaml:{output_type}:{target}",
-                    "name": str(target),
+                    "name": str(settings.get("name") or target),
                     "output_type": str(output_type),
                     "target": str(target),
-                    "enabled": enabled,
+                    "enabled": enabled and settings.get("enabled", True) is True,
                     "credential_configured": configured,
                     "management": "yaml",
                     "authority": authority == "yaml",
@@ -288,13 +303,14 @@ class ConfigurationBridgeService:
                 target = str(entry.get("target", "default"))
                 match = entry.get("match") if isinstance(entry.get("match"), dict) else {}
                 result.append({
-                    "id": f"yaml:{source}:{position}",
-                    "name": f"{source} to {output_type} {target}",
+                    "id": str(entry.get("id") or f"yaml:{source}:{position}"),
+                    "name": str(entry.get("name") or f"{source} to {output_type} {target}"),
                     "source": str(source),
                     "output_type": output_type,
                     "target": target,
                     "filters": deepcopy(match),
-                    "enabled": True,
+                    "enabled": entry.get("enabled", True) is True,
+                    "priority": int(entry.get("priority", 100 + position)),
                     "management": "yaml",
                     "authority": authority == "yaml",
                     "migratable": output_type in {"discord", "teams"},

@@ -164,6 +164,18 @@ def test_explicit_offset_converts_to_local_presentation_time(monkeypatch):
     ) == "20 Jul 2026 • 14:09"
 
 
+def test_twelve_hour_presentation_includes_ampm_on_the_same_line(monkeypatch):
+    monkeypatch.setitem(
+        config._data,
+        "presentation",
+        {"timezone": "Europe/Lisbon", "time_format": "12"},
+    )
+
+    rendered = PresentationMixin()._format_datetime("2026-07-20T18:09:00+05:00")
+    assert rendered == "20 Jul 2026 • 02:09 PM"
+    assert "\n" not in rendered
+
+
 def test_machine_local_timezone_is_the_default(monkeypatch):
     monkeypatch.setitem(config._data, "presentation", {})
     monkeypatch.delenv("TZ", raising=False)

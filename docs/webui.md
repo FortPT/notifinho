@@ -22,11 +22,16 @@ api:
 platform:
   enabled: true
   state_dir: "/notifinho/state"
-  routing_authority: "yaml"
+  configuration_model: "unified_yaml_v1"
   secure_cookies: true
 
 webui:
   enabled: true
+  language: "en-GB"
+
+presentation:
+  timezone: "Europe/Lisbon"
+  time_format: "24"
 ```
 
 On the first start, read the single-use setup token from container output and
@@ -43,7 +48,8 @@ directly to the Internet.
 ## Included workflows
 
 - local login, logout, current-session status, and password change;
-- responsive overview and first-run progress;
+- responsive overview with every active source → route → destination path and
+  recent deliveries;
 - private/shared destination creation, editing, enable/disable, deletion,
   preview, and explicit test delivery;
 - output-specific settings and write-only credential forms for Discord,
@@ -53,8 +59,10 @@ directly to the Internet.
 - one-time application-token creation and rotation plus permanent revocation;
 - searchable delivery history and audit events;
 - administrator account creation, enable/disable, and password reset;
-- administrator-only safe JSON export/import, mounted and uploaded YAML
-  migration preview, private state backup, and confirmed restore; and
+- administrator-only safe JSON export/import, mounted YAML synchronization,
+  private state backup, and confirmed restore;
+- English/Portuguese, IANA timezone, and 12/24-hour global presentation
+  settings; and
 - account-aware navigation that hides administrator controls from users.
 
 Destination secrets and application-token values are never loaded back into
@@ -62,11 +70,19 @@ forms. Token values exist in the page only until the one-time value dialog is
 closed. The application does not persist credentials, CSRF values, or API
 responses in `localStorage` or `sessionStorage`.
 
-Existing installations do not appear empty in v2.0.2. Administrators see
-mounted YAML inputs, destinations, and routes beside platform resources. Every
-item is labelled **YAML managed**, **WebUI managed**, **Active authority**, or
-**Rollback fallback**. Dashboard counts follow the authority that currently
-handles legacy SMTP and webhook events.
+Existing installations do not appear empty. v2.1.0 shows one list of mounted
+YAML destinations and routes. Administrators can edit the shared file-backed
+resources; users can inspect and preview them but cannot mutate credentials or
+routing. Existing `api.tokens` entries are shown as safe metadata, including
+scope, rate limit, enabled state, and credential source—never the credential.
+
+An application configured with `token_env` becomes usable only when that
+environment variable exists inside the container (for Portainer, add it to the
+stack environment). `token_file` requires a readable mode-0600 mounted secret
+file at the configured container path. `token_sha256` is immediately available
+when it contains a valid 64-character digest. The Applications status reports
+**Credential unavailable** when the configured environment variable or file is
+missing.
 
 ## Browser security boundary
 
@@ -98,16 +114,8 @@ response bodies or credentials.
 ## Data tools
 
 Administrators can export credential-free platform JSON, preview and apply an
-unchanged JSON import, migrate supported v1.x Discord/Teams YAML targets and
-routes, and manage private server-side state snapshots. The browser never
-downloads state backups or receives stored credential values.
-
-For the YAML file already mounted in the running container, the first Data
-tools card is the preferred path. It inventories the file on the server,
-previews the exact supported resources, automatically creates state and YAML
-backups, imports credentials server-side, and activates database routing. The
-original YAML routes remain available through the confirmed **Use YAML
-fallback** control. Manual YAML upload is reserved for a file from another
-server and does not change routing authority. See the
-[data-portability guide](data-portability.md) for fingerprint, rollback,
+unchanged JSON import, and manage private server-side state snapshots. Imported
+destinations and routes are adopted into the mounted YAML automatically. The
+browser never downloads state backups or receives stored credential values.
+See the [data-portability guide](data-portability.md) for fingerprints,
 retention, and restore-token cautions.

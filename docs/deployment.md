@@ -86,24 +86,20 @@ NOTIFINHO_STATE_DIR=/docker/notifinho/state
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
-## v2.0.2 mounted-configuration activation
+## v2.1.0 unified-configuration upgrade
 
-Upgrading the image does not silently change routing authority. After signing
-in, the dashboard displays the mounted YAML resources and continues using them.
-Open **Data tools**, review the detected inputs/destinations/routes, and choose
-**Preview safe takeover**. Apply only after the preview matches the active
-configuration.
+Stop the existing container and copy the complete configuration and state
+mounts before changing the image. v2.1.0 automatically creates a schema-3
+SQLite snapshot before schema 4 and an atomic YAML backup before converting the
+v2.0.2 authority marker. The host-level offline copy remains the recovery
+boundary for a complete image rollback.
 
-The confirmed operation creates a platform-state snapshot and an atomic
-`config.yaml` backup before `platform.routing_authority` becomes `database`.
-Run one real source test afterward and verify that it appears in delivery
-history and reaches exactly one destination. Keep both automatic backups and
-the host-level pre-upgrade backup until acceptance is complete.
-
-If delivery must return to the original configuration, choose **Use YAML
-fallback**. This writes another configuration backup and changes only the
-authority flag; no container restart is required. Do not manually delete the
-imported database destinations or the retained YAML routes during acceptance.
+After signing in, verify that Destinations and Routes each show one YAML-backed
+list without fallback duplicates. The Overview flow map must include every
+enabled route. Edit one harmless display field in the WebUI and confirm the
+same value in the host `config.yaml`; then edit it back in the file and refresh
+the WebUI. Run one real source event and confirm one destination delivery and a
+`delivered` history outcome.
 
 ## Reverse proxy boundary
 
@@ -136,8 +132,6 @@ docker logs --tail 100 notifinho
 Configuration and logs remain on the host. Review release-specific migration
 notes before rolling back across a configuration or data-schema change.
 
-v2.0.2 retains schema 3, so v2.0.1 can read its platform database. Before an
-image rollback, use **Use YAML fallback**, confirm a real legacy delivery, then
-pin `2.0.1`. The imported platform resources may remain in state; v2.0.1 will
-not route legacy inputs through them. Restore the pre-takeover configuration
-backup only if the authority setting itself must be removed.
+v2.1.0 upgrades platform state to schema 4. A v2.0.2 image rejects schema 4.
+For rollback, stop Notifinho, restore the complete pre-upgrade configuration
+and state directories, pin `fortpt/notifinho:2.0.2`, and then start the stack.

@@ -481,6 +481,25 @@ def test_user_administration_and_password_resets_revoke_sessions(platform_api):
     assert call(platform_api, "GET", "/api/v2/session", headers=user_headers).status == 401
 
 
+def test_administrator_cannot_reset_own_password_from_user_administration(platform_api):
+    headers = login(platform_api)
+    denied = call(
+        platform_api,
+        "PUT",
+        f"/api/v2/users/{platform_api['admin'].id}/password",
+        {"password": "replacement administrator password"},
+        headers,
+    )
+
+    assert denied.status == 403
+    assert login(
+        platform_api,
+        "administrator",
+        PASSWORD,
+        client="127.0.0.33",
+    )
+
+
 def test_current_user_password_change_requires_password_and_revokes_session(platform_api):
     headers = login(
         platform_api,

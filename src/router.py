@@ -10,14 +10,20 @@ outputs, with optional per-destination filters.
 from __future__ import annotations
 
 import ipaddress
+from pathlib import Path
 
 from config import config
+from api.config_service import ConfigService
 from logger import log
 from models import Notification
 
 from outputs.discord import DiscordOutput
 from outputs.teams import TeamsOutput
 from storage.routing_bridge import PlatformRoutingBridge
+from storage.configuration_sync import (
+    CONFIGURATION_MODEL,
+    UnifiedConfigurationService,
+)
 
 
 class Router:
@@ -31,6 +37,17 @@ class Router:
 
         self.platform = (
             PlatformRoutingBridge(platform_database)
+            if platform_database is not None
+            else None
+        )
+        self.configuration_sync = (
+            UnifiedConfigurationService(
+                ConfigService(
+                    Path(__file__).resolve().parents[1] / "config" / "config.yaml",
+                    config,
+                ),
+                platform_database,
+            )
             if platform_database is not None
             else None
         )
@@ -50,16 +67,22 @@ class Router:
 
             return True
 
+        if self.configuration_sync is not None:
+            status = self.configuration_sync.synchronize()
+            if status.errors:
+                log.error(
+                    "Mounted configuration requires repair: %s",
+                    "; ".join(status.errors),
+                )
+
+        model = str(
+            config.get("platform", "configuration_model", default="") or ""
+        ).strip().casefold()
         authority = str(
-            config.get(
-                "platform",
-                "routing_authority",
-                default="yaml",
-            )
-            or "yaml"
+            config.get("platform", "routing_authority", default="yaml") or "yaml"
         ).strip().casefold()
 
-        if authority == "database":
+        if model == CONFIGURATION_MODEL or authority == "database":
 
             if self.platform is None:
 
@@ -130,6 +153,15 @@ class Router:
 
                 log.error(
                     "Invalid output routing configured for '%s'",
+                    notification.source,
+                )
+
+                continue
+
+            if destination.get("enabled", True) is not True:
+
+                log.info(
+                    "Disabled route skipped '%s'",
                     notification.source,
                 )
 

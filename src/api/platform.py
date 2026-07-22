@@ -18,6 +18,7 @@ from storage.audit_events import AuditEventStore
 from storage.backups import StateBackupStore
 from storage.bootstrap import BootstrapStore
 from storage.configuration_bridge import ConfigurationBridgeService
+from storage.configuration_sync import UnifiedConfigurationService
 from storage.delivery import DeliveryHistoryStore, PlatformDeliveryService
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
@@ -95,6 +96,16 @@ class PlatformAPI:
             if config_service is not None
             else None
         )
+        self.configuration_sync = (
+            UnifiedConfigurationService(
+                config_service,
+                database,
+                audit=self.audit,
+            )
+            if config_service is not None
+            and getattr(config_service, "reloadable", True)
+            else None
+        )
         self.token_limiter = RateLimiter()
         self.login_limiter = RateLimiter()
         self.bootstrap_limiter = RateLimiter()
@@ -142,6 +153,8 @@ class PlatformAPI:
                 return self._users_endpoint(method, payload, actor)
             if path == "/api/v2/account/password":
                 return self._own_password(method, payload, principal)
+            if path == "/api/v2/preferences":
+                return self._preferences_endpoint(method, payload, actor)
             if path == "/api/v2/tokens":
                 return self._tokens_endpoint(method, payload, actor)
             if path == "/api/v2/destinations":
@@ -334,14 +347,15 @@ class PlatformAPI:
     def _tokens_endpoint(self, method, payload, actor) -> APIResponse:
         if method == "GET":
             owner_id = actor.user_id
+            tokens = [
+                {**self._token(item), "management": "platform", "enabled": item.revoked_at is None}
+                for item in self.tokens.list_for_owner(actor, owner_id)
+            ]
+            if actor.is_admin and self.configuration_sync is not None:
+                tokens.extend(self.configuration_sync.legacy_applications())
             return APIResponse(
                 200,
-                {
-                    "tokens": [
-                        self._token(item)
-                        for item in self.tokens.list_for_owner(actor, owner_id)
-                    ]
-                },
+                {"tokens": tokens},
             )
         if method == "POST":
             data = self._object(
@@ -373,6 +387,29 @@ class PlatformAPI:
         return self._method_not_allowed("GET, POST")
 
     def _destinations_endpoint(self, method, payload, actor) -> APIResponse:
+        if self.configuration_sync is not None:
+            if method == "GET":
+                return APIResponse(
+                    200,
+                    {
+                        "destinations": [
+                            {**self._destination(item), "management": "yaml"}
+                            for item in self.configuration_sync.list_destinations(actor)
+                        ]
+                    },
+                )
+            self._require_admin(actor)
+            if method == "POST":
+                data = self._object(
+                    payload,
+                    {"name", "output_type", "settings", "shared", "enabled", "secret"},
+                )
+                destination = self.configuration_sync.create_destination(actor, data)
+                return APIResponse(
+                    201,
+                    {"destination": {**self._destination(destination), "management": "yaml"}},
+                )
+            return self._method_not_allowed("GET, POST")
         if method == "GET":
             return APIResponse(
                 200,
@@ -435,6 +472,36 @@ class PlatformAPI:
         return self._method_not_allowed("GET, POST")
 
     def _routes_endpoint(self, method, payload, actor) -> APIResponse:
+        if self.configuration_sync is not None:
+            if method == "GET":
+                return APIResponse(
+                    200,
+                    {
+                        "routes": [
+                            {**self._route(item), "management": "yaml"}
+                            for item in self.configuration_sync.list_routes(actor)
+                        ]
+                    },
+                )
+            self._require_admin(actor)
+            if method == "POST":
+                data = self._object(
+                    payload,
+                    {
+                        "name",
+                        "source",
+                        "destination_id",
+                        "filters",
+                        "priority",
+                        "enabled",
+                    },
+                )
+                route = self.configuration_sync.create_route(actor, data)
+                return APIResponse(
+                    201,
+                    {"route": {**self._route(route), "management": "yaml"}},
+                )
+            return self._method_not_allowed("GET, POST")
         if method == "GET":
             routes = self.routes.list_for_owner(actor, actor.user_id)
             return APIResponse(200, {"routes": [self._route(item) for item in routes]})
@@ -504,6 +571,8 @@ class PlatformAPI:
             data.get("document"),
             str(data.get("fingerprint") or ""),
         )
+        if self.configuration_sync is not None:
+            result["yaml_resources_adopted"] = self.configuration_sync.adopt_unmanaged_resources(actor)
         return APIResponse(200, {"import": result})
 
     def _v1_migration_preview(self, method, payload, actor) -> APIResponse:
@@ -526,6 +595,8 @@ class PlatformAPI:
             data.get("yaml"),
             str(data.get("fingerprint") or ""),
         )
+        if self.configuration_sync is not None:
+            result["yaml_resources_adopted"] = self.configuration_sync.adopt_unmanaged_resources(actor)
         return APIResponse(200, {"import": result})
 
     def _configuration_inventory(self, method, actor) -> APIResponse:
@@ -533,14 +604,45 @@ class PlatformAPI:
         if method != "GET":
             return self._method_not_allowed("GET")
         bridge = self._configuration_bridge()
+        configuration = bridge.inventory(actor)
+        if self.configuration_sync is not None:
+            status = self.configuration_sync.synchronize()
+            configuration["sync"] = {
+                "ready": status.ready,
+                "changed": status.changed,
+                "errors": list(status.errors),
+                "fingerprint": status.fingerprint,
+            }
+            configuration["applications"] = self.configuration_sync.legacy_applications()
+            configuration["preferences"] = self.configuration_sync.preferences()
+            configuration["authority"] = "yaml"
+            configuration["migration_available"] = False
         return APIResponse(
             200,
-            {"configuration": bridge.inventory(actor)},
+            {"configuration": configuration},
             (("Cache-Control", "no-store"),),
         )
 
+    def _preferences_endpoint(self, method, payload, actor) -> APIResponse:
+        if self.configuration_sync is None:
+            return APIResponse(404, {"error": "resource not found"})
+        if method == "GET":
+            return APIResponse(200, {"preferences": self.configuration_sync.preferences()})
+        if method == "PUT":
+            self._require_admin(actor)
+            data = self._object(payload, {"timezone", "language", "time_format"})
+            if set(data) != {"timezone", "language", "time_format"}:
+                raise ValueError("every preference is required")
+            return APIResponse(
+                200,
+                {"preferences": self.configuration_sync.update_preferences(actor, data)},
+            )
+        return self._method_not_allowed("GET, PUT")
+
     def _configuration_migration_preview(self, method, actor) -> APIResponse:
         self._require_admin(actor)
+        if self.configuration_sync is not None:
+            raise ValueError("routing-authority migration is retired by unified YAML configuration")
         if method != "POST":
             return self._method_not_allowed("POST")
         plan, inventory, warnings = self._configuration_bridge().preview(actor)
@@ -556,6 +658,8 @@ class PlatformAPI:
 
     def _configuration_migration_apply(self, method, payload, actor) -> APIResponse:
         self._require_admin(actor)
+        if self.configuration_sync is not None:
+            raise ValueError("routing-authority migration is retired by unified YAML configuration")
         if method != "POST":
             return self._method_not_allowed("POST")
         data = self._object(payload, {"fingerprint", "confirm"})
@@ -569,6 +673,8 @@ class PlatformAPI:
 
     def _configuration_authority(self, method, payload, actor) -> APIResponse:
         self._require_admin(actor)
+        if self.configuration_sync is not None:
+            raise ValueError("routing authority is fixed to unified YAML configuration")
         if method != "PUT":
             return self._method_not_allowed("PUT")
         data = self._object(payload, {"authority", "confirmation"})
@@ -664,6 +770,10 @@ class PlatformAPI:
         if action == "password":
             if method != "PUT":
                 return self._method_not_allowed("PUT")
+            if user_id == actor.user_id:
+                raise PermissionError(
+                    "the current account must change its password from Account security"
+                )
             data = self._object(payload, {"password"})
             user = self.users.reset_password(user_id, data.get("password"))
             self.audit.write(actor, "user.password", "user", user.id, "success")
@@ -702,6 +812,8 @@ class PlatformAPI:
         if action in {"preview", "test"}:
             if method != "POST":
                 return self._method_not_allowed("POST")
+            if action == "test" and self.configuration_sync is not None:
+                self._require_admin(actor)
             data = self._object(payload, {"event"})
             notification = self._notification(data.get("event"))
             if action == "preview":
@@ -721,10 +833,28 @@ class PlatformAPI:
             return APIResponse(200, {"result": self._delivery_result(result)})
 
         if method == "GET":
+            if self.configuration_sync is not None:
+                item = next(
+                    (
+                        value
+                        for value in self.configuration_sync.list_destinations(actor)
+                        if value.id == destination_id
+                    ),
+                    None,
+                )
+                if item is None:
+                    raise KeyError("destination not found")
+                return APIResponse(200, {"destination": {**self._destination(item), "management": "yaml"}})
             destination = self.destinations.get(actor, destination_id)
             return APIResponse(200, {"destination": self._destination(destination)})
         if method == "PATCH":
-            data = self._object(payload, {"settings", "enabled", "shared", "secret"})
+            data = self._object(payload, {"name", "settings", "enabled", "shared", "secret"})
+            if self.configuration_sync is not None:
+                destination = self.configuration_sync.update_destination(actor, destination_id, data)
+                return APIResponse(
+                    200,
+                    {"destination": {**self._destination(destination), "management": "yaml"}},
+                )
             destination = self.destinations.get(actor, destination_id)
             if destination.owner_user_id != actor.user_id and not actor.is_admin:
                 raise PermissionError("destination cannot be changed by this user")
@@ -782,12 +912,27 @@ class PlatformAPI:
                     )
             return APIResponse(200, {"destination": self._destination(destination)})
         if method == "DELETE":
+            if self.configuration_sync is not None:
+                self.configuration_sync.delete_destination(actor, destination_id)
+                return APIResponse(204)
             self.destinations.delete(actor, destination_id)
             return APIResponse(204)
         return self._method_not_allowed("GET, PATCH, DELETE")
 
     def _route_resource(self, method, payload, actor, route_id):
         if method == "GET":
+            if self.configuration_sync is not None:
+                item = next(
+                    (
+                        value
+                        for value in self.configuration_sync.list_routes(actor)
+                        if value.id == route_id
+                    ),
+                    None,
+                )
+                if item is None:
+                    raise KeyError("route not found")
+                return APIResponse(200, {"route": {**self._route(item), "management": "yaml"}})
             return APIResponse(200, {"route": self._route(self.routes.get(actor, route_id))})
         if method == "PATCH":
             data = self._object(
@@ -796,9 +941,15 @@ class PlatformAPI:
             )
             if any(value is None for value in data.values()):
                 raise ValueError("route fields cannot be null")
+            if self.configuration_sync is not None:
+                route = self.configuration_sync.update_route(actor, route_id, data)
+                return APIResponse(200, {"route": {**self._route(route), "management": "yaml"}})
             route = self.routes.update(actor, route_id, **data)
             return APIResponse(200, {"route": self._route(route)})
         if method == "DELETE":
+            if self.configuration_sync is not None:
+                self.configuration_sync.delete_route(actor, route_id)
+                return APIResponse(204)
             self.routes.delete(actor, route_id)
             return APIResponse(204)
         return self._method_not_allowed("GET, PATCH, DELETE")

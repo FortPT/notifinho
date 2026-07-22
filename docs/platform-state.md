@@ -2,9 +2,9 @@
 
 Notifinho's v2 platform foundation uses SQLite and owner-only secret files. It
 does not require PostgreSQL, Redis, or another container. The feature remains
-disabled by default while the v2 API and WebUI are under development, so the
-existing v1.x YAML configuration, tokens, routes, and delivery behavior remain
-authoritative.
+disabled by default. Phase 4 provides an opt-in authenticated API while the
+WebUI remains under development, so existing v1.x YAML configuration, tokens,
+routes, and delivery behavior remain authoritative.
 
 ## Storage layout
 
@@ -57,9 +57,10 @@ Local login protection includes:
 - a `__Host-` session cookie with `HttpOnly`, `Secure`, `SameSite=Strict`, and
   path `/` defaults.
 
-The browser login and platform-routing endpoints are intentionally not exposed
-in these foundation phases. They will be wired to these services with CSRF and
-ownership enforcement before the WebUI is enabled.
+The Phase 4 API wires browser login and platform routing to these services with
+CSRF and ownership enforcement. See the
+[authenticated platform API guide](platform-api.md). The WebUI is still not
+included.
 
 ## Production preparation
 
@@ -72,16 +73,18 @@ chmod 700 state
 
 `compose.production.yaml` mounts `NOTIFINHO_STATE_DIR` at
 `/notifinho/state`. Keep the platform disabled in `config/config.yaml` until
-account bootstrap and v2 API validation are planned:
+the first administrator is bootstrapped and TLS/proxy validation is planned:
 
 ```yaml
 platform:
   enabled: false
   state_dir: "/notifinho/state"
+  secure_cookies: true
 ```
 
 Enabling platform state initializes or migrates the database at application
-startup. It does not enable a WebUI or replace YAML routes.
+startup. When `api.enabled` and the HTTP listener are also enabled, `/api/v2`
+becomes available. This does not enable a WebUI or replace YAML routes.
 
 ## Administrator CLI
 

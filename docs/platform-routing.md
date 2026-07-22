@@ -1,9 +1,10 @@
 # v2 user tokens, destinations, routes, and delivery history
 
 Phase 2 turns the schema introduced by the platform-state foundation into an
-ownership-enforcing backend service layer. The services are not yet exposed by
-HTTP and do not replace the existing YAML router. This preserves v1.x behavior
-while the v2 API, output adapters, and migration workflow are completed.
+ownership-enforcing backend service layer. Phase 4 exposes it through the
+opt-in [authenticated platform API](platform-api.md). It still does not replace
+the existing YAML router, preserving v1.x behavior until an explicit migration
+workflow is completed.
 
 ## API tokens
 
@@ -106,9 +107,9 @@ administrators may inspect all activity.
 
 ## Compatibility boundary
 
-Merging this phase does not activate platform routing. Existing SMTP/HTTP
+Platform routing activates only for authenticated `/api/v2/events` submissions
+when both the API and platform are explicitly enabled. Existing SMTP/HTTP
 inputs continue through the existing YAML `Router`, existing YAML tokens remain
-authoritative, and existing Discord/Teams outputs are unchanged. A later API
-phase will authenticate platform tokens and submit events into this service.
-The explicit v1.x import phase will convert selected administrator-owned YAML
-targets and routes only after dry-run validation and backup.
+authoritative, and existing Discord/Teams outputs are unchanged. The explicit
+v1.x import phase will convert selected administrator-owned YAML targets and
+routes only after dry-run validation and backup.

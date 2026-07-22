@@ -50,15 +50,28 @@
 - Added output-specific destination validation, administrator-controlled
   private-network delivery, ownership-safe preview/test delivery, retry-safe
   transport results, and adapter integration coverage.
+- Added an opt-in `/api/v2` contract for local login/logout, strict session
+  cookies, CSRF enforcement, account administration, password reset, and
+  session/client rate limits.
+- Added owner-scoped HTTP management for one-time API tokens, private/shared
+  destinations, write-only secret rotation, user routes, previews, test
+  delivery, safe history, and audit events.
+- Added user/application event submission through source-scoped platform
+  tokens or CSRF-protected sessions, using only the submitting owner's platform
+  routes and the six Phase 3 output adapters.
+- Added native HTTP `PATCH` and `DELETE` support, no-store/security response
+  headers, strict request fields, non-partial update validation, and platform
+  API integration coverage.
 
 ### Compatibility
 
 - Platform state remains disabled by default. Existing v1.x YAML tokens,
   routes, destinations, inputs, outputs, and delivery behavior are unchanged.
-- Platform tokens, routes, and delivery services are not yet exposed through
-  HTTP and do not replace the existing YAML router.
-- New platform outputs remain inactive until the v2 API/runtime wiring phase;
-  existing Discord and Teams YAML delivery is unchanged.
+- Platform tokens, routes, and delivery services are exposed only when the
+  HTTP listener, API, and platform are all explicitly enabled.
+- Platform event submission does not replace or import the existing YAML
+  router. Existing SMTP/webhook inputs and Discord/Teams YAML delivery remain
+  unchanged.
 
 ---
 

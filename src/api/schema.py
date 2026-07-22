@@ -98,6 +98,11 @@ def validate_config(data) -> list[str]:
     if isinstance(platform, dict):
         if "enabled" in platform and not isinstance(platform.get("enabled"), bool):
             errors.append("platform.enabled must be a boolean")
+        if "secure_cookies" in platform and not isinstance(
+            platform.get("secure_cookies"),
+            bool,
+        ):
+            errors.append("platform.secure_cookies must be a boolean")
         if "state_dir" in platform:
             state_dir = str(platform.get("state_dir") or "").strip()
             if not os.path.isabs(state_dir) or state_dir == os.path.sep:

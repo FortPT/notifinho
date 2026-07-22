@@ -376,10 +376,10 @@ This separation allows new infrastructure products and new messaging platforms t
 |-----------|:------:|
 | Discord | ✅ Stable |
 | Microsoft Teams | ✅ Stable |
-| Slack | 🧪 v2 adapter contract-tested; inactive |
-| Generic outbound webhook | 🧪 v2 adapter contract-tested; inactive |
-| MQTT | 🧪 v2 adapter contract-tested; inactive |
-| ntfy | 🧪 v2 adapter contract-tested; inactive |
+| Slack | 🧪 v2 platform API; opt-in |
+| Generic outbound webhook | 🧪 v2 platform API; opt-in |
+| MQTT | 🧪 v2 platform API; opt-in |
+| ntfy | 🧪 v2 platform API; opt-in |
 
 ---
 
@@ -483,6 +483,9 @@ history](docs/platform-routing.md).
 The third phase adds disabled, ownership-aware
 [platform output adapters and preview/test delivery](docs/platform-outputs.md)
 for Discord, Teams, Slack, generic webhooks, MQTT, and ntfy.
+The fourth phase exposes those foundations through an opt-in
+[authenticated platform API](docs/platform-api.md) with local sessions, CSRF,
+owned-resource management, and user/application-scoped event submission.
 
 ---
 
@@ -1643,7 +1646,9 @@ without duplicating parser, formatter, or routing logic in the browser.
   policy, filterable user routes, bounded retries, audit, and safe history
 - Ownership-safe previews and adapters for Discord, Teams, Slack, generic
   webhooks, MQTT, and ntfy, with strict outbound and secret boundaries
-- Responsive WebUI backed by the v1.9 API
+- Authenticated `/api/v2` sessions, CSRF, owned-resource management, previews,
+  safe history/audit reads, and source-scoped platform event submission
+- Responsive WebUI backed by the authenticated platform API
 - Local administrator and user accounts with clear roles
 - User- and application-scoped event endpoints and API tokens
 - Private and shared destinations with secrets never returned to the browser

@@ -1,8 +1,12 @@
 # Backend and event API
 
-Notifinho v1.9.0 introduces the disabled-by-default backend foundation used by
-the future v2.0 WebUI. It reuses the existing dispatcher, notification model,
-router, formatters, and outputs; it is not a second delivery pipeline.
+Notifinho v1.9.0 introduces the disabled-by-default YAML administration and
+event API. It reuses the existing dispatcher, notification model, router,
+formatters, and outputs; it is not a second delivery pipeline.
+
+The separate opt-in local-session, owned-resource, preview, and user-scoped
+event contract is documented in the
+[v2 authenticated platform API guide](platform-api.md).
 
 ## Authentication
 
@@ -15,9 +19,8 @@ Roles:
 - `application`: submit only sources listed in `sources`;
 - `admin`: access backend administration endpoints and any source.
 
-Full local browser sessions, user-owned destinations, CSRF protection, and
-interactive account management remain v2.0 work. The v1.9 PBKDF2 helper is a
-foundation, not an exposed login service.
+These YAML-backed tokens are not browser sessions and cannot manage v2
+platform resources. Do not mix them with the `/api/v2` authentication model.
 
 ## Endpoints
 

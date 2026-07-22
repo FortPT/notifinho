@@ -57,13 +57,15 @@ home_assistant:
         device: "Office printer"
         endpoint: "192.0.2.20"
 
-# Persistent v2 platform state. Keep disabled until local accounts are
-# bootstrapped and the v2 API endpoints are explicitly enabled in a later
-# phase. The directory must be absolute inside the container and writable by
-# the configured non-root UID/GID.
+# Persistent v2 platform API state. Keep disabled until a local administrator
+# is bootstrapped and HTTPS/reverse-proxy access is ready. The directory must
+# be absolute inside the container and writable by the configured non-root
+# UID/GID.
 platform:
   enabled: false
   state_dir: "/notifinho/state"
+  # Keep true behind HTTPS. Set false only for isolated loopback development.
+  secure_cookies: true
 
 # v1.9 backend API. This is disabled by default. Publish it only on a trusted
 # network or behind an authenticated reverse proxy. Tokens must come from an

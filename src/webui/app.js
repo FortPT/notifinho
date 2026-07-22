@@ -10,6 +10,7 @@ const VIEW_TITLES = {
   deliveries: ["Operations", "Delivery history"],
   audit: ["Security", "Audit log"],
   users: ["Administration", "Users"],
+  data: ["Administration", "Data tools"],
   account: ["Profile", "Account security"],
 };
 const OUTPUT_NAMES = {
@@ -30,6 +31,8 @@ const state = {
   deliveries: [],
   audit: [],
   users: [],
+  backups: [],
+  pendingImport: null,
   sessionExpiresAt: null,
   confirmResolve: null,
 };
@@ -216,6 +219,7 @@ function showApp(session) {
   byId("login-view").hidden = true;
   byId("app-shell").hidden = false;
   byId("users-nav").hidden = !isAdmin();
+  byId("data-nav").hidden = !isAdmin();
   const name = state.user.username;
   const role = state.user.role;
   for (const id of ["profile-avatar", "account-avatar"]) byId(id).textContent = initials(name);
@@ -269,7 +273,10 @@ async function loadWorkspace() {
     request("/deliveries"),
     request("/audit-events"),
   ];
-  if (isAdmin()) tasks.push(request("/users"));
+  if (isAdmin()) {
+    tasks.push(request("/users"));
+    tasks.push(request("/backups"));
+  }
   const results = await Promise.all(tasks);
   state.destinations = results[0].destinations;
   state.routes = results[1].routes;
@@ -277,9 +284,10 @@ async function loadWorkspace() {
   state.deliveries = results[3].deliveries;
   state.audit = results[4].audit_events;
   state.users = isAdmin() ? results[5].users : [];
+  state.backups = isAdmin() ? results[6].backups : [];
   renderAll();
   const requested = window.location.hash.slice(1);
-  navigate(VIEW_TITLES[requested] && (requested !== "users" || isAdmin()) ? requested : state.currentView);
+  navigate(VIEW_TITLES[requested] && (!["users", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
 }
 
 async function refreshWorkspace() {
@@ -303,10 +311,11 @@ function renderAll() {
   renderDeliveries();
   renderAudit();
   renderUsers();
+  renderBackups();
 }
 
 function navigate(view) {
-  if (!VIEW_TITLES[view] || (view === "users" && !isAdmin())) view = "dashboard";
+  if (!VIEW_TITLES[view] || (["users", "data"].includes(view) && !isAdmin())) view = "dashboard";
   state.currentView = view;
   for (const section of document.querySelectorAll(".view")) {
     section.hidden = section.dataset.page !== view;
@@ -532,6 +541,156 @@ function renderUsers() {
       element("td", {}, actions),
     ]));
   }
+}
+
+function formatBytes(value) {
+  const bytes = Number(value || 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function renderBackups() {
+  const container = byId("backup-list");
+  container.replaceChildren();
+  if (!isAdmin()) return;
+  if (!state.backups.length) {
+    empty(container, "No state backups", "Create a private snapshot before migration or major changes.");
+    return;
+  }
+  for (const item of state.backups) {
+    container.append(element("div", { className: "backup-item" }, [
+      element("div", {}, [
+        element("strong", { text: formatTime(item.created_at) }),
+        element("small", { text: `${item.secret_files} secret files · ${formatBytes(item.size_bytes)} · schema ${item.schema_version}` }),
+        element("code", { text: item.id }),
+      ]),
+      actionButton("Restore", "restore-backup", item.id, "danger"),
+    ]));
+  }
+}
+
+function downloadDocument(documentValue) {
+  const content = `${JSON.stringify(documentValue, null, 2)}\n`;
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const link = element("a", {
+    attributes: {
+      href: url,
+      download: `notifinho-platform-${new Date().toISOString().slice(0, 10)}.json`,
+    },
+  });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function exportPlatform() {
+  const response = await request("/portability/export");
+  downloadDocument(response.document);
+  toast("Safe platform export downloaded.");
+}
+
+async function selectedFile(id) {
+  const input = byId(id);
+  const file = input.files && input.files[0];
+  if (!file) throw new Error("Choose a file first.");
+  if (file.size < 1 || file.size > 1024 * 1024) {
+    throw new Error("Import files must contain 1 to 1048576 bytes.");
+  }
+  return file.text();
+}
+
+async function previewImport(kind) {
+  clearError("import-error");
+  const portable = kind === "portable";
+  try {
+    const content = await selectedFile(portable ? "portable-file" : "migration-file");
+    let body;
+    if (portable) {
+      let documentValue;
+      try {
+        documentValue = JSON.parse(content);
+      } catch (_error) {
+        throw new Error("The selected JSON document is invalid.");
+      }
+      body = { document: documentValue };
+    } else {
+      body = { yaml: content };
+    }
+    const endpoint = portable ? "/portability/preview" : "/migrations/v1/preview";
+    const response = await request(endpoint, { method: "POST", body });
+    state.pendingImport = { kind, body, preview: response.preview };
+    byId("import-title").textContent = portable ? "Platform JSON preview" : "v1.x YAML migration preview";
+    byId("import-summary").textContent = response.preview.valid
+      ? `${response.preview.summary.destinations} destinations and ${response.preview.summary.routes} routes are ready to import.`
+      : "The document cannot be applied until every reported error is corrected.";
+    byId("import-result").textContent = JSON.stringify(response.preview, null, 2);
+    byId("import-apply").disabled = !response.preview.valid;
+    byId("import-dialog").showModal();
+  } catch (error) {
+    state.pendingImport = null;
+    toast(error.message || "Import preview failed.", "error");
+  }
+}
+
+async function applyImport() {
+  const pending = state.pendingImport;
+  if (!pending || !pending.preview.valid) return;
+  const accepted = await confirmAction(
+    "Apply the previewed import?",
+    "Only the unchanged, fingerprinted document will be accepted. This creates new resources and never overwrites existing names.",
+    "Apply import",
+  );
+  if (!accepted) return;
+  try {
+    const endpoint = pending.kind === "portable"
+      ? "/portability/import"
+      : "/migrations/v1/import";
+    const body = {
+      ...pending.body,
+      fingerprint: pending.preview.fingerprint,
+      confirm: true,
+    };
+    const response = await request(endpoint, { method: "POST", body });
+    const result = response.import;
+    state.pendingImport = null;
+    byId("import-dialog").close();
+    byId("portable-file").value = "";
+    byId("migration-file").value = "";
+    await loadWorkspace();
+    toast(`Imported ${result.destinations_created} destinations and ${result.routes_created} routes.`);
+  } catch (error) {
+    showError("import-error", error);
+  }
+}
+
+async function createBackup() {
+  const accepted = await confirmAction(
+    "Create a private state backup?",
+    "The snapshot stays on this server and includes database authentication material and destination secret files.",
+    "Create backup",
+  );
+  if (!accepted) return;
+  await request("/backups", { method: "POST", body: {} });
+  await loadWorkspace();
+  toast("State backup created.");
+}
+
+async function restoreBackup(id) {
+  const accepted = await confirmAction(
+    "Restore this state backup?",
+    `Restore ${id}. Notifinho creates a safety backup first and signs out every browser session. Application-token state returns to the selected snapshot.`,
+    "Restore and sign out",
+  );
+  if (!accepted) return;
+  await request(`/backups/${id}/restore`, {
+    method: "POST",
+    body: { confirmation: id },
+  });
+  expireSession();
+  toast("State restored. Sign in again.");
 }
 
 function formField(definition, value) {
@@ -931,7 +1090,25 @@ function resolveConfirm(value) {
 
 async function resourceAction(action, id) {
   try {
-    if (action === "toggle-destination") {
+    if (action === "export-platform") {
+      await exportPlatform();
+      return;
+    } else if (action === "preview-portable") {
+      await previewImport("portable");
+      return;
+    } else if (action === "preview-migration") {
+      await previewImport("v1_yaml");
+      return;
+    } else if (action === "apply-import") {
+      await applyImport();
+      return;
+    } else if (action === "create-backup") {
+      await createBackup();
+      return;
+    } else if (action === "restore-backup") {
+      await restoreBackup(id);
+      return;
+    } else if (action === "toggle-destination") {
       const item = state.destinations.find((candidate) => candidate.id === id);
       await request(`/destinations/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
       toast(`Destination ${item.enabled ? "disabled" : "enabled"}.`);
@@ -1054,6 +1231,13 @@ function bindEvents() {
   });
   byId("secret-dialog").addEventListener("close", () => {
     byId("secret-value").textContent = "";
+  });
+  byId("import-dialog").addEventListener("close", () => {
+    state.pendingImport = null;
+    byId("import-result").textContent = "";
+    byId("portable-file").value = "";
+    byId("migration-file").value = "";
+    clearError("import-error");
   });
   byId("mobile-menu").addEventListener("click", () => {
     const shell = byId("app-shell");

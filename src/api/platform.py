@@ -15,9 +15,11 @@ from outputs.service import PlatformOutputService
 from outputs.settings import normalize_output_settings
 from storage.api_tokens import APITokenStore
 from storage.audit_events import AuditEventStore
+from storage.backups import StateBackupStore
 from storage.delivery import DeliveryHistoryStore, PlatformDeliveryService
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
+from storage.portability import PlatformPortabilityService
 from storage.routes import RouteStore
 from storage.sanitize import sanitize_text
 from storage.secrets import SecretStore
@@ -41,6 +43,20 @@ class PlatformAPI:
         self.sessions = SessionStore(database)
         self.tokens = APITokenStore(database, audit=self.audit)
         self.secrets = SecretStore(database)
+        self.portability = PlatformPortabilityService(
+            database,
+            secrets=self.secrets,
+            audit=self.audit,
+        )
+        self.backups = StateBackupStore(
+            database,
+            audit=self.audit,
+            retention=configuration.get(
+                "platform",
+                "backup_retention",
+                default=20,
+            ),
+        )
         self.destinations = DestinationStore(database, audit=self.audit)
         self.routes = RouteStore(database, audit=self.audit)
         self.history = DeliveryHistoryStore(database)
@@ -112,6 +128,18 @@ class PlatformAPI:
                 return self._deliveries_endpoint(method, actor)
             if path == "/api/v2/audit-events":
                 return self._audit_endpoint(method, actor)
+            if path == "/api/v2/portability/export":
+                return self._portability_export(method, actor)
+            if path == "/api/v2/portability/preview":
+                return self._portability_preview(method, payload, actor)
+            if path == "/api/v2/portability/import":
+                return self._portability_import(method, payload, actor)
+            if path == "/api/v2/migrations/v1/preview":
+                return self._v1_migration_preview(method, payload, actor)
+            if path == "/api/v2/migrations/v1/import":
+                return self._v1_migration_import(method, payload, actor)
+            if path == "/api/v2/backups":
+                return self._backups_endpoint(method, actor)
             response = self._resource_endpoint(method, path, payload, actor)
             if response is not None:
                 return response
@@ -363,7 +391,83 @@ class PlatformAPI:
         events = self.audit.list_visible(actor, limit=100)
         return APIResponse(200, {"audit_events": [self._audit(item) for item in events]})
 
+    def _portability_export(self, method, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "GET":
+            return self._method_not_allowed("GET")
+        return APIResponse(200, {"document": self.portability.export_document(actor)})
+
+    def _portability_preview(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"document"})
+        if "document" not in data:
+            raise ValueError("document is required")
+        plan = self.portability.preview_document(actor, data["document"])
+        return APIResponse(200, {"preview": plan.public()})
+
+    def _portability_import(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"document", "fingerprint", "confirm"})
+        if self._boolean(data, "confirm") is not True:
+            raise ValueError("confirmed import is required")
+        result = self.portability.apply_document(
+            actor,
+            data.get("document"),
+            str(data.get("fingerprint") or ""),
+        )
+        return APIResponse(200, {"import": result})
+
+    def _v1_migration_preview(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"yaml"})
+        plan = self.portability.preview_v1_yaml(actor, data.get("yaml"))
+        return APIResponse(200, {"preview": plan.public()})
+
+    def _v1_migration_import(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"yaml", "fingerprint", "confirm"})
+        if self._boolean(data, "confirm") is not True:
+            raise ValueError("confirmed import is required")
+        result = self.portability.apply_v1_yaml(
+            actor,
+            data.get("yaml"),
+            str(data.get("fingerprint") or ""),
+        )
+        return APIResponse(200, {"import": result})
+
+    def _backups_endpoint(self, method, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method == "GET":
+            return APIResponse(
+                200,
+                {"backups": [item.public() for item in self.backups.list(actor)]},
+            )
+        if method == "POST":
+            backup = self.backups.create(actor)
+            return APIResponse(201, {"backup": backup.public()})
+        return self._method_not_allowed("GET, POST")
+
     def _resource_endpoint(self, method, path, payload, actor):
+        backup_match = re.fullmatch(
+            r"/api/v2/backups/(state-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8})/restore",
+            path,
+        )
+        if backup_match:
+            return self._backup_restore(
+                method,
+                payload,
+                actor,
+                backup_match.group(1),
+            )
+
         user_match = re.fullmatch(
             r"/api/v2/users/([0-9a-f]{32})(?:/(password|tokens|routes))?",
             path,
@@ -391,6 +495,18 @@ class PlatformAPI:
         if route_match:
             return self._route_resource(method, payload, actor, route_match.group(1))
         return None
+
+    def _backup_restore(self, method, payload, actor, backup_id):
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"confirmation"})
+        result = self.backups.restore(
+            actor,
+            backup_id,
+            str(data.get("confirmation") or ""),
+        )
+        return APIResponse(200, {"restore": result}, self._clear_cookies())
 
     def _user_resource(self, method, payload, actor, user_id, action):
         self._require_admin(actor)

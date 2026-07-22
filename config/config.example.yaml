@@ -64,6 +64,8 @@ home_assistant:
 platform:
   enabled: false
   state_dir: "/notifinho/state"
+  # Retain the newest private server-side state backups (1-100).
+  backup_retention: 20
   # Keep true behind HTTPS. Set false only for isolated loopback development.
   secure_cookies: true
 

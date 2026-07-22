@@ -108,6 +108,16 @@ def validate_config(data) -> list[str]:
             bool,
         ):
             errors.append("platform.secure_cookies must be a boolean")
+        if "backup_retention" in platform:
+            retention = platform.get("backup_retention")
+            if (
+                isinstance(retention, bool)
+                or not isinstance(retention, int)
+                or not 1 <= retention <= 100
+            ):
+                errors.append(
+                    "platform.backup_retention must be between 1 and 100"
+                )
         if "state_dir" in platform:
             state_dir = str(platform.get("state_dir") or "").strip()
             if not os.path.isabs(state_dir) or state_dir == os.path.sep:

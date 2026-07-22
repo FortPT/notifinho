@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import stat
+import threading
 
 from contextlib import contextmanager
 from pathlib import Path
@@ -18,6 +19,7 @@ class Database:
     def __init__(self, path: str | Path, timeout_seconds: float = 5.0):
         self.path = Path(path).expanduser().absolute()
         self.timeout_seconds = max(0.1, float(timeout_seconds))
+        self._maintenance_lock = threading.RLock()
 
     def migrate(self) -> int:
         """Apply every pending schema migration transactionally and idempotently."""
@@ -80,23 +82,31 @@ class Database:
     def connect(self):
         """Yield a configured connection and always close it."""
 
-        self._prepare_path()
-        connection = sqlite3.connect(
-            self.path,
-            timeout=self.timeout_seconds,
-            isolation_level=None,
-        )
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute(
-            f"PRAGMA busy_timeout = {int(self.timeout_seconds * 1000)}"
-        )
-        connection.execute("PRAGMA secure_delete = ON")
-        try:
-            yield connection
-        finally:
-            connection.close()
-            self._enforce_file_mode()
+        with self._maintenance_lock:
+            self._prepare_path()
+            connection = sqlite3.connect(
+                self.path,
+                timeout=self.timeout_seconds,
+                isolation_level=None,
+            )
+            connection.row_factory = sqlite3.Row
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute(
+                f"PRAGMA busy_timeout = {int(self.timeout_seconds * 1000)}"
+            )
+            connection.execute("PRAGMA secure_delete = ON")
+            try:
+                yield connection
+            finally:
+                connection.close()
+                self._enforce_file_mode()
+
+    @contextmanager
+    def maintenance(self):
+        """Block new connections while state files are snapshotted or swapped."""
+
+        with self._maintenance_lock:
+            yield
 
     @contextmanager
     def transaction(self):

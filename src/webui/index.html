@@ -69,6 +69,9 @@
         <button id="users-nav" class="nav-item" type="button" data-view="users" hidden>
           <span class="nav-icon" aria-hidden="true">♙</span><span>Users</span>
         </button>
+        <button id="data-nav" class="nav-item" type="button" data-view="data" hidden>
+          <span class="nav-icon" aria-hidden="true">⇄</span><span>Data tools</span>
+        </button>
       </nav>
       <div class="sidebar-footer">
         <button class="profile-chip" type="button" data-view="account">
@@ -151,6 +154,31 @@
         <section id="view-users" class="view" data-page="users" hidden>
           <div class="section-toolbar"><div><h2>Users</h2><p>Local accounts and administrative access.</p></div><button class="button primary" type="button" data-action="new-user">Add user</button></div>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>User</th><th>Role</th><th>Last login</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="user-table"></tbody></table></div></div>
+        </section>
+
+        <section id="view-data" class="view" data-page="data" hidden>
+          <div class="section-toolbar"><div><h2>Data tools</h2><p>Preview migrations, export safe configuration, and manage private server-side backups.</p></div></div>
+          <div class="data-tools-grid">
+            <article class="panel data-tool-card">
+              <div><p class="eyebrow">Portable configuration</p><h3>Export destinations and routes</h3><p>Downloads owner-aware settings without passwords, application tokens, or destination credentials.</p></div>
+              <button class="button secondary" type="button" data-action="export-platform">Download safe JSON</button>
+            </article>
+            <article class="panel data-tool-card">
+              <div><p class="eyebrow">Validated import</p><h3>Import platform JSON</h3><p>Preview a safe export before merging it. Credentials intentionally remain unset and affected resources stay disabled.</p></div>
+              <label><span>JSON document</span><input id="portable-file" type="file" accept="application/json,.json"></label>
+              <button class="button secondary" type="button" data-action="preview-portable">Preview JSON import</button>
+            </article>
+            <article class="panel data-tool-card">
+              <div><p class="eyebrow">v1.x migration</p><h3>Import YAML targets and routes</h3><p>Reads supported Discord and Teams targets, masks credentials in the preview, and creates administrator-owned platform resources.</p></div>
+              <label><span>v1.x YAML configuration</span><input id="migration-file" type="file" accept="application/yaml,text/yaml,.yaml,.yml"></label>
+              <button class="button secondary" type="button" data-action="preview-migration">Preview YAML migration</button>
+            </article>
+            <article class="panel data-tool-card backup-card">
+              <div><p class="eyebrow">Private state</p><h3>Server-side backups</h3><p>Includes the SQLite database and secret files. Backup contents never leave the server through this API.</p></div>
+              <button class="button primary" type="button" data-action="create-backup">Create backup</button>
+              <div id="backup-list" class="backup-list"></div>
+            </article>
+          </div>
         </section>
 
         <section id="view-account" class="view" data-page="account" hidden>
@@ -240,6 +268,14 @@
     <div class="modal-heading"><div><p class="eyebrow">Please confirm</p><h2 id="confirm-title">Confirm action</h2></div></div>
     <p id="confirm-message"></p>
     <div class="modal-actions"><button id="confirm-cancel" class="button secondary" type="button">Cancel</button><button id="confirm-accept" class="button danger" type="button">Confirm</button></div>
+  </dialog>
+
+  <dialog id="import-dialog" class="modal preview-modal">
+    <div class="modal-heading"><div><p class="eyebrow">Preview required</p><h2 id="import-title">Import preview</h2></div><button class="icon-button" type="button" data-close-dialog="import-dialog" aria-label="Close">×</button></div>
+    <p id="import-summary">Review every warning and error before applying the unchanged document.</p>
+    <pre id="import-result" class="code-result" tabindex="0"></pre>
+    <p id="import-error" class="form-error" role="alert" hidden></p>
+    <div class="modal-actions"><button class="button secondary" type="button" data-close-dialog="import-dialog">Cancel</button><button id="import-apply" class="button danger" type="button" data-action="apply-import">Apply import</button></div>
   </dialog>
 
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>

@@ -8,6 +8,7 @@ from storage.api_tokens import (
     TokenPrincipal,
 )
 from storage.audit_events import AuditEvent, AuditEventStore
+from storage.backups import StateBackup, StateBackupStore
 from storage.delivery import (
     DeliveryAttempt,
     DeliveryHistoryStore,
@@ -17,6 +18,7 @@ from storage.delivery import (
 )
 from storage.destinations import Destination, DestinationStore
 from storage.ownership import Actor, OwnershipPolicy
+from storage.portability import ImportPlan, PlatformPortabilityService
 from storage.routes import Route, RouteStore
 from storage.secrets import SecretMetadata, SecretStore
 from storage.sessions import SessionCredentials, SessionPrincipal, SessionStore
@@ -28,6 +30,8 @@ __all__ = [
     "APITokenStore",
     "AuditEvent",
     "AuditEventStore",
+    "StateBackup",
+    "StateBackupStore",
     "Database",
     "DeliveryAttempt",
     "DeliveryHistoryStore",
@@ -36,6 +40,8 @@ __all__ = [
     "Destination",
     "DestinationStore",
     "OwnershipPolicy",
+    "ImportPlan",
+    "PlatformPortabilityService",
     "PlatformDeliveryService",
     "Route",
     "RouteStore",

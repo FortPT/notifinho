@@ -1013,6 +1013,66 @@ textarea:focus {
   grid-template-columns: minmax(240px, 0.7fr) minmax(320px, 1.3fr);
 }
 
+.data-tools-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.data-tool-card {
+  align-content: space-between;
+  display: grid;
+  gap: 1rem;
+}
+
+.data-tool-card h3 {
+  margin: 0.15rem 0 0.35rem;
+}
+
+.data-tool-card p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.backup-card {
+  grid-column: 1 / -1;
+}
+
+.backup-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.backup-list > .empty-state {
+  padding: 1.5rem;
+}
+
+.backup-item {
+  align-items: center;
+  background: rgba(4, 14, 26, 0.48);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 0.8rem;
+}
+
+.backup-item strong,
+.backup-item small,
+.backup-item code {
+  display: block;
+}
+
+.backup-item small,
+.backup-item code {
+  color: var(--muted);
+  font-size: 0.68rem;
+  margin-top: 0.18rem;
+}
+
 .identity-card {
   align-items: center;
   display: flex;
@@ -1223,6 +1283,14 @@ dialog::backdrop {
   .account-grid {
     grid-template-columns: 1fr;
   }
+
+  .data-tools-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .backup-card {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1258,6 +1326,11 @@ dialog::backdrop {
 
   .timeline-item {
     grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .backup-item {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .timeline-meta {

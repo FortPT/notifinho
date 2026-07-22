@@ -238,6 +238,125 @@ def test_secure_cookie_defaults_use_host_prefix_and_strict_attributes(platform_a
     assert "HttpOnly" not in next(item for item in cookies if "csrf=" in item)
 
 
+def test_admin_portability_preview_apply_and_v1_secret_redaction(platform_api):
+    admin_headers = login(platform_api)
+    user_headers = login(
+        platform_api,
+        "owner-user",
+        "owner secure password",
+        client="127.0.0.8",
+    )
+    denied = call(
+        platform_api,
+        "GET",
+        "/api/v2/portability/export",
+        headers=user_headers,
+    )
+    document = {
+        "schema": "notifinho.platform.v1",
+        "destinations": [],
+        "routes": [],
+    }
+    preview = call(
+        platform_api,
+        "POST",
+        "/api/v2/portability/preview",
+        {"document": document},
+        admin_headers,
+    )
+    imported = call(
+        platform_api,
+        "POST",
+        "/api/v2/portability/import",
+        {
+            "document": document,
+            "fingerprint": preview.payload["preview"]["fingerprint"],
+            "confirm": True,
+        },
+        admin_headers,
+    )
+    yaml_source = """
+outputs:
+  discord:
+    default:
+      webhook: https://discord.com/api/webhooks/123/api-private
+routing:
+  grafana:
+    output: discord
+    target: default
+"""
+    migration_preview = call(
+        platform_api,
+        "POST",
+        "/api/v2/migrations/v1/preview",
+        {"yaml": yaml_source},
+        admin_headers,
+    )
+    serialized = json.dumps(migration_preview.payload, sort_keys=True)
+    migration = call(
+        platform_api,
+        "POST",
+        "/api/v2/migrations/v1/import",
+        {
+            "yaml": yaml_source,
+            "fingerprint": migration_preview.payload["preview"]["fingerprint"],
+            "confirm": True,
+        },
+        admin_headers,
+    )
+    exported = call(
+        platform_api,
+        "GET",
+        "/api/v2/portability/export",
+        headers=admin_headers,
+    )
+
+    assert denied.status == 403
+    assert preview.status == 200 and preview.payload["preview"]["valid"] is True
+    assert imported.status == 200
+    assert migration_preview.status == 200
+    assert "api-private" not in serialized
+    assert migration.status == 200
+    assert migration.payload["import"]["destinations_created"] == 1
+    assert exported.status == 200
+    assert "api-private" not in json.dumps(exported.payload, sort_keys=True)
+
+
+def test_admin_backup_restore_is_confirmed_and_revokes_http_session(platform_api):
+    headers = login(platform_api)
+    created = call(
+        platform_api,
+        "POST",
+        "/api/v2/backups",
+        {},
+        headers,
+    )
+    backup_id = created.payload["backup"]["id"]
+    listed = call(platform_api, "GET", "/api/v2/backups", headers=headers)
+    denied = call(
+        platform_api,
+        "POST",
+        f"/api/v2/backups/{backup_id}/restore",
+        {"confirmation": "wrong"},
+        headers,
+    )
+    restored = call(
+        platform_api,
+        "POST",
+        f"/api/v2/backups/{backup_id}/restore",
+        {"confirmation": backup_id},
+        headers,
+    )
+
+    assert created.status == 201
+    assert listed.status == 200 and listed.payload["backups"][0]["id"] == backup_id
+    assert denied.status == 400
+    assert restored.status == 200
+    assert restored.payload["restore"]["sessions_revoked"] is True
+    assert len([item for item in restored.headers if item[0] == "Set-Cookie"]) == 2
+    assert call(platform_api, "GET", "/api/v2/session", headers=headers).status == 401
+
+
 def test_user_administration_and_password_resets_revoke_sessions(platform_api):
     admin_headers = login(platform_api)
     created = call(

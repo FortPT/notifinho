@@ -1,4 +1,4 @@
-"""Release metadata invariants for v2.0.1."""
+"""Release metadata invariants for v2.0.2."""
 
 from pathlib import Path
 
@@ -8,31 +8,31 @@ from version import VERSION
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_application_version_is_v201():
-    assert VERSION == "2.0.1"
+def test_application_version_is_v202():
+    assert VERSION == "2.0.2"
 
 
 def test_readme_stable_and_next_release_are_current():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "stable-v2.0.1-blue" in readme
-    assert "| **Current Stable Release** | **v2.0.1** |" in readme
+    assert "stable-v2.0.2-blue" in readme
+    assert "| **Current Stable Release** | **v2.0.2** |" in readme
     assert "| **Next Planned Release** | **v2.x** |" in readme
 
 
 def test_changelog_contains_dated_release():
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "## 2.0.1 - 2026-07-22" in changelog
-    assert changelog.index("## Unreleased") < changelog.index("## 2.0.1")
+    assert "## 2.0.2 - 2026-07-22" in changelog
+    assert changelog.index("## Unreleased") < changelog.index("## 2.0.2")
 
 
 def test_release_notes_and_docker_hub_metadata_are_current():
-    notes = ROOT / "docs" / "releases" / "v2.0.1.md"
+    notes = ROOT / "docs" / "releases" / "v2.0.2.md"
     docker_hub = (ROOT / "DOCKERHUB_README.md").read_text(encoding="utf-8")
     assert notes.is_file()
     assert notes.read_text(encoding="utf-8").startswith(
-        "# Notifinho v2.0.1 release notes"
+        "# Notifinho v2.0.2 release notes"
     )
-    assert "current stable release is **v2.0.1**" in docker_hub
+    assert "current stable release is **v2.0.2**" in docker_hub
 
 
 def test_production_quick_starts_prepare_platform_state_mount():
@@ -51,18 +51,18 @@ def test_release_deployment_defaults_are_versioned():
     environment = (ROOT / ".env.example").read_text(encoding="utf-8")
     compose = (ROOT / "compose.production.yaml").read_text(encoding="utf-8")
 
-    assert "NOTIFINHO_IMAGE=fortpt/notifinho:2.0.1" in environment
-    assert "fortpt/notifinho:2.0.1" in compose
+    assert "NOTIFINHO_IMAGE=fortpt/notifinho:2.0.2" in environment
+    assert "fortpt/notifinho:2.0.2" in compose
 
 
 def test_release_notes_cover_upgrade_rollback_and_acceptance():
-    notes = (ROOT / "docs" / "releases" / "v2.0.1.md").read_text(
+    notes = (ROOT / "docs" / "releases" / "v2.0.2.md").read_text(
         encoding="utf-8"
     )
 
     for heading in (
         "## Fresh installation",
-        "## Upgrade from v2.0.0 or v1.9.7",
+        "## Upgrade from v2.0.1 or v1.9.7",
         "## Compatibility boundary",
         "## Security model",
         "## Rollback",
@@ -70,4 +70,34 @@ def test_release_notes_cover_upgrade_rollback_and_acceptance():
     ):
         assert heading in notes
     assert "schema 3" in notes
-    assert "single-use setup token" in notes
+    assert "automatic state backup" in notes
+    assert "routing_authority" in notes
+
+
+def test_release_workflows_use_node24_action_majors():
+    ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text(
+        encoding="utf-8"
+    )
+    release = (ROOT / ".github" / "workflows" / "docker-release.yml").read_text(
+        encoding="utf-8"
+    )
+
+    for value in (
+        "actions/checkout@v7",
+        "actions/setup-python@v7",
+    ):
+        assert value in ci
+        assert value in release
+    assert "actions/setup-node@v7" in ci
+    assert "docker/login-action@v4" in release
+    assert "docker/setup-buildx-action@v4" in release
+    assert "docker/build-push-action@v7" in release
+    for deprecated in (
+        "actions/checkout@v4",
+        "actions/setup-python@v5",
+        "docker/login-action@v3",
+        "docker/setup-buildx-action@v3",
+        "docker/build-push-action@v6",
+    ):
+        assert deprecated not in ci
+        assert deprecated not in release

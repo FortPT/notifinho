@@ -1,10 +1,10 @@
 # v2 user tokens, destinations, routes, and delivery history
 
-Phase 2 turns the schema introduced by the platform-state foundation into an
-ownership-enforcing backend service layer. Phase 4 exposes it through the
-[authenticated platform API](platform-api.md). It still does not replace
-the existing YAML router, preserving v1.x behavior until an explicit migration
-workflow is completed.
+The platform state provides an ownership-enforcing backend service layer
+exposed through the [authenticated platform API](platform-api.md). v2.0.2 adds
+an explicit routing-authority boundary: YAML behavior is preserved until an
+administrator previews and confirms mounted-configuration takeover, after
+which the WebUI-managed database routes handle legacy inputs as well.
 
 ## API tokens
 
@@ -105,11 +105,28 @@ Sensitive detail keys are replaced with `<redacted>`, and credential patterns
 inside other text are sanitized. Users see their own audit activity;
 administrators may inspect all activity.
 
-## Compatibility boundary
+## Routing authority
 
-Platform routing activates only for authenticated `/api/v2/events` submissions
-when both the API and platform are explicitly enabled. Existing SMTP/HTTP
-inputs continue through the existing YAML `Router`, existing YAML tokens remain
-authoritative, and existing Discord/Teams outputs are unchanged. The explicit
-v1.x import phase will convert selected administrator-owned YAML targets and
-routes only after dry-run validation and backup.
+`platform.routing_authority` accepts exactly `yaml` or `database` and defaults
+to `yaml` when omitted.
+
+- `yaml`: SMTP and native HTTP/Redfish/Home Assistant webhook notifications use
+  the original YAML router. The WebUI displays those resources as YAML-managed.
+- `database`: those same parsed notifications are delivered to every enabled
+  platform route owner through the platform adapters and recorded in delivery
+  history. The YAML outputs and routes are labelled rollback fallback.
+
+Authenticated `/api/v2/events` submissions always remain owner-scoped to the
+submitting session or application token. Routing-authority selection changes
+only the legacy SMTP and source-specific webhook pipeline.
+
+The mounted-configuration takeover imports supported destinations and routes
+before atomically changing authority. A legacy event therefore sees exactly one
+routing backend: there is no interval where both YAML and database delivery run
+for the same event. Disabled users, destinations, and routes never receive
+legacy events. Matching stays deterministic within each owner, and delivery
+history preserves the owner boundary.
+
+Returning to YAML requires an administrator confirmation and creates a fresh
+configuration backup. Database resources remain intact, so WebUI routing can be
+reactivated without repeating migration or re-importing credentials.

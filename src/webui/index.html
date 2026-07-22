@@ -141,6 +141,10 @@
             </div>
             <button class="button primary" type="button" data-action="new-destination">Add destination</button>
           </div>
+          <article id="configuration-status" class="configuration-status" hidden>
+            <div><p class="eyebrow">Mounted configuration</p><h3 id="configuration-status-title">Configuration detected</h3><p id="configuration-status-copy"></p></div>
+            <button class="button secondary" type="button" data-view="data">Review configuration</button>
+          </article>
           <div class="metric-grid" aria-label="Workspace summary">
             <article class="metric-card"><span>Destinations</span><strong id="metric-destinations">—</strong><small id="metric-destinations-note">Loading</small></article>
             <article class="metric-card"><span>Active routes</span><strong id="metric-routes">—</strong><small id="metric-routes-note">Loading</small></article>
@@ -170,7 +174,7 @@
 
         <section id="view-routes" class="view" data-page="routes" hidden>
           <div class="section-toolbar"><div><h2>Routes</h2><p>Send matching events to an owned or shared destination.</p></div><button class="button primary" type="button" data-action="new-route">Add route</button></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Management</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-tokens" class="view" data-page="tokens" hidden>
@@ -196,6 +200,16 @@
         <section id="view-data" class="view" data-page="data" hidden>
           <div class="section-toolbar"><div><h2>Data tools</h2><p>Preview migrations, export safe configuration, and manage private server-side backups.</p></div></div>
           <div class="data-tools-grid">
+            <article class="panel data-tool-card configuration-card">
+              <div><p class="eyebrow">Mounted config.yaml</p><h3 id="configuration-card-title">Inspecting configuration</h3><p id="configuration-card-copy">Notifinho reads the mounted configuration on the server. Credentials are never returned to this browser.</p></div>
+              <div id="configuration-summary" class="configuration-summary"></div>
+              <div id="configuration-inputs" class="configuration-inputs"></div>
+              <div class="button-row">
+                <button id="configuration-migrate" class="button primary" type="button" data-action="preview-local-migration" hidden>Preview safe takeover</button>
+                <button id="configuration-use-yaml" class="button secondary" type="button" data-action="use-yaml-routing" hidden>Use YAML fallback</button>
+                <button id="configuration-use-database" class="button secondary" type="button" data-action="use-database-routing" hidden>Use WebUI routing</button>
+              </div>
+            </article>
             <article class="panel data-tool-card">
               <div><p class="eyebrow">Portable configuration</p><h3>Export destinations and routes</h3><p>Downloads owner-aware settings without passwords, application tokens, or destination credentials.</p></div>
               <button class="button secondary" type="button" data-action="export-platform">Download safe JSON</button>
@@ -206,7 +220,7 @@
               <button class="button secondary" type="button" data-action="preview-portable">Preview JSON import</button>
             </article>
             <article class="panel data-tool-card">
-              <div><p class="eyebrow">v1.x migration</p><h3>Import YAML targets and routes</h3><p>Reads supported Discord and Teams targets, masks credentials in the preview, and creates administrator-owned platform resources.</p></div>
+              <div><p class="eyebrow">Another server</p><h3>Import a YAML file manually</h3><p>Use this only for a configuration that is not mounted in this container. The server-side takeover above is safer for the current installation.</p></div>
               <label><span>v1.x YAML configuration</span><input id="migration-file" type="file" accept="application/yaml,text/yaml,.yaml,.yml"></label>
               <button class="button secondary" type="button" data-action="preview-migration">Preview YAML migration</button>
             </article>

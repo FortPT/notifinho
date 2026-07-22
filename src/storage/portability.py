@@ -396,6 +396,39 @@ class PlatformPortabilityService:
             plan = self.preview_v1_yaml(actor, source)
             return self._apply(actor, plan, fingerprint)
 
+    def apply_v1_yaml_with_resources(
+        self,
+        actor: Actor,
+        source: str,
+        fingerprint: str,
+    ) -> dict:
+        """Apply a local migration and retain private rollback handles."""
+
+        with self.database.maintenance():
+            plan = self.preview_v1_yaml(actor, source)
+            if not plan.valid:
+                raise ValueError("import preview contains errors")
+            if not fingerprint or not hmac.compare_digest(
+                plan.fingerprint,
+                str(fingerprint),
+            ):
+                raise ValueError("import fingerprint does not match the preview")
+            return self._apply_plan(actor, plan, include_resources=True)
+
+    def rollback_resources(self, actor: Actor, resources: dict) -> None:
+        """Remove only resources created by an interrupted local migration."""
+
+        route_ids = list(resources.get("routes") or ())
+        destination_ids = list(resources.get("destinations") or ())
+        secret_ids = list(resources.get("secrets") or ())
+        with self.database.maintenance():
+            for route_id in reversed(route_ids):
+                self.routes.delete(actor, route_id)
+            for destination_id in reversed(destination_ids):
+                self.destinations.delete(actor, destination_id)
+            for secret_id in reversed(secret_ids):
+                self.secrets.delete(actor, secret_id)
+
     def _apply(self, actor: Actor, plan: ImportPlan, fingerprint: str) -> dict:
         if not plan.valid:
             raise ValueError("import preview contains errors")
@@ -407,7 +440,13 @@ class PlatformPortabilityService:
         with self.database.maintenance():
             return self._apply_plan(actor, plan)
 
-    def _apply_plan(self, actor: Actor, plan: ImportPlan) -> dict:
+    def _apply_plan(
+        self,
+        actor: Actor,
+        plan: ImportPlan,
+        *,
+        include_resources: bool = False,
+    ) -> dict:
         created_routes: list[str] = []
         created_destinations: list[str] = []
         created_secrets: list[str] = []
@@ -486,6 +525,15 @@ class PlatformPortabilityService:
             "warnings": list(plan.warnings),
         }
         self._audit(actor, f"portability.{plan.kind}.apply", "success", result)
+        if include_resources:
+            return {
+                "public": result,
+                "resources": {
+                    "routes": tuple(created_routes),
+                    "destinations": tuple(created_destinations),
+                    "secrets": tuple(created_secrets),
+                },
+            }
         return result
 
     def _portable_destination(self, raw, users) -> dict:

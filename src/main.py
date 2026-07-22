@@ -86,7 +86,7 @@ def main() -> int:
 
         dispatcher = Dispatcher()
 
-        router = Router()
+        router = Router(state_database) if state_database is not None else Router()
 
         smtp = SMTPInput(
             dispatcher=dispatcher,

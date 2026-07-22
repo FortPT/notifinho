@@ -43,6 +43,7 @@ class APIService:
                 dispatcher,
                 configuration,
                 registry=platform_registry,
+                config_service=self.config_service,
             )
             if platform_database is not None
             else None

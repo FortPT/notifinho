@@ -2,7 +2,8 @@
 
 Phase 5 packages a responsive, dependency-free browser interface in the
 Notifinho image. It uses the authenticated `/api/v2` contract over the same
-origin and never reads or writes the YAML configuration directly.
+origin. The backend inventories and updates the mounted YAML configuration on
+the server; secret values never enter the browser.
 
 ## Default activation
 
@@ -21,6 +22,7 @@ api:
 platform:
   enabled: true
   state_dir: "/notifinho/state"
+  routing_authority: "yaml"
   secure_cookies: true
 
 webui:
@@ -51,14 +53,20 @@ directly to the Internet.
 - one-time application-token creation and rotation plus permanent revocation;
 - searchable delivery history and audit events;
 - administrator account creation, enable/disable, and password reset;
-- administrator-only safe JSON export/import, v1.x YAML migration preview,
-  private state backup, and confirmed restore; and
+- administrator-only safe JSON export/import, mounted and uploaded YAML
+  migration preview, private state backup, and confirmed restore; and
 - account-aware navigation that hides administrator controls from users.
 
 Destination secrets and application-token values are never loaded back into
 forms. Token values exist in the page only until the one-time value dialog is
 closed. The application does not persist credentials, CSRF values, or API
 responses in `localStorage` or `sessionStorage`.
+
+Existing installations do not appear empty in v2.0.2. Administrators see
+mounted YAML inputs, destinations, and routes beside platform resources. Every
+item is labelled **YAML managed**, **WebUI managed**, **Active authority**, or
+**Rollback fallback**. Dashboard counts follow the authority that currently
+handles legacy SMTP and webhook events.
 
 ## Browser security boundary
 
@@ -92,7 +100,14 @@ response bodies or credentials.
 Administrators can export credential-free platform JSON, preview and apply an
 unchanged JSON import, migrate supported v1.x Discord/Teams YAML targets and
 routes, and manage private server-side state snapshots. The browser never
-downloads state backups or receives stored credential values. See the
+downloads state backups or receives stored credential values.
+
+For the YAML file already mounted in the running container, the first Data
+tools card is the preferred path. It inventories the file on the server,
+previews the exact supported resources, automatically creates state and YAML
+backups, imports credentials server-side, and activates database routing. The
+original YAML routes remain available through the confirmed **Use YAML
+fallback** control. Manual YAML upload is reserved for a file from another
+server and does not change routing authority. See the
 [data-portability guide](data-portability.md) for fingerprint, rollback,
-retention, and restore-token cautions. Existing YAML routing continues
-unchanged until the operator deliberately changes it.
+retention, and restore-token cautions.

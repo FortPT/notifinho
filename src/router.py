@@ -17,16 +17,23 @@ from models import Notification
 
 from outputs.discord import DiscordOutput
 from outputs.teams import TeamsOutput
+from storage.routing_bridge import PlatformRoutingBridge
 
 
 class Router:
 
-    def __init__(self):
+    def __init__(self, platform_database=None):
 
         self.outputs = {
             "discord": DiscordOutput(),
             "teams": TeamsOutput(),
         }
+
+        self.platform = (
+            PlatformRoutingBridge(platform_database)
+            if platform_database is not None
+            else None
+        )
 
         log.info(
             "Router initialized (%s output%s)",
@@ -42,6 +49,47 @@ class Router:
         if self._notification_suppressed(notification):
 
             return True
+
+        authority = str(
+            config.get(
+                "platform",
+                "routing_authority",
+                default="yaml",
+            )
+            or "yaml"
+        ).strip().casefold()
+
+        if authority == "database":
+
+            if self.platform is None:
+
+                log.error(
+                    "Database routing is authoritative but platform state is unavailable"
+                )
+
+                return False
+
+            summary = self.platform.route(notification)
+
+            if not summary.matched_routes:
+
+                log.warning(
+                    "No platform routing configured for '%s'",
+                    notification.source,
+                )
+
+                return False
+
+            log.info(
+                "Platform routing '%s': matched=%s delivered=%s failed=%s attempts=%s",
+                notification.source,
+                summary.matched_routes,
+                summary.delivered,
+                summary.failed,
+                summary.attempts,
+            )
+
+            return summary.success
 
         route = config.get(
             "routing",

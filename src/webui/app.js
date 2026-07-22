@@ -32,6 +32,7 @@ const state = {
   audit: [],
   users: [],
   backups: [],
+  configuration: null,
   pendingImport: null,
   sessionExpiresAt: null,
   confirmResolve: null,
@@ -342,6 +343,7 @@ async function loadWorkspace() {
   if (isAdmin()) {
     tasks.push(request("/users"));
     tasks.push(request("/backups"));
+    tasks.push(request("/configuration/inventory"));
   }
   const results = await Promise.all(tasks);
   state.destinations = results[0].destinations;
@@ -351,6 +353,7 @@ async function loadWorkspace() {
   state.audit = results[4].audit_events;
   state.users = isAdmin() ? results[5].users : [];
   state.backups = isAdmin() ? results[6].backups : [];
+  state.configuration = isAdmin() ? results[7].configuration : null;
   renderAll();
   const requested = window.location.hash.slice(1);
   navigate(VIEW_TITLES[requested] && (!["users", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
@@ -378,6 +381,7 @@ function renderAll() {
   renderAudit();
   renderUsers();
   renderBackups();
+  renderConfiguration();
 }
 
 function navigate(view) {
@@ -402,21 +406,29 @@ function navigate(view) {
 }
 
 function renderDashboard() {
-  const activeDestinations = state.destinations.filter((item) => item.enabled).length;
-  const activeRoutes = state.routes.filter((item) => item.enabled).length;
+  const configuration = state.configuration;
+  const yamlActive = configuration && configuration.authority === "yaml";
+  const yamlDestinations = yamlActive ? configuration.outputs : [];
+  const yamlRoutes = yamlActive ? configuration.routes : [];
+  const activeDestinations = yamlActive
+    ? yamlDestinations.filter((item) => item.enabled && item.credential_configured).length
+    : state.destinations.filter((item) => item.enabled).length;
+  const activeRoutes = yamlActive
+    ? yamlRoutes.filter((item) => item.enabled).length
+    : state.routes.filter((item) => item.enabled).length;
   const activeTokens = state.tokens.filter((item) => !item.revoked_at).length;
   const completed = state.deliveries.filter((item) => item.outcome === "success").length;
   const success = state.deliveries.length ? Math.round((completed / state.deliveries.length) * 100) : null;
-  byId("metric-destinations").textContent = state.destinations.length;
-  byId("metric-destinations-note").textContent = `${activeDestinations} enabled`;
+  byId("metric-destinations").textContent = yamlActive ? yamlDestinations.length : state.destinations.length;
+  byId("metric-destinations-note").textContent = `${activeDestinations} active${yamlActive ? " · YAML" : " · WebUI"}`;
   byId("metric-routes").textContent = activeRoutes;
-  byId("metric-routes-note").textContent = `${state.routes.length} configured`;
+  byId("metric-routes-note").textContent = `${yamlActive ? yamlRoutes.length : state.routes.length} configured${yamlActive ? " · YAML" : " · WebUI"}`;
   byId("metric-tokens").textContent = activeTokens;
   byId("metric-tokens-note").textContent = `${state.tokens.length} issued`;
   byId("metric-success").textContent = success === null ? "—" : `${success}%`;
   byId("metric-success-note").textContent = state.deliveries.length ? `${state.deliveries.length} recent attempts` : "No attempts yet";
-  byId("setup-destination").classList.toggle("complete", state.destinations.length > 0);
-  byId("setup-route").classList.toggle("complete", state.routes.length > 0);
+  byId("setup-destination").classList.toggle("complete", activeDestinations > 0);
+  byId("setup-route").classList.toggle("complete", activeRoutes > 0);
   byId("setup-token").classList.toggle("complete", state.tokens.length > 0);
   const container = byId("dashboard-deliveries");
   container.replaceChildren();
@@ -440,7 +452,8 @@ function renderDashboard() {
 function renderDestinations() {
   const container = byId("destination-list");
   container.replaceChildren();
-  if (!state.destinations.length) {
+  const yamlDestinations = state.configuration ? state.configuration.outputs : [];
+  if (!state.destinations.length && !yamlDestinations.length) {
     empty(container, "No destinations", "Add an output to preview payloads and receive routed events.");
     return;
   }
@@ -469,8 +482,32 @@ function renderDestinations() {
           element("div", {}, [element("strong", { text: item.name }), element("small", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · ${ownership}` })]),
         ]),
       ]),
+      element("div", { className: "resource-meta" }, [badge("WebUI managed", "success")]),
       meta,
       actions,
+    ]));
+  }
+  for (const item of yamlDestinations) {
+    const authoritative = Boolean(item.authority);
+    const credentialStyle = item.credential_configured ? "success" : "warning";
+    container.append(element("article", { className: "resource-card yaml-resource" }, [
+      element("div", { className: "resource-heading" }, [
+        element("div", { className: "resource-identity" }, [
+          element("span", { className: "resource-icon", text: item.output_type.slice(0, 2) }),
+          element("div", {}, [
+            element("strong", { text: item.target }),
+            element("small", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · config.yaml` }),
+          ]),
+        ]),
+      ]),
+      element("div", { className: "resource-meta" }, [
+        badge("YAML managed"),
+        badge(authoritative ? "Active authority" : "Rollback fallback", authoritative ? "success" : "warning"),
+        badge(item.credential_configured ? "Credentials set" : "No credentials", credentialStyle),
+      ]),
+      element("p", { className: "resource-note", text: authoritative
+        ? "This destination is active through the mounted configuration. Preview the safe takeover to manage it here."
+        : "Retained in config.yaml for immediate routing rollback; WebUI routing is active." }),
     ]));
   }
 }
@@ -492,8 +529,9 @@ function filterSummary(filters) {
 function renderRoutes() {
   const body = byId("route-table");
   body.replaceChildren();
-  byId("route-empty").hidden = state.routes.length > 0;
-  if (!state.routes.length) {
+  const yamlRoutes = state.configuration ? state.configuration.routes : [];
+  byId("route-empty").hidden = state.routes.length > 0 || yamlRoutes.length > 0;
+  if (!state.routes.length && !yamlRoutes.length) {
     byId("route-empty").replaceChildren(element("strong", { text: "No routes" }), element("span", { text: "Create a route after adding a destination." }));
     return;
   }
@@ -509,8 +547,21 @@ function renderRoutes() {
       element("td", { text: destinationName(item.destination_id) }),
       element("td", {}, element("small", { text: filterSummary(item.filters) })),
       element("td", { text: item.priority }),
+      element("td", {}, badge("WebUI", "success")),
       element("td", {}, badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning")),
       element("td", {}, actions),
+    ]));
+  }
+  for (const item of yamlRoutes) {
+    body.append(element("tr", { className: "yaml-row" }, [
+      element("td", {}, [element("strong", { text: item.name }), element("small", { text: "Mounted config.yaml" })]),
+      element("td", { text: item.source }),
+      element("td", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · ${item.target}` }),
+      element("td", {}, element("small", { text: filterSummary(item.filters) })),
+      element("td", { text: "—" }),
+      element("td", {}, badge("YAML")),
+      element("td", {}, badge(item.authority ? "Active" : "Fallback", item.authority ? "success" : "warning")),
+      element("td", {}, element("small", { text: item.authority ? "Migrate to edit" : "Rollback copy" })),
     ]));
   }
 }
@@ -636,6 +687,54 @@ function renderBackups() {
   }
 }
 
+function renderConfiguration() {
+  const panel = byId("configuration-status");
+  if (!isAdmin() || !state.configuration) {
+    panel.hidden = true;
+    return;
+  }
+  const configuration = state.configuration;
+  const summary = configuration.summary;
+  const yamlActive = configuration.authority === "yaml";
+  panel.hidden = false;
+  byId("configuration-status-title").textContent = yamlActive
+    ? "Existing YAML routing is active"
+    : "WebUI routing is authoritative";
+  byId("configuration-status-copy").textContent = yamlActive
+    ? `${summary.outputs} destinations and ${summary.routes} routes were detected in config.yaml. They are visible below and can be migrated without sending credentials to the browser.`
+    : `${summary.outputs} YAML destinations and ${summary.routes} YAML routes are retained as an inactive rollback fallback. WebUI changes now control legacy SMTP and webhook deliveries.`;
+
+  byId("configuration-card-title").textContent = yamlActive
+    ? "YAML routing is active"
+    : "WebUI routing is active";
+  byId("configuration-card-copy").textContent = yamlActive
+    ? "Preview the mounted configuration, create automatic backups, import supported destinations and routes, and switch delivery authority in one confirmed operation."
+    : "Legacy inputs remain YAML-managed. Destinations and routes are database-managed; the original YAML routing stays available for immediate rollback.";
+  const badges = byId("configuration-summary");
+  badges.replaceChildren(
+    badge(`${summary.inputs} inputs`),
+    badge(`${summary.outputs} YAML destinations`),
+    badge(`${summary.routes} YAML routes`),
+    badge(yamlActive ? "YAML authority" : "WebUI authority", yamlActive ? "warning" : "success"),
+  );
+  const inputs = byId("configuration-inputs");
+  inputs.replaceChildren();
+  if (!configuration.inputs.length) {
+    inputs.append(element("small", { text: "No recognized YAML input sections were detected." }));
+  } else {
+    for (const item of configuration.inputs) {
+      const detail = Object.entries(item.details || {}).map(([key, value]) => `${key} ${value}`).join(" · ");
+      inputs.append(element("div", { className: "configuration-input" }, [
+        element("div", {}, [element("strong", { text: item.label }), element("small", { text: detail || item.name })]),
+        badge(item.enabled ? "YAML active" : "Disabled", item.enabled ? "success" : "warning"),
+      ]));
+    }
+  }
+  byId("configuration-migrate").hidden = !configuration.migration_available;
+  byId("configuration-use-yaml").hidden = yamlActive;
+  byId("configuration-use-database").hidden = !yamlActive || state.routes.length === 0;
+}
+
 function downloadDocument(documentValue) {
   const content = `${JSON.stringify(documentValue, null, 2)}\n`;
   const blob = new Blob([content], { type: "application/json" });
@@ -671,10 +770,12 @@ async function selectedFile(id) {
 async function previewImport(kind) {
   clearError("import-error");
   const portable = kind === "portable";
+  const local = kind === "local_yaml";
   try {
-    const content = await selectedFile(portable ? "portable-file" : "migration-file");
-    let body;
-    if (portable) {
+    let body = {};
+    if (!local) {
+      const content = await selectedFile(portable ? "portable-file" : "migration-file");
+      if (portable) {
       let documentValue;
       try {
         documentValue = JSON.parse(content);
@@ -682,15 +783,20 @@ async function previewImport(kind) {
         throw new Error("The selected JSON document is invalid.");
       }
       body = { document: documentValue };
-    } else {
-      body = { yaml: content };
+      } else {
+        body = { yaml: content };
+      }
     }
-    const endpoint = portable ? "/portability/preview" : "/migrations/v1/preview";
+    const endpoint = local
+      ? "/configuration/migration/preview"
+      : portable ? "/portability/preview" : "/migrations/v1/preview";
     const response = await request(endpoint, { method: "POST", body });
     state.pendingImport = { kind, body, preview: response.preview };
-    byId("import-title").textContent = portable ? "Platform JSON preview" : "v1.x YAML migration preview";
+    byId("import-title").textContent = local
+      ? "Mounted configuration takeover"
+      : portable ? "Platform JSON preview" : "v1.x YAML migration preview";
     byId("import-summary").textContent = response.preview.valid
-      ? `${response.preview.summary.destinations} destinations and ${response.preview.summary.routes} routes are ready to import.`
+      ? `${response.preview.summary.destinations} destinations and ${response.preview.summary.routes} routes are ready.${local ? " Applying this creates state and configuration backups, imports credentials server-side, and activates WebUI routing." : ""}`
       : "The document cannot be applied until every reported error is corrected.";
     byId("import-result").textContent = JSON.stringify(response.preview, null, 2);
     byId("import-apply").disabled = !response.preview.valid;
@@ -711,22 +817,22 @@ async function applyImport() {
   );
   if (!accepted) return;
   try {
-    const endpoint = pending.kind === "portable"
-      ? "/portability/import"
-      : "/migrations/v1/import";
+    const endpoint = pending.kind === "local_yaml"
+      ? "/configuration/migration/apply"
+      : pending.kind === "portable" ? "/portability/import" : "/migrations/v1/import";
     const body = {
       ...pending.body,
       fingerprint: pending.preview.fingerprint,
       confirm: true,
     };
     const response = await request(endpoint, { method: "POST", body });
-    const result = response.import;
+    const result = response.migration || response.import;
     state.pendingImport = null;
     byId("import-dialog").close();
     byId("portable-file").value = "";
     byId("migration-file").value = "";
     await loadWorkspace();
-    toast(`Imported ${result.destinations_created} destinations and ${result.routes_created} routes.`);
+    toast(`${pending.kind === "local_yaml" ? "Activated" : "Imported"} ${result.destinations_created} destinations and ${result.routes_created} routes.`);
   } catch (error) {
     showError("import-error", error);
   }
@@ -757,6 +863,27 @@ async function restoreBackup(id) {
   });
   expireSession();
   toast("State restored. Sign in again.");
+}
+
+async function setRoutingAuthority(authority) {
+  const database = authority === "database";
+  const accepted = await confirmAction(
+    database ? "Use WebUI routing?" : "Use YAML fallback routing?",
+    database
+      ? "Legacy SMTP and webhook events will use the destinations and routes managed in this WebUI. A configuration backup is created first."
+      : "Legacy SMTP and webhook events will immediately use the original destinations and routes retained in config.yaml. A configuration backup is created first.",
+    database ? "Use WebUI routing" : "Use YAML routing",
+  );
+  if (!accepted) return;
+  await request("/configuration/routing-authority", {
+    method: "PUT",
+    body: {
+      authority,
+      confirmation: `USE ${authority.toUpperCase()} ROUTING`,
+    },
+  });
+  await loadWorkspace();
+  toast(`${database ? "WebUI" : "YAML"} routing is now authoritative.`);
 }
 
 function formField(definition, value) {
@@ -1164,6 +1291,15 @@ async function resourceAction(action, id) {
       return;
     } else if (action === "preview-migration") {
       await previewImport("v1_yaml");
+      return;
+    } else if (action === "preview-local-migration") {
+      await previewImport("local_yaml");
+      return;
+    } else if (action === "use-yaml-routing") {
+      await setRoutingAuthority("yaml");
+      return;
+    } else if (action === "use-database-routing") {
+      await setRoutingAuthority("database");
       return;
     } else if (action === "apply-import") {
       await applyImport();

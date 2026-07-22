@@ -1,9 +1,52 @@
 # Platform data portability and migration
 
-Phase 6 adds administrator-only, preview-first tools for moving platform
-destinations and routes and for protecting the private platform state. These
-tools operate on the SQLite platform. They do not rewrite or disable the
-existing YAML notification pipeline.
+Notifinho provides administrator-only, preview-first tools for moving platform
+destinations and routes and for protecting private platform state. v2.0.2 also
+bridges the configuration mounted inside the running container so existing
+installations are visible immediately and can transfer routing authority
+without uploading their configuration back through the browser.
+
+## Mounted configuration inventory
+
+The WebUI reads `config.yaml` only on the server and returns a credential-free
+inventory containing recognized YAML inputs, Discord/Teams destination names,
+route sources and filters, enabled state, credential presence, and management
+authority. It never returns webhook URLs, shared secrets, passwords, token
+values, or masked placeholders that could be turned back into a secret.
+
+While `platform.routing_authority` is `yaml` (the default), the inventory is
+labelled active and dashboard counts reflect the YAML pipeline. Platform
+destinations and routes remain independently available for authenticated
+`/api/v2/events` submissions.
+
+## Safe mounted-configuration takeover
+
+An administrator can preview the live mounted file from **Data tools**. Apply
+requires the unchanged SHA-256 preview fingerprint and a separate confirmation.
+The server then performs these ordered operations:
+
+1. create a private, integrity-checked platform-state backup;
+2. import supported Discord/Teams credentials directly into owner-only secret
+   files without sending their values to the browser;
+3. create administrator-owned destinations and routes;
+4. atomically back up and update `config.yaml`; and
+5. set `platform.routing_authority: database`.
+
+The YAML outputs and routes are not deleted. They become an inactive rollback
+fallback. Existing SMTP, HTTP, Redfish, Home Assistant, presentation, security,
+and parser settings remain YAML-managed. Legacy SMTP and native webhook events
+now use the same database routes edited in the WebUI, so a WebUI change affects
+real existing sources rather than only `/api/v2/events`.
+
+Only one authority handles each legacy event. If the configuration switch
+fails, Notifinho removes the newly created routes, destinations, and secrets and
+keeps YAML authority. Name collisions, stale fingerprints, an already-complete
+migration, missing migratable routes, and invalid settings are rejected.
+
+The administrator can later choose **Use YAML fallback**. Notifinho creates
+another atomic configuration backup and changes only the authority flag. The
+database resources remain available for review and can be reactivated with
+**Use WebUI routing**; migration is not repeated.
 
 ## Safe platform export
 
@@ -54,11 +97,10 @@ warning. Webhook values are accepted only as credential-free HTTPS URLs and
 never appear in the preview, audit event, or API response. Unsupported output
 types and match fields are rejected rather than guessed.
 
-Migration is additive. The YAML file remains authoritative for existing SMTP
-and source-specific webhook delivery until an operator deliberately changes
-that configuration. Running both route models can produce duplicate external
-notifications, so validate platform ingestion separately before changing the
-legacy routes.
+Manual file migration is additive and does not change routing authority. Use it
+only for a YAML file from another server. For the configuration mounted in the
+current container, use the server-side takeover above; it owns backup creation,
+authority switching, and duplicate prevention.
 
 ## Private state backups
 
@@ -96,6 +138,10 @@ the session CSRF token.
 | POST | `/api/v2/portability/import` | apply the unchanged confirmed JSON import |
 | POST | `/api/v2/migrations/v1/preview` | validate and fingerprint v1.x YAML |
 | POST | `/api/v2/migrations/v1/import` | apply the unchanged confirmed YAML migration |
+| GET | `/api/v2/configuration/inventory` | inspect mounted configuration without secrets |
+| POST | `/api/v2/configuration/migration/preview` | preview the live server-side takeover |
+| POST | `/api/v2/configuration/migration/apply` | back up, import, and activate the unchanged preview |
+| PUT | `/api/v2/configuration/routing-authority` | confirm YAML fallback or WebUI reactivation |
 | GET | `/api/v2/backups` | list verified server-side snapshots |
 | POST | `/api/v2/backups` | create a server-side snapshot |
 | POST | `/api/v2/backups/{id}/restore` | restore after exact-ID confirmation |

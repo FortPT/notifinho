@@ -1,16 +1,17 @@
 # v2 authenticated platform API
 
 Phase 4 exposes the local-account, ownership, routing, output, history, and
-audit foundations through an opt-in `/api/v2` JSON API. It also provides the
+audit foundations through the `/api/v2` JSON API. It also provides the
 user/application event-ingestion path used by platform routes. Phase 5 adds a
 same-origin browser client for this contract; see the [WebUI guide](webui.md).
 
 The API does not include automatic v1.x YAML import or an implicit production
 migration. Existing YAML inputs and routes continue to operate independently.
 
-## Activation boundary
+## Default and activation boundary
 
-All three switches must be intentional:
+The HTTP transport, API, and platform are enabled when their switches are
+omitted. An operator can still disable any layer explicitly:
 
 ```yaml
 http:
@@ -27,8 +28,10 @@ platform:
   secure_cookies: true
 ```
 
-Create the first administrator with `tools/manage_users.py` before enabling
-remote access. Keep `secure_cookies: true` behind HTTPS. The `false` value is
+On an empty database, `GET /api/v2/bootstrap` reports that setup is required.
+The image prints a short-lived, single-use setup token to container output;
+`POST /api/v2/bootstrap` consumes it while creating the first administrator
+and browser session. Keep `secure_cookies: true` behind HTTPS. The `false` value is
 only for isolated loopback development because a browser will otherwise send
 the session cookie over plain HTTP.
 
@@ -64,6 +67,8 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
+| GET | `/api/v2/bootstrap` | public | report whether first-run setup is required |
+| POST | `/api/v2/bootstrap` | single-use setup token | create the first administrator and session |
 | POST | `/api/v2/session` | public | authenticate a local account |
 | GET | `/api/v2/session` | session | return the current account |
 | DELETE | `/api/v2/session` | session + CSRF | revoke the current session |

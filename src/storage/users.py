@@ -92,11 +92,15 @@ class UserStore:
         return self.get(user_id)
 
     def bootstrap_admin(self, username: str, password: str) -> User:
-        with self.database.connect() as connection:
-            count = int(connection.execute("SELECT COUNT(*) FROM users").fetchone()[0])
-        if count:
+        if self.count():
             raise ValueError("account bootstrap is allowed only when no users exist")
         return self.create(username, password, role="admin")
+
+    def count(self) -> int:
+        """Return the account count without exposing any credential record."""
+
+        with self.database.connect() as connection:
+            return int(connection.execute("SELECT COUNT(*) FROM users").fetchone()[0])
 
     def get(self, user_id: str) -> User:
         with self.database.connect() as connection:

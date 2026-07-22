@@ -164,6 +164,27 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        3,
+        "secure first-run bootstrap",
+        (
+            """
+            CREATE TABLE bootstrap_tokens (
+                id TEXT PRIMARY KEY,
+                token_hash TEXT NOT NULL UNIQUE,
+                created_at INTEGER NOT NULL,
+                expires_at INTEGER NOT NULL,
+                consumed_at INTEGER,
+                CHECK (expires_at > created_at)
+            )
+            """,
+            """
+            CREATE UNIQUE INDEX bootstrap_tokens_active
+            ON bootstrap_tokens((consumed_at IS NULL))
+            WHERE consumed_at IS NULL
+            """,
+        ),
+    ),
 )
 
 

@@ -50,7 +50,7 @@ class APIService:
 
     @property
     def enabled(self) -> bool:
-        return bool(self.configuration.get("api", "enabled", default=False))
+        return bool(self.configuration.get("api", "enabled", default=True))
 
     def handle(self, method: str, path: str, payload, headers, client: str):
         """Compatibility interface used by direct v1.9 service callers."""
@@ -73,7 +73,7 @@ class APIService:
                 or self.configuration.get(
                     "platform",
                     "enabled",
-                    default=False,
+                    default=True,
                 )
                 is not True
             ):

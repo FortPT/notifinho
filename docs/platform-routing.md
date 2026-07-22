@@ -2,7 +2,7 @@
 
 Phase 2 turns the schema introduced by the platform-state foundation into an
 ownership-enforcing backend service layer. Phase 4 exposes it through the
-opt-in [authenticated platform API](platform-api.md). It still does not replace
+[authenticated platform API](platform-api.md). It still does not replace
 the existing YAML router, preserving v1.x behavior until an explicit migration
 workflow is completed.
 

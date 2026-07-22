@@ -361,7 +361,7 @@ class HTTPInput:
     def __init__(self, dispatcher, router, *, platform_database=None):
         self.dispatcher = dispatcher
         self.router = router
-        self.enabled = bool(config.get("http", "enabled", default=False))
+        self.enabled = bool(config.get("http", "enabled", default=True))
         self.host = str(config.get("http", "host", default="0.0.0.0"))
         self.port = int(config.get("http", "port", default=8080))
         configured_limit = int(

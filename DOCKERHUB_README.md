@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.0.0**.
+The current stable release is **v2.0.1**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -38,21 +38,21 @@ Current features include:
 - Shared Redfish Event Service ingestion with duplicate suppression
 - Fixture-validated Supermicro BMC/IPMI, HPE iLO, and Dell iDRAC adapters
 - Authenticated Home Assistant and generic source-scoped event submission
-- Disabled-by-default health, masked configuration, validation, log, preview,
-  and test-send API foundations
+- Session- or token-protected health, masked configuration, validation, log,
+  preview, and test-send API foundations
 - Environment-, owner-only file-, or SHA-256-backed API tokens, rate limits,
   private audit logs, and atomic configuration backups
 - Rich Discord notifications
 - Microsoft Teams Adaptive Cards
 - SMTP gateway input
 - Optional STARTTLS and SMTP AUTH security
-- Disabled-by-default native HTTP webhook input
+- Native HTTP webhook input enabled for the same-origin WebUI
 - Docker deployment
 - Parser-driven architecture
 - Repository and transfer statistics
 - VM-level backup reporting
 - Extensible formatter/output system
-- Opt-in local accounts, scoped application tokens, owned destinations and routes
+- Local accounts, scoped application tokens, owned destinations and routes
 - Authenticated same-origin WebUI and `/api/v2` management/event API
 - Discord, Teams, Slack, generic webhook, MQTT, and ntfy platform destinations
 - Credential-free import/export, previewed v1.x migration, and private state recovery
@@ -92,12 +92,14 @@ The container exposes two independent ports:
 SMTP STARTTLS and authentication remain disabled by default. Deployment and
 rollout guidance is available in the repository's `docs/smtp-security.md`.
 
-Publishing port `8080` does not enable HTTP input. It remains disabled by
-default and must be explicitly enabled in `config/config.yaml`:
+The HTTP listener, platform, API, and WebUI are enabled by default. Publishing
+port `8080` remains an explicit deployment choice. On first start, copy the
+short-lived setup token from container output and use it in the HTTPS WebUI to
+choose the first administrator credentials. No default password exists.
 
 ```yaml
 http:
-  enabled: false
+  enabled: true
   host: "0.0.0.0"
   port: 8080
   max_body_bytes: 1048576
@@ -187,12 +189,14 @@ https://github.com/FortPT/notifinho
   sessions/CSRF, ownership records, and owner-only secret rotation
 - Source-scoped tokens, private/shared destinations, user route filters,
   bounded delivery retries, audit events, and safe delivery history
-- Ownership-safe preview/test contracts and disabled adapters for Discord,
+- Ownership-safe preview/test contracts and adapters for Discord,
   Teams, Slack, generic webhooks, MQTT, and ntfy
-- Opt-in authenticated `/api/v2` sessions, CSRF, owned-resource management,
+- Authenticated `/api/v2` sessions, CSRF, owned-resource management,
   preview/test endpoints, and source-scoped platform event submission
 - Responsive, same-origin v2.0 WebUI for accounts, destinations, routes,
   application tokens, preview/test delivery, history, and audit
+- Digest-only, expiring, single-use first-run administrator setup without a
+  shared password or account-management shell command
 - Local administrator and user accounts
 - User- and application-scoped event endpoints and API tokens
 - Private/shared destinations and user-owned routing

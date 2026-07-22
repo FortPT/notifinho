@@ -424,8 +424,10 @@ def test_generic_event_preview_and_test_send_use_bounded_event_payload():
 
 
 def test_health_is_public_only_when_api_is_enabled():
+    default_enabled = APIService(Dispatcher(), Router(), Configuration({}))
     enabled = APIService(Dispatcher(), Router(), Configuration({"api": {"enabled": True}}))
     disabled = APIService(Dispatcher(), Router(), Configuration({"api": {"enabled": False}}))
+    assert default_enabled.handle("GET", "/api/health", None, {}, "127.0.0.1")[0] == 200
     assert enabled.handle("GET", "/api/health", None, {}, "127.0.0.1")[0] == 200
     assert disabled.handle("GET", "/api/health", None, {}, "127.0.0.1")[0] == 404
 

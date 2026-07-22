@@ -49,10 +49,10 @@ Set `NOTIFINHO_UID` and `NOTIFINHO_GID` in `.env` to the values printed by
 Files mounted below `/run/secrets` must be readable by this identity and mode
 `0600` when used as API-token or SMTP-password sources.
 
-The writable `state` mount is reserved for the opt-in v2 SQLite database and
-owner-scoped secret files. Platform state remains disabled by default. See the
-[platform-state guide](platform-state.md) before enabling it or creating local
-accounts. Private state snapshots also live in this mount; configure
+The writable `state` mount contains the v2 SQLite database and owner-scoped
+secret files. Platform state and the WebUI are enabled by default and can be
+disabled explicitly. See the [platform-state guide](platform-state.md) before
+creating local accounts. Private state snapshots also live in this mount; configure
 `platform.backup_retention`, include the mount in encrypted off-host backups,
 and read the [data-portability guide](data-portability.md) before restore or
 v1.x migration.
@@ -88,14 +88,15 @@ same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
 ## Reverse proxy boundary
 
-Port `8080` is HTTP and may be published through Nginx Proxy Manager. Keep the
-listener disabled unless it is needed, use authentication, and restrict the
-proxy or firewall to approved senders. Port `8025` is SMTP and must not be sent
-through an HTTP reverse proxy.
+Port `8080` is HTTP and may be published through Nginx Proxy Manager. Publishing
+the container port remains an explicit deployment choice; restrict the proxy or
+firewall to approved senders. Port `8025` is SMTP and must not be sent through
+an HTTP reverse proxy.
 
-The opt-in platform API requires local account bootstrap plus
-`http.enabled`, `api.enabled`, and `platform.enabled`. The packaged browser
-interface additionally requires `webui.enabled`. Keep
+The platform API uses a short-lived first-run token printed to container output
+to create the first administrator in the browser. Its four components remain
+independently controllable through `http.enabled`, `api.enabled`,
+`platform.enabled`, and `webui.enabled`. Keep
 `platform.secure_cookies: true`, publish `/api/v2` only through HTTPS, disable
 proxy caching, preserve duplicate `Set-Cookie` response headers, and apply
 request/body limits. Do not rewrite `Authorization`, `Cookie`, or

@@ -2,7 +2,7 @@
 
 Phase 6 adds administrator-only, preview-first tools for moving platform
 destinations and routes and for protecting the private platform state. These
-tools operate on the opt-in SQLite platform. They do not rewrite or disable the
+tools operate on the SQLite platform. They do not rewrite or disable the
 existing YAML notification pipeline.
 
 ## Safe platform export

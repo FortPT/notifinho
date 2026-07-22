@@ -1,14 +1,15 @@
 # v2 platform state and local accounts
 
 Notifinho's v2 platform foundation uses SQLite and owner-only secret files. It
-does not require PostgreSQL, Redis, or another container. The feature remains
-disabled by default. The authenticated API and same-origin WebUI expose the
-state only when explicitly enabled, while existing v1.x YAML configuration,
-tokens, routes, and delivery behavior remain authoritative.
+does not require PostgreSQL, Redis, or another container. Platform state and
+the same-origin WebUI are enabled by default, while explicit
+`platform.enabled: false` and `webui.enabled: false` settings remain
+authoritative. Existing v1.x YAML configuration, tokens, routes, and delivery
+behavior remain independent and authoritative for the legacy pipeline.
 
 ## Storage layout
 
-When enabled, the default container layout is:
+The hardened production Compose layout is:
 
 ```text
 /notifinho/state/
@@ -36,6 +37,7 @@ SQLite foreign keys and transactional migrations protect relationships among:
 
 Schema migrations run in order and are recorded in `schema_migrations`. Schema
 version 2 adds API-token rotation metadata and safe delivery-attempt history.
+Schema version 3 adds digest-only, expiring, single-use first-run setup tokens.
 A database created by a newer Notifinho schema is rejected instead of being
 silently downgraded. See the
 [user routing and delivery guide](platform-routing.md) for the schema-v2
@@ -73,26 +75,32 @@ chmod 700 state
 ```
 
 `compose.production.yaml` mounts `NOTIFINHO_STATE_DIR` at
-`/notifinho/state`. Keep the platform disabled in `config/config.yaml` until
-the first administrator is bootstrapped and TLS/proxy validation is planned:
+`/notifinho/state`. Legacy configurations that omit `platform.state_dir` use
+`/notifinho/config/platform-state`, allowing an upgrade to reuse the existing
+persistent configuration mount. The production Compose mount remains the
+recommended layout:
 
 ```yaml
 platform:
-  enabled: false
+  enabled: true
   state_dir: "/notifinho/state"
   backup_retention: 20
   secure_cookies: true
 ```
 
-Enabling platform state initializes or migrates the database at application
-startup. When `api.enabled` and the HTTP listener are also enabled, `/api/v2`
-becomes available. `webui.enabled` separately gates the browser interface.
-Neither switch replaces YAML routes.
+Platform state initializes or migrates at application startup. When no users
+exist, every startup rotates a random 256-bit setup token, writes only its
+SHA-256 digest to SQLite, and prints the plaintext token once to container
+output. Open the WebUI over HTTPS, enter that token, and choose the first
+administrator username and password. The token expires after 30 minutes and is
+consumed immediately after successful setup. Neither platform state nor the
+WebUI replaces YAML routes.
 
-## Administrator CLI
+## Trusted recovery CLI
 
-The CLI prompts for passwords without echoing or placing them in shell history.
-Initialize a temporary development state and create its first administrator:
+Normal first-run setup does not require the CLI. These commands remain available
+for isolated development and host-trusted recovery. Password prompts do not echo
+or place values in shell history:
 
 ```bash
 python3 tools/manage_users.py --state-dir /tmp/notifinho-state init

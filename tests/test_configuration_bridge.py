@@ -132,6 +132,38 @@ def test_inventory_detects_mounted_resources_without_returning_credentials(
     assert PRIVATE_WEBHOOK not in json.dumps(plan.public(), sort_keys=True)
 
 
+@pytest.mark.parametrize(
+    ("configured", "numeric", "semantic"),
+    [
+        ("critical", 10, "critical"),
+        ("high", 25, "high"),
+        ("normal", 50, "normal"),
+        ("low", 75, "low"),
+        ("lowest", 100, "lowest"),
+        (42, 42, "normal"),
+    ],
+)
+def test_inventory_accepts_semantic_and_numeric_route_priorities(
+    bridge_state,
+    configured,
+    numeric,
+    semantic,
+):
+    state = bridge_state
+    document = yaml.safe_load(state["path"].read_text(encoding="utf-8"))
+    document["routing"]["dell_idrac"]["outputs"][0]["priority"] = configured
+    state["path"].write_text(
+        yaml.safe_dump(document, sort_keys=False),
+        encoding="utf-8",
+    )
+    state["configuration"].reload()
+
+    route = state["bridge"].inventory(state["admin"].actor)["routes"][0]
+
+    assert route["priority"] == numeric
+    assert route["priority_name"] == semantic
+
+
 def test_confirmed_takeover_creates_backups_imports_secrets_and_switches_authority(
     bridge_state,
 ):

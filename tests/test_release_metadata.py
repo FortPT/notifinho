@@ -1,4 +1,4 @@
-"""Release metadata invariants for v2.2.0."""
+"""Release metadata invariants for v2.2.1."""
 
 from pathlib import Path
 
@@ -8,31 +8,31 @@ from version import VERSION
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_application_version_is_v220():
-    assert VERSION == "2.2.0"
+def test_application_version_is_v221():
+    assert VERSION == "2.2.1"
 
 
 def test_readme_stable_and_next_release_are_current():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    assert "stable-v2.2.0-blue" in readme
-    assert "| **Current Stable Release** | **v2.2.0** |" in readme
+    assert "stable-v2.2.1-blue" in readme
+    assert "| **Current Stable Release** | **v2.2.1** |" in readme
     assert "| **Next Planned Release** | **v2.x** |" in readme
 
 
 def test_changelog_contains_dated_release():
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    assert "## 2.2.0 - 2026-07-22" in changelog
-    assert changelog.index("## Unreleased") < changelog.index("## 2.2.0")
+    assert "## 2.2.1 - 2026-07-22" in changelog
+    assert changelog.index("## Unreleased") < changelog.index("## 2.2.1")
 
 
 def test_release_notes_and_docker_hub_metadata_are_current():
-    notes = ROOT / "docs" / "releases" / "v2.2.0.md"
+    notes = ROOT / "docs" / "releases" / "v2.2.1.md"
     docker_hub = (ROOT / "DOCKERHUB_README.md").read_text(encoding="utf-8")
     assert notes.is_file()
     assert notes.read_text(encoding="utf-8").startswith(
-        "# Notifinho v2.2.0 release notes"
+        "# Notifinho v2.2.1 release notes"
     )
-    assert "current stable release is **v2.2.0**" in docker_hub
+    assert "current stable release is **v2.2.1**" in docker_hub
 
 
 def test_production_quick_starts_prepare_platform_state_mount():
@@ -51,29 +51,26 @@ def test_release_deployment_defaults_are_versioned():
     environment = (ROOT / ".env.example").read_text(encoding="utf-8")
     compose = (ROOT / "compose.production.yaml").read_text(encoding="utf-8")
 
-    assert "NOTIFINHO_IMAGE=fortpt/notifinho:2.2.0" in environment
-    assert "fortpt/notifinho:2.2.0" in compose
+    assert "NOTIFINHO_IMAGE=fortpt/notifinho:2.2.1" in environment
+    assert "fortpt/notifinho:2.2.1" in compose
     assert "NOTIFINHO_EXTERNAL_BACKUP_DIR" in environment
     assert "/notifinho/external-backups" in compose
 
 
 def test_release_notes_cover_upgrade_rollback_and_acceptance():
-    notes = (ROOT / "docs" / "releases" / "v2.2.0.md").read_text(
+    notes = (ROOT / "docs" / "releases" / "v2.2.1.md").read_text(
         encoding="utf-8"
     )
 
     for heading in (
-        "## Fresh installation",
-        "## Upgrade from v2.1.0",
+        "## Upgrade from v2.2.0",
         "## Compatibility boundary",
-        "## Security model",
         "## Rollback",
-        "## Release acceptance",
+        "## Hotfix acceptance",
     ):
         assert heading in notes
     assert "schema 5" in notes
-    assert "schema-backups" in notes
-    assert "host-mounted" in notes
+    assert "config.yaml" in notes
 
 
 def test_release_workflows_use_node24_action_majors():

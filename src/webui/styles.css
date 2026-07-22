@@ -251,6 +251,34 @@ h3 {
   min-height: 100vh;
 }
 
+.workspace-alert {
+  align-items: flex-start;
+  background: rgba(255, 124, 136, 0.1);
+  border: 1px solid rgba(255, 124, 136, 0.42);
+  border-radius: var(--radius-small);
+  color: var(--text);
+  display: grid;
+  gap: 0.75rem 1.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 1fr);
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+}
+
+.workspace-alert p,
+.workspace-alert ul {
+  color: var(--muted);
+  font-size: 0.82rem;
+  margin: 0.2rem 0 0;
+}
+
+.workspace-alert ul {
+  padding-left: 1.2rem;
+}
+
+.workspace-alert li + li {
+  margin-top: 0.2rem;
+}
+
 .sidebar {
   background: rgba(7, 17, 31, 0.92);
   border-right: 1px solid var(--line);
@@ -1646,6 +1674,10 @@ dialog::backdrop {
 }
 
 @media (max-width: 780px) {
+  .workspace-alert {
+    grid-template-columns: 1fr;
+  }
+
   .flow-head {
     display: none;
   }

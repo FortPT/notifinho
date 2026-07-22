@@ -125,6 +125,7 @@ const state = {
   healthChecks: [],
   backupSettings: null,
   backupLastRun: null,
+  workspaceErrors: [],
   historyRange: "1h",
   preferences: { timezone: "Europe/Lisbon", language: "en-GB", time_format: "24" },
   pendingImport: null,
@@ -372,16 +373,28 @@ function showApp(session) {
 }
 
 async function restoreSession() {
+  let session;
   try {
-    const session = await request("/session");
-    showApp(session);
-    await loadWorkspace();
+    session = await request("/session");
   } catch (error) {
+    expireSession();
     if (!(error instanceof APIError) || ![401, 404].includes(error.status)) {
       byId("login-error").textContent = error.message || "Notifinho is not reachable.";
       byId("login-error").hidden = false;
     }
-    expireSession();
+    return;
+  }
+  showApp(session);
+  try {
+    await loadWorkspace();
+  } catch (error) {
+    if (!(error instanceof APIError) || error.status !== 401) {
+      state.workspaceErrors = [{
+        component: "Workspace",
+        message: error.message || "Request failed",
+      }];
+      renderWorkspaceErrors();
+    }
   }
 }
 
@@ -457,39 +470,50 @@ async function initialize() {
 
 async function loadWorkspace() {
   const tasks = {
-    destinations: request("/destinations"),
-    routes: request("/routes"),
-    tokens: request("/tokens"),
-    deliveries: request("/deliveries"),
-    audit: request("/audit-events"),
-    preferences: request("/preferences"),
-    notices: request("/notices"),
-    metrics: request(`/metrics/${state.historyRange}`),
-    health: request("/health-checks"),
+    destinations: ["Destinations", request("/destinations"), (value) => { state.destinations = value.destinations; }],
+    routes: ["Routes", request("/routes"), (value) => { state.routes = value.routes; }],
+    tokens: ["Applications", request("/tokens"), (value) => { state.tokens = value.tokens; }],
+    deliveries: ["Delivery history", request("/deliveries"), (value) => { state.deliveries = value.deliveries; }],
+    audit: ["Audit log", request("/audit-events"), (value) => { state.audit = value.audit_events; }],
+    preferences: ["Regional settings", request("/preferences"), (value) => { state.preferences = value.preferences; }],
+    notices: ["Notices", request("/notices"), (value) => { state.notices = value.notices; }],
+    metrics: ["Overview metrics", request(`/metrics/${state.historyRange}`), (value) => { state.metrics = value.metrics; }],
+    health: ["Health checks", request("/health-checks"), (value) => { state.healthChecks = value.checks; }],
   };
   if (isAdmin()) {
-    tasks.users = request("/users");
-    tasks.backups = request("/backups");
-    tasks.configuration = request("/configuration/inventory");
-    tasks.backupSettings = request("/backup-settings");
+    tasks.users = ["Users", request("/users"), (value) => { state.users = value.users; }];
+    tasks.backups = ["Backups", request("/backups"), (value) => { state.backups = value.backups; }];
+    tasks.configuration = ["Configuration inventory", request("/configuration/inventory"), (value) => { state.configuration = value.configuration; }];
+    tasks.backupSettings = ["Backup settings", request("/backup-settings"), (value) => {
+      state.backupSettings = value.settings;
+      state.backupLastRun = value.last_run;
+    }];
   }
-  const keys = Object.keys(tasks);
-  const values = await Promise.all(Object.values(tasks));
-  const results = Object.fromEntries(keys.map((key, index) => [key, values[index]]));
-  state.destinations = results.destinations.destinations;
-  state.routes = results.routes.routes;
-  state.tokens = results.tokens.tokens;
-  state.deliveries = results.deliveries.deliveries;
-  state.audit = results.audit.audit_events;
-  state.preferences = results.preferences.preferences;
-  state.notices = results.notices.notices;
-  state.metrics = results.metrics.metrics;
-  state.healthChecks = results.health.checks;
-  state.users = isAdmin() ? results.users.users : [];
-  state.backups = isAdmin() ? results.backups.backups : [];
-  state.configuration = isAdmin() ? results.configuration.configuration : null;
-  state.backupSettings = isAdmin() ? results.backupSettings.settings : null;
-  state.backupLastRun = isAdmin() ? results.backupSettings.last_run : null;
+  const entries = Object.values(tasks);
+  const settled = await Promise.allSettled(entries.map(([, promise]) => promise));
+  state.workspaceErrors = [];
+  for (let index = 0; index < settled.length; index += 1) {
+    const result = settled[index];
+    const [label, , apply] = entries[index];
+    if (result.status === "fulfilled") {
+      apply(result.value);
+      continue;
+    }
+    if (result.reason instanceof APIError && result.reason.status === 401) {
+      throw result.reason;
+    }
+    state.workspaceErrors.push({
+      component: label,
+      message: result.reason && result.reason.message ? result.reason.message : "Request failed",
+    });
+  }
+  if (!isAdmin()) {
+    state.users = [];
+    state.backups = [];
+    state.configuration = null;
+    state.backupSettings = null;
+    state.backupLastRun = null;
+  }
   renderAll();
   const requested = window.location.hash.slice(1);
   navigate(VIEW_TITLES[requested] && (!["users", "settings", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
@@ -509,6 +533,7 @@ async function refreshWorkspace() {
 }
 
 function renderAll() {
+  renderWorkspaceErrors();
   renderNotices();
   renderDashboard();
   renderDestinations();
@@ -523,6 +548,18 @@ function renderAll() {
   renderBackupSettings();
   renderPreferences();
   applyLanguage();
+}
+
+function renderWorkspaceErrors() {
+  const alert = byId("workspace-alert");
+  const list = byId("workspace-alert-list");
+  list.replaceChildren();
+  for (const failure of state.workspaceErrors) {
+    list.append(element("li", {
+      text: `${failure.component}: ${failure.message}`,
+    }));
+  }
+  alert.hidden = state.workspaceErrors.length === 0;
 }
 
 function applyLanguage() {

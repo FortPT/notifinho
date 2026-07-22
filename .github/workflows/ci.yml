@@ -48,6 +48,17 @@ jobs:
           set -euo pipefail
           python -m compileall -q src scripts tools
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Validate WebUI JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check src/webui/app.js
+
       - name: Validate public YAML files
         shell: bash
         run: |
@@ -71,3 +82,15 @@ jobs:
                   raise SystemExit(f"{name} must contain a YAML object")
               print(f"validated {name}")
           PY
+
+      - name: Validate production Compose
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f compose.production.yaml config >/dev/null
+
+      - name: Build production image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --tag notifinho:ci .

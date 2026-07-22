@@ -650,9 +650,9 @@ the production environment template and create the writable bind mounts:
 
 ```bash
 cp .env.example .env
-mkdir -p logs/emails secrets
+mkdir -p logs/emails secrets state
 chmod 600 .env config/config.yaml
-chmod 700 logs logs/emails secrets
+chmod 700 logs logs/emails secrets state
 ```
 
 Set `NOTIFINHO_UID` and `NOTIFINHO_GID` in `.env` to the values returned by
@@ -1659,6 +1659,11 @@ routing, parser, timestamp, configuration, or secret contract changes.
 
 v2.0.0 turns the completed notification engine into a self-service platform
 without duplicating parser, formatter, or routing logic in the browser.
+Release acceptance, the GitHub Release, and matching Docker Hub and GHCR image
+publication completed on 22 July 2026. Roadmap issues #15, #16, #22, and
+#49 through #53 are closed as completed. See the
+[v2.0.0 release notes](docs/releases/v2.0.0.md) for the acceptance evidence,
+upgrade, and rollback guidance.
 
 - Migration-aware SQLite state, local account/lockout services, hashed session
   and CSRF credentials, ownership records, and owner-only secret rotation

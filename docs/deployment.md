@@ -37,11 +37,11 @@ record the deployment user's numeric identity:
 
 ```bash
 cp .env.example .env
-mkdir -p logs/emails secrets state
+mkdir -p logs/emails secrets state external-backups
 id -u
 id -g
 chmod 600 .env config/config.yaml
-chmod 700 logs logs/emails secrets state
+chmod 700 logs logs/emails secrets state external-backups
 ```
 
 Set `NOTIFINHO_UID` and `NOTIFINHO_GID` in `.env` to the values printed by
@@ -81,10 +81,35 @@ NOTIFINHO_CONFIG_DIR=/docker/notifinho/config
 NOTIFINHO_LOG_DIR=/docker/notifinho/logs
 NOTIFINHO_SECRETS_DIR=/docker/notifinho/secrets
 NOTIFINHO_STATE_DIR=/docker/notifinho/state
+NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 ```
 
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
+
+## v2.2.0 operational upgrade
+
+Before changing the image, stop the existing container and copy the complete
+configuration and state mounts. v2.2.0 creates a schema-4 SQLite snapshot before
+schema 5. The unified YAML remains compatible with v2.1.0, but a v2.1.0 image
+cannot open schema-5 platform state.
+
+After deployment, verify notices, all five Overview ranges, every configured
+route in Routing Flow, destination preview/test delivery, application status,
+profile pictures, health checks, and input toggles. Run one real source event
+and confirm one delivery record with device, event, source, status, attempt,
+and input fields.
+
+For external backup storage, mount NFS or SMB on the Docker host using the
+host's normal credential controls, then bind that directory into the container:
+
+```yaml
+volumes:
+  - /mnt/notifinho-backups:/notifinho/external-backups
+```
+
+Set the WebUI external path to `/notifinho/external-backups`. The container
+does not need `SYS_ADMIN`, mount privileges, or network-share credentials.
 
 ## v2.1.0 unified-configuration upgrade
 
@@ -132,6 +157,6 @@ docker logs --tail 100 notifinho
 Configuration and logs remain on the host. Review release-specific migration
 notes before rolling back across a configuration or data-schema change.
 
-v2.1.0 upgrades platform state to schema 4. A v2.0.2 image rejects schema 4.
+v2.2.0 upgrades platform state to schema 5. A v2.1.0 image rejects schema 5.
 For rollback, stop Notifinho, restore the complete pre-upgrade configuration
-and state directories, pin `fortpt/notifinho:2.0.2`, and then start the stack.
+and state directories, pin `fortpt/notifinho:2.1.0`, and then start the stack.

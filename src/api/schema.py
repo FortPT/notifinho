@@ -144,6 +144,35 @@ def validate_config(data) -> list[str]:
                 errors.append(
                     "platform.state_dir must be an absolute directory other than /"
                 )
+        backups = platform.get("backups")
+        if backups is not None:
+            if not isinstance(backups, dict):
+                errors.append("platform.backups must be an object")
+            else:
+                schedule = str(backups.get("schedule") or "disabled").casefold()
+                if schedule not in {"disabled", "daily", "weekly", "monthly"}:
+                    errors.append("platform.backups.schedule is invalid")
+                if not re.fullmatch(
+                    r"(?:[01][0-9]|2[0-3]):[0-5][0-9]",
+                    str(backups.get("time") or "02:00"),
+                ):
+                    errors.append("platform.backups.time must use HH:MM")
+                if not _integer_range(backups.get("weekday", 0), 0, 6):
+                    errors.append("platform.backups.weekday must be between 0 and 6")
+                if not _integer_range(backups.get("day", 1), 1, 28):
+                    errors.append("platform.backups.day must be between 1 and 28")
+                external_enabled = backups.get("external_enabled", False)
+                if not isinstance(external_enabled, bool):
+                    errors.append("platform.backups.external_enabled must be a boolean")
+                if str(backups.get("external_type") or "nfs").casefold() not in {"nfs", "smb"}:
+                    errors.append("platform.backups.external_type must be nfs or smb")
+                external_path = str(backups.get("external_path") or "").strip()
+                if external_enabled and (
+                    not os.path.isabs(external_path) or external_path == os.path.sep
+                ):
+                    errors.append(
+                        "platform.backups.external_path must be an absolute mounted directory other than /"
+                    )
     tokens = api.get("tokens") or {}
     if not isinstance(tokens, dict):
         errors.append("api.tokens must be an object")

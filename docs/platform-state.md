@@ -41,7 +41,8 @@ Schema migrations run in order and are recorded in `schema_migrations`. Schema
 version 2 adds API-token rotation metadata and safe delivery-attempt history.
 Schema version 3 adds digest-only, expiring, single-use first-run setup tokens.
 Schema version 4 adds stable configuration keys for the YAML runtime mirror.
-A pre-migration SQLite snapshot is created automatically before schema 4.
+A pre-migration SQLite snapshot is created automatically before schema 4 and
+before the v2.2.0 schema-5 operational tables and columns are installed.
 A database created by a newer Notifinho schema is rejected instead of being
 silently downgraded. See the
 [user routing and delivery guide](platform-routing.md) for the schema-v2
@@ -142,7 +143,7 @@ directory into encrypted owner-only storage. Do not copy a live SQLite database
 with ordinary filesystem tools. Server-side snapshots are not a substitute for
 off-host backups.
 
-v2.1.0 uses schema 4. A v2.0.2 image rejects that newer database, so rollback
+v2.2.0 uses schema 5. A v2.1.0 image rejects that newer database, so rollback
 requires stopping the container and restoring the complete pre-upgrade state
-and configuration backups before pinning `2.0.2`. Never delete or hand-edit the
+and configuration backups before pinning `2.1.0`. Never delete or hand-edit the
 database to imitate a downgrade.

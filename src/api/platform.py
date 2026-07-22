@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import uuid
+import time
 
 from http.cookies import SimpleCookie
 
@@ -24,10 +26,15 @@ from storage.destinations import DestinationStore
 from storage.ownership import Actor
 from storage.portability import PlatformPortabilityService
 from storage.routes import RouteStore
+from storage.routes import route_priority_name
 from storage.sanitize import sanitize_text
 from storage.secrets import SecretStore
 from storage.sessions import SessionStore
 from storage.users import UserStore
+from storage.notices import NoticeStore
+from storage.health import HealthCheckService
+from storage.backup_scheduler import BackupScheduler
+from version import VERSION
 
 
 _RESOURCE_ID = re.compile(r"^[0-9a-f]{32}$")
@@ -72,6 +79,7 @@ class PlatformAPI:
         self.destinations = DestinationStore(database, audit=self.audit)
         self.routes = RouteStore(database, audit=self.audit)
         self.history = DeliveryHistoryStore(database)
+        self.notices = NoticeStore(database)
         self.registry = registry or PlatformOutputRegistry()
         self.outputs = PlatformOutputService(
             self.destinations,
@@ -106,6 +114,8 @@ class PlatformAPI:
             and getattr(config_service, "reloadable", True)
             else None
         )
+        self.health = HealthCheckService(database, self.configuration_sync)
+        self.backup_scheduler = BackupScheduler(database, configuration)
         self.token_limiter = RateLimiter()
         self.login_limiter = RateLimiter()
         self.bootstrap_limiter = RateLimiter()
@@ -153,6 +163,8 @@ class PlatformAPI:
                 return self._users_endpoint(method, payload, actor)
             if path == "/api/v2/account/password":
                 return self._own_password(method, payload, principal)
+            if path == "/api/v2/account/avatar":
+                return self._own_avatar(method, payload, principal)
             if path == "/api/v2/preferences":
                 return self._preferences_endpoint(method, payload, actor)
             if path == "/api/v2/tokens":
@@ -165,6 +177,12 @@ class PlatformAPI:
                 return self._deliveries_endpoint(method, actor)
             if path == "/api/v2/audit-events":
                 return self._audit_endpoint(method, actor)
+            if path == "/api/v2/notices":
+                return self._notices_endpoint(method, payload, actor)
+            if path == "/api/v2/health-checks":
+                return self._health_endpoint(method, actor)
+            if path == "/api/v2/backup-settings":
+                return self._backup_settings_endpoint(method, payload, actor)
             if path == "/api/v2/portability/export":
                 return self._portability_export(method, actor)
             if path == "/api/v2/portability/preview":
@@ -344,11 +362,30 @@ class PlatformAPI:
         self.audit.write(user.actor, "user.password", "user", user.id, "success")
         return APIResponse(204, None, self._clear_cookies())
 
+    def _own_avatar(self, method, payload, principal) -> APIResponse:
+        if method == "PUT":
+            data = self._object(payload, {"image_data"})
+            if "image_data" not in data:
+                raise ValueError("profile picture is required")
+            user = self.users.set_avatar(principal.user_id, data.get("image_data"))
+            self.audit.write(user.actor, "user.avatar", "user", user.id, "success")
+            return APIResponse(200, {"user": self._user(user)})
+        if method == "DELETE":
+            user = self.users.set_avatar(principal.user_id, None)
+            self.audit.write(user.actor, "user.avatar", "user", user.id, "success")
+            return APIResponse(200, {"user": self._user(user)})
+        return self._method_not_allowed("PUT, DELETE")
+
     def _tokens_endpoint(self, method, payload, actor) -> APIResponse:
         if method == "GET":
             owner_id = actor.user_id
             tokens = [
-                {**self._token(item), "management": "platform", "enabled": item.revoked_at is None}
+                {
+                    **self._token(item),
+                    "management": "platform",
+                    "enabled": item.enabled and item.revoked_at is None,
+                    "credential_available": True,
+                }
                 for item in self.tokens.list_for_owner(actor, owner_id)
             ]
             if actor.is_admin and self.configuration_sync is not None:
@@ -537,11 +574,174 @@ class PlatformAPI:
         attempts = self.history.list_visible(actor, limit=100)
         return APIResponse(200, {"deliveries": [self._delivery(item) for item in attempts]})
 
+    def _metrics_endpoint(self, method, actor, history_range) -> APIResponse:
+        if method != "GET":
+            return self._method_not_allowed("GET")
+        windows = {
+            "10m": 10 * 60,
+            "1h": 60 * 60,
+            "1d": 24 * 60 * 60,
+            "1m": 31 * 24 * 60 * 60,
+            "1y": 366 * 24 * 60 * 60,
+        }
+        if history_range not in windows:
+            raise ValueError("history range is invalid")
+        since = int(time.time()) - windows[history_range]
+        delivery = self.history.metrics(actor, since)
+        with self.database.connect() as connection:
+            route_where = "WHERE routes.enabled = 1"
+            destination_where = "WHERE enabled = 1"
+            parameters = ()
+            if not actor.is_admin:
+                route_where += " AND routes.owner_user_id = ?"
+                destination_where += " AND (owner_user_id = ? OR shared = 1)"
+                parameters = (actor.user_id,)
+            route_row = connection.execute(
+                f"SELECT COUNT(*) AS total, COUNT(DISTINCT source) AS sources FROM routes {route_where}",
+                parameters,
+            ).fetchone()
+            destination_row = connection.execute(
+                f"SELECT COUNT(*) FROM destinations {destination_where}",
+                parameters,
+            ).fetchone()
+        applications = self.tokens.list_for_owner(actor, actor.user_id)
+        active_applications = sum(
+            1 for item in applications
+            if item.enabled and item.revoked_at is None
+        )
+        if actor.is_admin and self.configuration_sync is not None:
+            active_applications += sum(
+                1 for item in self.configuration_sync.legacy_applications()
+                if item["enabled"] and item["credential_available"]
+            )
+        return APIResponse(
+            200,
+            {
+                "metrics": {
+                    "range": history_range,
+                    "since": since,
+                    "sources": int(route_row["sources"] or 0),
+                    "destinations": int(destination_row[0] or 0),
+                    "routes": int(route_row["total"] or 0),
+                    "applications": active_applications,
+                    **delivery,
+                }
+            },
+        )
+
     def _audit_endpoint(self, method, actor) -> APIResponse:
         if method != "GET":
             return self._method_not_allowed("GET")
         events = self.audit.list_visible(actor, limit=100)
         return APIResponse(200, {"audit_events": [self._audit(item) for item in events]})
+
+    def _notices_endpoint(self, method, payload, actor) -> APIResponse:
+        self._sync_system_notices()
+        if method == "GET":
+            return APIResponse(
+                200,
+                {"notices": [self._notice(item) for item in self.notices.list_visible(actor)]},
+            )
+        if method == "POST":
+            self._require_admin(actor)
+            data = self._object(payload, {"name", "message", "status"})
+            notice = self.notices.create(
+                actor,
+                data.get("name"),
+                data.get("message"),
+                data.get("status"),
+            )
+            self.audit.write(actor, "notice.create", "notice", notice.id, "success")
+            return APIResponse(201, {"notice": self._notice(notice)})
+        return self._method_not_allowed("GET, POST")
+
+    def _sync_system_notices(self) -> None:
+        sync = self.configuration_sync.synchronize() if self.configuration_sync else None
+        errors = list(sync.errors) if sync is not None else []
+        self.notices.sync_system(
+            "configuration-error",
+            "Configuration requires repair",
+            "; ".join(errors) or "Configuration is synchronized.",
+            status="severe",
+            kind="system_error",
+            persistent=True,
+            active=bool(errors),
+        )
+        checks = self.health.run()
+        routing_errors = [
+            item for item in checks
+            if item["key"] in {"destination_credentials", "routes"}
+            and item["status"] == "error"
+        ]
+        self.notices.sync_system(
+            "routing-error",
+            "Routing requires attention",
+            " · ".join(item["detail"] for item in routing_errors) or "Routing is healthy.",
+            status="severe",
+            kind="system_error",
+            persistent=True,
+            active=bool(routing_errors),
+        )
+        last_backup = self.backup_scheduler.last_run()
+        backup_failed = bool(last_backup and last_backup.get("outcome") == "failed")
+        self.notices.sync_system(
+            "scheduled-backup-error",
+            "Scheduled backup requires attention",
+            "The most recent scheduled backup failed. Verify the mounted backup path and run the health checks again.",
+            status="severe",
+            kind="system_error",
+            persistent=True,
+            active=backup_failed,
+        )
+        available = str(os.environ.get("NOTIFINHO_AVAILABLE_VERSION") or "").strip()
+        update_available = self._version_key(available) > self._version_key(VERSION)
+        self.notices.sync_system(
+            "software-update",
+            "Notifinho update available",
+            f"Version {available} is available; the notice clears after that version is installed.",
+            status="warning",
+            kind="update",
+            persistent=True,
+            active=update_available,
+        )
+
+    def _health_endpoint(self, method, actor) -> APIResponse:
+        if method != "GET":
+            return self._method_not_allowed("GET")
+        checks = self.health.run()
+        self.audit.write(
+            actor,
+            "health.check",
+            "platform",
+            None,
+            "success" if all(item["status"] == "healthy" for item in checks) else "warning",
+            {"checks": len(checks)},
+        )
+        return APIResponse(200, {"checks": checks})
+
+    def _backup_settings_endpoint(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if self.configuration_sync is None:
+            return APIResponse(404, {"error": "resource not found"})
+        if method == "GET":
+            return APIResponse(
+                200,
+                {
+                    "settings": self.configuration_sync.backup_settings(),
+                    "last_run": self.backup_scheduler.last_run(),
+                },
+            )
+        if method == "PUT":
+            data = self._object(
+                payload,
+                {
+                    "schedule", "time", "weekday", "day",
+                    "external_enabled", "external_type", "external_path",
+                },
+            )
+            settings = self.configuration_sync.update_backup_settings(actor, data)
+            return APIResponse(200, {"settings": settings})
+        return self._method_not_allowed("GET, PUT")
 
     def _portability_export(self, method, actor) -> APIResponse:
         self._require_admin(actor)
@@ -703,6 +903,36 @@ class PlatformAPI:
         return self._method_not_allowed("GET, POST")
 
     def _resource_endpoint(self, method, path, payload, actor):
+        metrics_match = re.fullmatch(r"/api/v2/metrics/(10m|1h|1d|1m|1y)", path)
+        if metrics_match:
+            return self._metrics_endpoint(method, actor, metrics_match.group(1))
+
+        notice_match = re.fullmatch(r"/api/v2/notices/([0-9a-f]{32})/dismiss", path)
+        if notice_match:
+            if method != "POST":
+                return self._method_not_allowed("POST")
+            self.notices.dismiss(actor, notice_match.group(1))
+            self.audit.write(actor, "notice.dismiss", "notice", notice_match.group(1), "success")
+            return APIResponse(204)
+
+        input_match = re.fullmatch(
+            r"/api/v2/configuration/inputs/(smtp|http|redfish|home_assistant|unifi)",
+            path,
+        )
+        if input_match:
+            if method != "PATCH":
+                return self._method_not_allowed("PATCH")
+            self._require_admin(actor)
+            data = self._object(payload, {"enabled"})
+            if "enabled" not in data or self.configuration_sync is None:
+                raise ValueError("enabled is required")
+            result = self.configuration_sync.update_input(
+                actor,
+                input_match.group(1),
+                self._boolean(data, "enabled"),
+            )
+            return APIResponse(200, {"input": result})
+
         backup_match = re.fullmatch(
             r"/api/v2/backups/(state-[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8})/restore",
             path,
@@ -722,9 +952,12 @@ class PlatformAPI:
         if user_match:
             return self._user_resource(method, payload, actor, *user_match.groups())
 
-        token_match = re.fullmatch(r"/api/v2/tokens/([0-9a-f]{32})/(rotate|revoke)", path)
+        token_match = re.fullmatch(
+            r"/api/v2/tokens/((?:[0-9a-f]{32})|(?:yaml-[0-9a-f]{24}))(?:/(rotate|revoke))?",
+            path,
+        )
         if token_match:
-            return self._token_resource(method, actor, *token_match.groups())
+            return self._token_resource(method, payload, actor, *token_match.groups())
 
         destination_match = re.fullmatch(
             r"/api/v2/destinations/([0-9a-f]{32})(?:/(preview|test))?",
@@ -795,8 +1028,32 @@ class PlatformAPI:
             return APIResponse(200, {"user": self._user(user)})
         return self._method_not_allowed("GET, PATCH")
 
-    def _token_resource(self, method, actor, token_id, action):
-        if method != "POST":
+    def _token_resource(self, method, payload, actor, token_id, action):
+        if action is None:
+            if method == "PATCH":
+                data = self._object(payload, {"enabled"})
+                if "enabled" not in data:
+                    raise ValueError("enabled is required")
+                enabled = self._boolean(data, "enabled")
+                if token_id.startswith("yaml-"):
+                    if self.configuration_sync is None:
+                        raise KeyError("application not found")
+                    token = self.configuration_sync.update_application(
+                        actor, token_id, enabled=enabled
+                    )
+                    return APIResponse(200, {"token": token})
+                token = self.tokens.set_enabled(actor, token_id, enabled)
+                return APIResponse(200, {"token": self._token(token)})
+            if method == "DELETE":
+                if token_id.startswith("yaml-"):
+                    if self.configuration_sync is None:
+                        raise KeyError("application not found")
+                    self.configuration_sync.delete_application(actor, token_id)
+                else:
+                    self.tokens.delete(actor, token_id)
+                return APIResponse(204)
+            return self._method_not_allowed("PATCH, DELETE")
+        if method != "POST" or token_id.startswith("yaml-"):
             return self._method_not_allowed("POST")
         if action == "rotate":
             credentials = self.tokens.rotate(actor, token_id)
@@ -957,6 +1214,8 @@ class PlatformAPI:
     def _submit_event(self, payload, headers, client) -> APIResponse:
         try:
             notification = self._notification(payload)
+            notification.metadata = dict(notification.metadata or {})
+            notification.metadata.setdefault("_input_type", "HTTP")
         except (TypeError, ValueError):
             return APIResponse(400, {"error": "request is invalid"})
         token_value = self._bearer(headers)
@@ -1140,6 +1399,7 @@ class PlatformAPI:
             "last_login_at": item.last_login_at,
             "created_at": item.created_at,
             "updated_at": item.updated_at,
+            "avatar_data": item.avatar_data,
         }
 
     @staticmethod
@@ -1157,6 +1417,7 @@ class PlatformAPI:
             "expires_at": item.expires_at,
             "last_used_at": item.last_used_at,
             "revoked_at": item.revoked_at,
+            "enabled": item.enabled,
         }
 
     @staticmethod
@@ -1184,6 +1445,7 @@ class PlatformAPI:
             "source": item.source,
             "filters": {key: list(values) for key, values in item.filters.items()},
             "priority": item.priority,
+            "priority_name": route_priority_name(item.priority),
             "enabled": item.enabled,
             "created_at": item.created_at,
             "updated_at": item.updated_at,
@@ -1208,6 +1470,11 @@ class PlatformAPI:
             "safe_error": item.safe_error,
             "created_at": item.created_at,
             "completed_at": item.completed_at,
+            "input_type": item.input_type,
+            "device_name": item.device_name,
+            "event_name": item.event_name,
+            "event_description": item.event_description,
+            "event_status": item.event_status,
         }
 
     @staticmethod
@@ -1232,3 +1499,20 @@ class PlatformAPI:
             "details": item.details,
             "created_at": item.created_at,
         }
+
+    @staticmethod
+    def _notice(item):
+        return {
+            "id": item.id,
+            "name": item.name,
+            "message": item.message,
+            "status": item.status,
+            "kind": item.kind,
+            "persistent": item.persistent,
+            "created_at": item.created_at,
+        }
+
+    @staticmethod
+    def _version_key(value):
+        match = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", str(value or "").strip())
+        return tuple(int(part) for part in match.groups()) if match else (0, 0, 0)

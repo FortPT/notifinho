@@ -192,11 +192,18 @@ class APIService:
             supplied = authorization[7:].strip()
         if not supplied:
             supplied = str(headers.get("X-Notifinho-Token", ""))
-        return self.authenticator.authenticate(
+        principal = self.authenticator.authenticate(
             supplied,
             source=source,
             require_admin=require_admin,
         )
+        if (
+            principal is not None
+            and self.platform is not None
+            and self.platform.configuration_sync is not None
+        ):
+            self.platform.configuration_sync.record_application_usage(principal.name)
+        return principal
 
     def _preview(self, notification, output_name) -> dict:
         output = str(output_name or "discord").casefold()

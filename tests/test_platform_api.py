@@ -795,6 +795,92 @@ def test_route_update_revalidates_ownership_filters_and_enabled_type(platform_ap
     assert invalid.status == 400
 
 
+def test_notices_avatar_and_application_lifecycle_are_exposed_safely(
+    platform_api,
+    monkeypatch,
+):
+    admin_headers = login(platform_api)
+    user_headers = login(
+        platform_api,
+        "owner-user",
+        "owner secure password",
+        client="127.0.0.2",
+    )
+    created = call(
+        platform_api,
+        "POST",
+        "/api/v2/notices",
+        {"name": "Maintenance", "message": "Starts at 22:00", "status": "warning"},
+        admin_headers,
+    )
+    visible = call(platform_api, "GET", "/api/v2/notices", headers=user_headers)
+    notice = next(item for item in visible.payload["notices"] if item["name"] == "Maintenance")
+    dismissed = call(
+        platform_api,
+        "POST",
+        f"/api/v2/notices/{notice['id']}/dismiss",
+        {},
+        user_headers,
+    )
+    after = call(platform_api, "GET", "/api/v2/notices", headers=user_headers)
+
+    assert created.status == 201
+    assert dismissed.status == 204
+    assert notice["id"] not in {item["id"] for item in after.payload["notices"]}
+
+    png = "data:image/png;base64,iVBORw0KGgo="
+    avatar = call(
+        platform_api,
+        "PUT",
+        "/api/v2/account/avatar",
+        {"image_data": png},
+        user_headers,
+    )
+    assert avatar.status == 200 and avatar.payload["user"]["avatar_data"] == png
+    removed = call(
+        platform_api,
+        "DELETE",
+        "/api/v2/account/avatar",
+        {},
+        user_headers,
+    )
+    assert removed.status == 200 and removed.payload["user"]["avatar_data"] is None
+
+    token = create_token(platform_api, admin_headers)
+    token_id = token["token"]["id"]
+    disabled = call(
+        platform_api,
+        "PATCH",
+        f"/api/v2/tokens/{token_id}",
+        {"enabled": False},
+        admin_headers,
+    )
+    deleted = call(
+        platform_api,
+        "DELETE",
+        f"/api/v2/tokens/{token_id}",
+        {},
+        admin_headers,
+    )
+    assert disabled.status == 200 and disabled.payload["token"]["enabled"] is False
+    assert deleted.status == 204
+
+    monkeypatch.setenv("NOTIFINHO_AVAILABLE_VERSION", "99.0.0")
+    update = call(platform_api, "GET", "/api/v2/notices", headers=user_headers)
+    persistent = next(item for item in update.payload["notices"] if item["kind"] == "update")
+    denied = call(
+        platform_api,
+        "POST",
+        f"/api/v2/notices/{persistent['id']}/dismiss",
+        {},
+        user_headers,
+    )
+    assert denied.status == 403
+    monkeypatch.delenv("NOTIFINHO_AVAILABLE_VERSION")
+    resolved = call(platform_api, "GET", "/api/v2/notices", headers=user_headers)
+    assert persistent["id"] not in {item["id"] for item in resolved.payload["notices"]}
+
+
 def test_audit_visibility_and_database_exclude_submitted_credentials(platform_api):
     headers = login(platform_api)
     create_destination(platform_api, headers)

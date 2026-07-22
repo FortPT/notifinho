@@ -65,6 +65,15 @@ class WebUIService:
                 "image/png",
                 "public, max-age=86400",
             ),
+            "/ui/icons/discord.svg": (
+                "assets/icons/discord.svg", "image/svg+xml", "public, max-age=86400"
+            ),
+            "/ui/icons/mqtt.svg": (
+                "assets/icons/mqtt.svg", "image/svg+xml", "public, max-age=86400"
+            ),
+            "/ui/icons/ntfy.svg": (
+                "assets/icons/ntfy.svg", "image/svg+xml", "public, max-age=86400"
+            ),
         }
 
     @property

@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.1.0-blue" alt="Stable release v2.1.0">
+  <img src="https://img.shields.io/badge/stable-v2.2.0-blue" alt="Stable release v2.2.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.1.0** |
+| **Current Stable Release** | **v2.2.0** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,7 +57,7 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.1.0 release notes](docs/releases/v2.1.0.md) for upgrade, rollback,
+See the [v2.2.0 release notes](docs/releases/v2.2.0.md) for upgrade, rollback,
 security, and release-acceptance guidance.
 
 Notifinho v2 adds a self-hosted notification platform with local
@@ -66,7 +66,7 @@ six output adapters, preview and test delivery, searchable history and audit,
 a responsive same-origin WebUI, credential-free portability, mounted-YAML
 inventory and live synchronization, and integrity-checked state recovery. Existing YAML
 configuration, SMTP and webhook inputs, routes, Discord and Teams targets,
-parsers, and formatters remain compatible. v2.1.0 makes the mounted
+parsers, and formatters remain compatible. v2.2.0 keeps the mounted
 `config.yaml` the single source of truth: external edits appear in the WebUI,
 and administrator WebUI edits are validated, backed up, and written atomically
 to the same file. SQLite is a private delivery/history mirror rather than a
@@ -80,6 +80,11 @@ does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
 enabled with STARTTLS and SMTP AUTH; see the
 [SMTP security guide](docs/smtp-security.md).
+
+v2.2.0 adds a dismissible notice centre, lifecycle-bound error and update
+notices, time-range delivery metrics, a complete routing-flow view, semantic
+route ordering, application usage controls, profile pictures, operational
+health checks, and scheduled state backups to a host-mounted NFS or SMB share.
 
 ---
 
@@ -1714,6 +1719,20 @@ upgrade, and rollback guidance.
 Telegram and additional destination adapters remain candidates for the v2.x
 series after the core v2.0 transports and self-service security model are
 stable.
+
+---
+
+## ✅ v2.2.0 — Operational WebUI and scheduled backups
+
+v2.2.0 turns the WebUI into the day-to-day operational surface: administrators
+can publish notices, every user can dismiss ordinary notices independently,
+and unresolved configuration, routing, backup, or update conditions remain
+visible until repaired. Overview metrics have 10-minute through one-year
+history ranges, routing flow includes active, disabled, and unhealthy routes,
+and Applications, Users, Delivery history, Audit, and Inputs expose direct,
+safe controls. Private state backups can run daily, weekly, or monthly and copy
+to a host-mounted NFS/SMB directory. See the
+[v2.2.0 release notes](docs/releases/v2.2.0.md).
 
 ---
 

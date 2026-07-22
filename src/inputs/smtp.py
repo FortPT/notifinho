@@ -94,6 +94,11 @@ class Handler:
 
         if notification is not None:
 
+            notification.metadata = dict(
+                getattr(notification, "metadata", None) or {}
+            )
+            notification.metadata.setdefault("_input_type", "SMTP")
+
             self.router.route(
                 notification,
             )

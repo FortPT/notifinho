@@ -2,7 +2,7 @@ name: notifinho
 
 services:
   notifinho:
-    image: "${NOTIFINHO_IMAGE:-fortpt/notifinho:2.1.0}"
+    image: "${NOTIFINHO_IMAGE:-fortpt/notifinho:2.2.0}"
     container_name: notifinho
     restart: unless-stopped
     init: true
@@ -22,12 +22,16 @@ services:
       NOTIFINHO_SMTP_PASSWORD: "${NOTIFINHO_SMTP_PASSWORD:-}"
       NOTIFINHO_ADMIN_TOKEN: "${NOTIFINHO_ADMIN_TOKEN:-}"
       NOTIFINHO_HARDWARE_TOKEN: "${NOTIFINHO_HARDWARE_TOKEN:-}"
+      NOTIFINHO_AVAILABLE_VERSION: "${NOTIFINHO_AVAILABLE_VERSION:-}"
 
     volumes:
       - "${NOTIFINHO_CONFIG_DIR:-./config}:/notifinho/config"
       - "${NOTIFINHO_LOG_DIR:-./logs}:/notifinho/logs"
       - "${NOTIFINHO_SECRETS_DIR:-./secrets}:/run/secrets:ro"
       - "${NOTIFINHO_STATE_DIR:-./state}:/notifinho/state"
+      # Mount an NFS/SMB share on the host at this path. Notifinho never mounts
+      # network filesystems or receives host credentials inside the container.
+      - "${NOTIFINHO_EXTERNAL_BACKUP_DIR:-./external-backups}:/notifinho/external-backups"
 
     read_only: true
     tmpfs:

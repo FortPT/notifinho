@@ -32,6 +32,7 @@ class APIToken:
     expires_at: int | None
     last_used_at: int | None
     revoked_at: int | None
+    enabled: bool = True
 
 @dataclass(frozen=True)
 class TokenCredentials:
@@ -154,14 +155,17 @@ class APITokenStore:
         with self.database.transaction() as connection:
             row = connection.execute(
                 """
-                SELECT api_tokens.*, users.role AS owner_role, users.enabled
+                SELECT api_tokens.*, users.role AS owner_role,
+                       users.enabled AS owner_enabled
                 FROM api_tokens
                 JOIN users ON users.id = api_tokens.owner_user_id
                 WHERE api_tokens.token_hash = ?
                 """,
                 (hash_token(candidate),),
             ).fetchone()
-            if row is None or not bool(row["enabled"]):
+            if row is None or not bool(row["owner_enabled"]):
+                return None
+            if "enabled" in row.keys() and not bool(row["enabled"]):
                 return None
             if row["revoked_at"] is not None:
                 return None
@@ -239,6 +243,32 @@ class APITokenStore:
         self._audit(actor, "token.revoke", token_id, "success")
         return self.get(actor, token_id)
 
+    def set_enabled(self, actor: Actor, token_id: str, enabled: bool) -> APIToken:
+        row = self._record(token_id)
+        OwnershipPolicy.require_write(actor, str(row["owner_user_id"]))
+        if row["revoked_at"] is not None and enabled:
+            raise ValueError("revoked tokens cannot be enabled")
+        now = int(self.clock())
+        with self.database.transaction() as connection:
+            connection.execute(
+                "UPDATE api_tokens SET enabled = ?, updated_at = ? WHERE id = ?",
+                (1 if enabled else 0, now, str(token_id)),
+            )
+        self._audit(
+            actor,
+            "token.enable" if enabled else "token.disable",
+            token_id,
+            "success",
+        )
+        return self.get(actor, token_id)
+
+    def delete(self, actor: Actor, token_id: str) -> None:
+        row = self._record(token_id)
+        OwnershipPolicy.require_write(actor, str(row["owner_user_id"]))
+        with self.database.transaction() as connection:
+            connection.execute("DELETE FROM api_tokens WHERE id = ?", (str(token_id),))
+        self._audit(actor, "token.delete", token_id, "success")
+
     def _record(self, token_id: str):
         with self.database.connect() as connection:
             row = connection.execute(
@@ -272,6 +302,11 @@ class APITokenStore:
             ),
             revoked_at=(
                 int(row["revoked_at"]) if row["revoked_at"] is not None else None
+            ),
+            enabled=(
+                bool(row["enabled"])
+                if "enabled" in row.keys()
+                else True
             ),
         )
 

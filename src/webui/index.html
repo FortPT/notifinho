@@ -110,7 +110,7 @@
           <span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span>
         </button>
         <button id="data-nav" class="nav-item" type="button" data-view="data" hidden>
-          <span class="nav-icon" aria-hidden="true">⇄</span><span>Data tools</span>
+          <span class="nav-icon" aria-hidden="true">⇄</span><span>Inputs &amp; backups</span>
         </button>
       </nav>
       <div class="sidebar-footer">
@@ -136,26 +136,31 @@
 
       <main id="main-content" class="content" tabindex="-1">
         <section id="view-dashboard" class="view" data-page="dashboard">
-          <div class="hero-panel">
-            <div>
-              <p class="eyebrow">Notification operations</p>
-              <h2>Everything important, routed deliberately.</h2>
-              <p>Connect applications, build focused routes, and keep delivery behavior visible from one private workspace.</p>
-            </div>
-            <button class="button primary" type="button" data-action="new-destination">Add destination</button>
-          </div>
-          <article id="configuration-status" class="configuration-status" hidden>
-            <div><p class="eyebrow">Mounted configuration</p><h3 id="configuration-status-title">Configuration detected</h3><p id="configuration-status-copy"></p></div>
-            <button class="button secondary" type="button" data-view="data">Review configuration</button>
-          </article>
+          <section id="notice-console" class="notice-console" hidden>
+            <article id="notice-composer" class="panel notice-composer" hidden>
+              <div class="panel-heading"><div><p class="eyebrow">Administrator notice</p><h3>Notify every user</h3></div></div>
+              <form id="notice-form" class="notice-form">
+                <label><span>Notice name</span><input id="notice-name" required maxlength="120" placeholder="Maintenance window"></label>
+                <label><span>Status</span><select id="notice-status"><option value="information">Information</option><option value="warning">Warning</option><option value="severe">Severe</option></select></label>
+                <label class="wide"><span>Message</span><textarea id="notice-message" rows="2" required maxlength="2000" placeholder="Describe what users need to know."></textarea></label>
+                <button class="button primary" type="submit">Send notice</button>
+              </form>
+            </article>
+            <article id="notice-panel" class="panel notice-panel" hidden>
+              <div class="panel-heading"><div><p class="eyebrow">Notices</p><h3>Current notices</h3></div></div>
+              <div id="notice-list" class="notice-list"></div>
+            </article>
+          </section>
           <div class="metric-grid" aria-label="Workspace summary">
-            <article class="metric-card"><span>Destinations</span><strong id="metric-destinations">—</strong><small id="metric-destinations-note">Loading</small></article>
-            <article class="metric-card"><span>Active routes</span><strong id="metric-routes">—</strong><small id="metric-routes-note">Loading</small></article>
-            <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small id="metric-tokens-note">Loading</small></article>
-            <article class="metric-card"><span>Recent success</span><strong id="metric-success">—</strong><small id="metric-success-note">Last 100 attempts</small></article>
+            <article class="metric-card"><span>Sources</span><strong id="metric-sources">—</strong><small>Active routes</small></article>
+            <article class="metric-card"><span>Destinations</span><strong id="metric-destinations">—</strong><small>Active</small></article>
+            <article class="metric-card"><span>Routes</span><strong id="metric-routes">—</strong><small>Active</small></article>
+            <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small>Active credentials</small></article>
+            <article class="metric-card"><span>Success</span><strong id="metric-success">—</strong><small id="metric-success-note">Selected history</small></article>
+            <article class="metric-card"><span>Requests</span><strong id="metric-requests">—</strong><small>Selected history</small></article>
           </div>
           <article class="panel flow-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Active signal flow</p><h3>Sources, routes, and destinations</h3></div><small>Every enabled route is shown; unused enabled destinations appear separately.</small></div>
+            <div class="panel-heading"><div><p class="eyebrow">Routing flow</p><h3>Every configured route</h3></div><label class="history-filter"><span>History</span><select id="history-range"><option value="10m">10 minutes</option><option value="1h" selected>1 hour</option><option value="1d">1 day</option><option value="1m">1 month</option><option value="1y">1 year</option></select></label></div>
             <div class="flow-head" aria-hidden="true"><span>Source</span><span>Route</span><span>Destination</span></div>
             <div id="dashboard-flow" class="flow-map"></div>
           </article>
@@ -166,17 +171,17 @@
         </section>
 
         <section id="view-destinations" class="view" data-page="destinations" hidden>
-          <div class="section-toolbar"><div><h2>Destinations</h2><p>Places where notifications are delivered. config.yaml is authoritative.</p></div><button id="add-destination-button" class="button primary" type="button" data-action="new-destination">Add destination</button></div>
+          <div class="section-toolbar"><div><h2>Destinations</h2><p>Named endpoints with their connection and presentation settings.</p></div><button id="add-destination-button" class="button primary" type="button" data-action="new-destination">Add destination</button></div>
           <div id="destination-list" class="resource-grid"></div>
         </section>
 
         <section id="view-routes" class="view" data-page="routes" hidden>
           <div class="section-toolbar"><div><h2>Routes</h2><p>Send matching events to a configured destination.</p></div><button id="add-route-button" class="button primary" type="button" data-action="new-route">Add route</button></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Management</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th>Order</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-tokens" class="view" data-page="tokens" hidden>
-          <div class="section-toolbar"><div><h2>Applications</h2><p>Source-scoped credentials for event submission. Values appear once.</p></div><button class="button primary" type="button" data-action="new-token">Issue token</button></div>
+          <div class="section-toolbar"><div><h2>Applications</h2><p>Named, source-scoped credentials for event submission. Values appear once.</p></div><button class="button primary" type="button" data-action="new-token">Issue token</button></div>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Sources</th><th>Rate limit</th><th>Last used</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="token-table"></tbody></table></div><div id="token-empty" class="empty-state" hidden></div></div>
         </section>
 
@@ -187,6 +192,7 @@
 
         <section id="view-audit" class="view" data-page="audit" hidden>
           <div class="section-toolbar"><div><h2>Audit log</h2><p>Ownership-aware account and configuration activity.</p></div><label class="search-field"><span class="sr-only">Search audit events</span><input id="audit-search" type="search" placeholder="Search action or outcome"></label></div>
+          <article class="panel health-panel"><div class="panel-heading"><div><p class="eyebrow">System checks</p><h3>Notifinho health</h3><p>Read-only tests of configuration, storage, credentials, routes, backups, and recent delivery failures.</p></div><button class="button secondary" type="button" data-action="run-health-checks">Run checks</button></div><div id="health-check-list" class="health-check-list"></div></article>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Resource</th><th>Outcome</th><th>Details</th></tr></thead><tbody id="audit-table"></tbody></table></div><div id="audit-empty" class="empty-state" hidden></div></div>
         </section>
 
@@ -209,10 +215,10 @@
         </section>
 
         <section id="view-data" class="view" data-page="data" hidden>
-          <div class="section-toolbar"><div><h2>Data tools</h2><p>Preview migrations, export safe configuration, and manage private server-side backups.</p></div></div>
+          <div class="section-toolbar"><div><h2>Inputs &amp; backups</h2><p>Manage event inputs and protected local or external backups.</p></div></div>
           <div class="data-tools-grid">
             <article class="panel data-tool-card configuration-card">
-              <div><p class="eyebrow">Mounted config.yaml</p><h3 id="configuration-card-title">Inspecting configuration</h3><p id="configuration-card-copy">The mounted file is the single source of truth. WebUI edits are validated and written atomically; external file edits are detected automatically.</p></div>
+              <div><p class="eyebrow">Inputs</p><h3 id="configuration-card-title">Configured listeners</h3><p id="configuration-card-copy">Click a status to enable or disable an input. Listener changes apply after Notifinho restarts.</p></div>
               <div id="configuration-summary" class="configuration-summary"></div>
               <div id="configuration-inputs" class="configuration-inputs"></div>
               <div id="configuration-errors" class="form-error" role="alert" hidden></div>
@@ -226,21 +232,31 @@
               <label><span>JSON document</span><input id="portable-file" type="file" accept="application/json,.json"></label>
               <button class="button secondary" type="button" data-action="preview-portable">Preview JSON import</button>
             </article>
-            <article class="panel data-tool-card">
-              <div><p class="eyebrow">Configuration portability</p><h3>Use the mounted YAML file</h3><p>Copy or edit <code>config.yaml</code> directly when moving between servers. Notifinho validates it, creates backups for WebUI writes, and reflects valid external changes automatically.</p></div>
-            </article>
             <article class="panel data-tool-card backup-card">
               <div><p class="eyebrow">Private state</p><h3>Server-side backups</h3><p>Includes the SQLite database and secret files. Backup contents never leave the server through this API.</p></div>
               <button class="button primary" type="button" data-action="create-backup">Create backup</button>
               <div id="backup-list" class="backup-list"></div>
             </article>
+            <article class="panel data-tool-card backup-schedule-card">
+              <div><p class="eyebrow">Scheduled backups</p><h3>Local, NFS, or Samba</h3><p>Mount the NFS or SMB share on the Docker host and into this container; Notifinho does not require privileged mount capabilities.</p></div>
+              <form id="backup-settings-form" class="form-grid">
+                <label><span>Schedule</span><select id="backup-schedule"><option value="disabled">Disabled</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
+                <label><span>Run time</span><input id="backup-time" type="time" value="02:00" required></label>
+                <label><span>Weekly day</span><select id="backup-weekday"><option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option></select></label>
+                <label><span>Monthly day</span><input id="backup-day" type="number" min="1" max="28" value="1"></label>
+                <label class="switch-field"><input id="backup-external-enabled" type="checkbox"><span>Copy to external share</span></label>
+                <label><span>Share type</span><select id="backup-external-type"><option value="nfs">NFS</option><option value="smb">Samba / SMB</option></select></label>
+                <label class="wide"><span>Mounted path inside container</span><input id="backup-external-path" placeholder="/notifinho/external-backups"></label>
+                <div class="wide"><button class="button primary" type="submit">Save backup settings</button><small id="backup-last-run">No scheduled run recorded.</small></div>
+              </form>
+            </article>
           </div>
         </section>
 
         <section id="view-account" class="view" data-page="account" hidden>
-          <div class="section-toolbar"><div><h2>Account security</h2><p>Change your password or end the current session.</p></div></div>
+          <div class="section-toolbar"><div><h2>Account security</h2><p>Manage your profile picture, password, and current session.</p></div></div>
           <div class="account-grid">
-            <article class="panel identity-card"><span id="account-avatar" class="avatar large">N</span><div><h3 id="account-name">Account</h3><p id="account-role">User</p><small id="account-session">Session active</small></div></article>
+            <article class="panel identity-card"><span id="account-avatar" class="avatar large">N</span><div><h3 id="account-name">Account</h3><p id="account-role">User</p><small id="account-session">Session active</small><form id="avatar-form" class="avatar-form"><label class="button secondary small">Choose picture<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button class="button secondary small" type="submit">Save picture</button><button class="text-button" type="button" data-action="remove-avatar">Remove</button></form></div></article>
             <article class="panel"><div class="panel-heading"><div><h3>Change password</h3><p>This signs out every active session, including this one.</p></div></div><form id="password-form" class="stack compact"><label><span>Current password</span><input name="current_password" type="password" autocomplete="current-password" required></label><label><span>New password</span><input name="new_password" type="password" autocomplete="new-password" minlength="12" required></label><label><span>Confirm new password</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required></label><button class="button primary" type="submit">Update password</button></form></article>
             <article class="panel danger-panel"><div><h3>End session</h3><p>Revoke this browser session and return to the sign-in screen.</p></div><button id="logout-button" class="button danger" type="button">Sign out</button></article>
           </div>
@@ -274,10 +290,10 @@
         <label class="wide"><span>Name</span><input id="route-name" required maxlength="120" placeholder="Critical home lab events"></label>
         <label><span>Source</span><input id="route-source" required maxlength="80" placeholder="home_lab"></label>
         <label><span>Destination</span><select id="route-destination" required></select></label>
-        <label><span>Priority</span><input id="route-priority" type="number" min="0" max="1000" value="100" required></label>
+        <label><span>Priority</span><select id="route-priority"><option value="critical">Critical</option><option value="high">High</option><option value="normal" selected>Normal</option><option value="low">Low</option><option value="lowest">Lowest</option></select></label>
         <label class="switch-field"><input id="route-enabled" type="checkbox" checked><span>Enabled</span></label>
       </div>
-      <fieldset><legend>Optional filters</legend><p class="field-help">Comma-separated values. Hosts and events support shell-style wildcards.</p><div class="form-grid"><label><span>Severities</span><input id="route-severities" placeholder="warning, critical"></label><label><span>Statuses</span><input id="route-statuses" placeholder="active, resolved"></label><label><span>Hosts</span><input id="route-hosts" placeholder="nas-*, hypervisor-01"></label><label><span>Events</span><input id="route-events" placeholder="backup.*, disk.*"></label></div></fieldset>
+      <fieldset><legend>Optional filters</legend><p class="field-help">Select one or more severities/statuses. Hosts and events accept comma-separated shell-style wildcards.</p><div class="form-grid"><label><span>Severities</span><select id="route-severities" multiple size="5"><option value="debug">Debug</option><option value="information">Information</option><option value="warning">Warning</option><option value="error">Error</option><option value="critical">Critical</option></select></label><label><span>Statuses</span><select id="route-statuses" multiple size="4"><option value="active">Active</option><option value="resolved">Resolved</option><option value="firing">Firing</option><option value="recovered">Recovered</option></select></label><label><span>Hosts</span><input id="route-hosts" placeholder="nas-*, hypervisor-01"></label><label><span>Events</span><input id="route-events" placeholder="backup.*, disk.*"></label></div></fieldset>
       <p id="route-error" class="form-error" role="alert" hidden></p>
       <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button primary" value="default">Save route</button></div>
     </form>

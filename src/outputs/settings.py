@@ -40,6 +40,13 @@ def normalize_output_settings(
     if not isinstance(settings, dict):
         raise ValueError("destination settings must be an object")
 
+    common = {}
+    if "channel_name" in settings:
+        channel_name = str(settings.get("channel_name") or "").strip()
+        if not channel_name or len(channel_name) > 120:
+            raise ValueError("destination channel name must contain 1 to 120 characters")
+        common["channel_name"] = channel_name
+    specific = {key: value for key, value in settings.items() if key != "channel_name"}
     validators = {
         "discord": _discord,
         "teams": _teams,
@@ -48,7 +55,7 @@ def normalize_output_settings(
         "mqtt": _mqtt,
         "ntfy": _ntfy,
     }
-    normalized = validators[kind](settings, require_complete)
+    normalized = {**validators[kind](specific, require_complete), **common}
     encoded = json.dumps(
         normalized,
         sort_keys=True,

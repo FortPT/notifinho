@@ -25,6 +25,7 @@ from logger import log
 from router import Router
 from storage.runtime import initialize_state
 from storage.bootstrap import BootstrapStore
+from storage.backup_scheduler import BackupScheduler
 from version import APP_NAME, VERSION
 
 
@@ -42,6 +43,7 @@ def main() -> int:
 
     smtp = None
     http = None
+    backup_scheduler = None
     shutdown_requested = Event()
 
     def request_shutdown(signum, _frame):
@@ -84,6 +86,9 @@ def main() -> int:
                 )
                 print("", flush=True)
 
+            backup_scheduler = BackupScheduler(state_database, config)
+            backup_scheduler.start()
+
         dispatcher = Dispatcher()
 
         router = Router(state_database) if state_database is not None else Router()
@@ -124,6 +129,10 @@ def main() -> int:
         return 1
 
     finally:
+
+        if backup_scheduler is not None:
+
+            backup_scheduler.stop()
 
         if http is not None:
 

@@ -5,6 +5,9 @@ from __future__ import annotations
 import sqlite3
 import time
 import uuid
+import base64
+import binascii
+import re
 
 from dataclasses import dataclass
 from typing import Callable
@@ -26,6 +29,7 @@ class User:
     last_login_at: int | None
     created_at: int
     updated_at: int
+    avatar_data: str | None = None
 
     @property
     def actor(self) -> Actor:
@@ -107,7 +111,8 @@ class UserStore:
             row = connection.execute(
                 """
                 SELECT id, username, role, enabled, failed_login_count,
-                       locked_until, last_login_at, created_at, updated_at
+                       locked_until, last_login_at, created_at, updated_at,
+                       avatar_data
                 FROM users WHERE id = ?
                 """,
                 (str(user_id),),
@@ -127,7 +132,8 @@ class UserStore:
             row = connection.execute(
                 """
                 SELECT id, username, role, enabled, failed_login_count,
-                       locked_until, last_login_at, created_at, updated_at
+                       locked_until, last_login_at, created_at, updated_at,
+                       avatar_data
                 FROM users WHERE username_normalized = ?
                 """,
                 (normalized,),
@@ -141,7 +147,8 @@ class UserStore:
             rows = connection.execute(
                 """
                 SELECT id, username, role, enabled, failed_login_count,
-                       locked_until, last_login_at, created_at, updated_at
+                       locked_until, last_login_at, created_at, updated_at,
+                       avatar_data
                 FROM users ORDER BY username_normalized
                 """
             ).fetchall()
@@ -266,6 +273,41 @@ class UserStore:
                 )
         return self.get(user_id)
 
+    def set_avatar(self, user_id: str, avatar_data: str | None) -> User:
+        """Store a small browser-safe raster avatar inside the protected DB."""
+
+        normalized = None
+        if avatar_data not in (None, ""):
+            value = str(avatar_data)
+            match = re.fullmatch(
+                r"data:image/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})",
+                value,
+            )
+            if match is None:
+                raise ValueError("profile picture must be PNG, JPEG, or WebP")
+            try:
+                payload = base64.b64decode(match.group(2), validate=True)
+            except (binascii.Error, ValueError) as error:
+                raise ValueError("profile picture is invalid") from error
+            if not payload or len(payload) > 256 * 1024:
+                raise ValueError("profile picture must not exceed 256 KiB")
+            signatures = {
+                "png": payload.startswith(b"\x89PNG\r\n\x1a\n"),
+                "jpeg": payload.startswith(b"\xff\xd8\xff"),
+                "webp": payload.startswith(b"RIFF") and payload[8:12] == b"WEBP",
+            }
+            if not signatures[match.group(1)]:
+                raise ValueError("profile picture content does not match its type")
+            normalized = value
+        with self.database.transaction() as connection:
+            cursor = connection.execute(
+                "UPDATE users SET avatar_data = ?, updated_at = ? WHERE id = ?",
+                (normalized, int(self.clock()), str(user_id)),
+            )
+            if cursor.rowcount != 1:
+                raise KeyError("user not found")
+        return self.get(user_id)
+
     @staticmethod
     def _user(row) -> User:
         return User(
@@ -282,4 +324,9 @@ class UserStore:
             ),
             created_at=int(row["created_at"]),
             updated_at=int(row["updated_at"]),
+            avatar_data=(
+                str(row["avatar_data"])
+                if "avatar_data" in row.keys() and row["avatar_data"]
+                else None
+            ),
         )

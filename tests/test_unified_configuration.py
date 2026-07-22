@@ -224,6 +224,82 @@ def test_admin_crud_writes_yaml_and_observer_cannot_mutate(unified):
         )
 
 
+def test_shared_destination_channel_and_semantic_priority_round_trip(unified):
+    unified["service"].synchronize()
+    destination = unified["service"].create_destination(
+        unified["admin"],
+        {
+            "name": "Discord infrastructure",
+            "output_type": "discord",
+            "settings": {"channel_name": "infrastructure-alerts"},
+            "secret": {"url": "https://discord.com/api/webhooks/456/private"},
+            "shared": True,
+            "enabled": True,
+        },
+    )
+    route = unified["service"].create_route(
+        unified["admin"],
+        {
+            "name": "Critical infrastructure",
+            "source": "home_assistant",
+            "destination_id": destination.id,
+            "filters": {"severities": ["critical"]},
+            "priority": "high",
+            "enabled": True,
+        },
+    )
+    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
+    entry = saved["outputs"]["discord"]["discord_infrastructure"]
+    configured_route = saved["routing"]["home_assistant"]["outputs"][0]
+
+    assert entry["shared"] is True
+    assert entry["settings"]["channel_name"] == "infrastructure-alerts"
+    assert configured_route["priority"] == "high"
+    mirrored = next(
+        item
+        for item in unified["service"].list_destinations(unified["user"])
+        if item.id == destination.id
+    )
+    assert mirrored.shared is True
+    assert route.priority == 25
+
+
+def test_inputs_applications_and_external_backup_settings_are_file_backed(unified, tmp_path):
+    unified["service"].synchronize()
+    disabled = unified["service"].update_input(unified["admin"], "http", False)
+    application = unified["service"].legacy_applications()[0]
+    updated = unified["service"].update_application(
+        unified["admin"], application["id"], enabled=False
+    )
+    external = tmp_path / "mounted-nfs"
+    external.mkdir()
+    backups = unified["service"].update_backup_settings(
+        unified["admin"],
+        {
+            "schedule": "weekly",
+            "time": "03:15",
+            "weekday": 2,
+            "day": 1,
+            "external_enabled": True,
+            "external_type": "nfs",
+            "external_path": str(external),
+        },
+    )
+    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
+
+    assert disabled == {"name": "http", "enabled": False, "restart_required": True}
+    assert updated["enabled"] is False
+    assert saved["http"]["enabled"] is False
+    assert saved["api"]["tokens"]["idrac"]["enabled"] is False
+    assert backups["schedule"] == "weekly"
+    assert backups["external_path"] == str(external)
+    assert saved["platform"]["backups"]["external_type"] == "nfs"
+
+    unified["service"].delete_application(unified["admin"], application["id"])
+    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
+    assert "idrac" not in saved["api"]["tokens"]
+
+
 def test_yaml_applications_and_preferences_are_safe_and_file_backed(unified):
     unified["service"].synchronize()
     applications = unified["service"].legacy_applications()
@@ -239,6 +315,7 @@ def test_yaml_applications_and_preferences_are_safe_and_file_backed(unified):
             "updated_at": None,
             "expires_at": None,
             "last_used_at": None,
+            "request_count": 0,
             "revoked_at": None,
             "enabled": True,
             "management": "yaml",

@@ -19,7 +19,7 @@ from outputs.settings import OUTPUT_TYPES, normalize_output_settings
 from storage.audit_events import AuditEventStore
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
-from storage.routes import RouteStore
+from storage.routes import RouteStore, route_priority_name, route_priority_value
 from storage.secrets import SecretStore
 from storage.validation import normalized_name
 
@@ -169,6 +169,7 @@ class UnifiedConfigurationService:
             settings,
             enabled,
             secret,
+            self._boolean(data.get("shared", True), "shared"),
         )
         self.config_service.replace(candidate)
         self.synchronize(force=True)
@@ -198,12 +199,18 @@ class UnifiedConfigurationService:
             else current["enabled"]
         )
         secret = data.get("secret", current["secret_value"])
+        shared = (
+            self._boolean(data["shared"], "shared")
+            if "shared" in data
+            else current["shared"]
+        )
         candidate["outputs"][output_type][target] = self._destination_entry(
             output_type,
             display,
             settings,
             enabled,
             secret,
+            shared,
         )
         self.config_service.replace(candidate)
         self.synchronize(force=True)
@@ -314,6 +321,14 @@ class UnifiedConfigurationService:
         if not isinstance(tokens, dict):
             return []
         applications = []
+        with self.database.connect() as connection:
+            usage = {
+                str(row["application_name"]): (
+                    int(row["last_used_at"]),
+                    int(row["request_count"]),
+                )
+                for row in connection.execute("SELECT * FROM application_usage")
+            }
         for name, settings in tokens.items():
             if not isinstance(settings, dict):
                 continue
@@ -332,6 +347,7 @@ class UnifiedConfigurationService:
             sources = settings.get("sources") or []
             if isinstance(sources, str):
                 sources = [sources]
+            last_used_at, request_count = usage.get(str(name), (None, 0))
             applications.append(
                 {
                     "id": f"yaml-{hashlib.sha256(str(name).encode()).hexdigest()[:24]}",
@@ -343,7 +359,8 @@ class UnifiedConfigurationService:
                     "created_at": None,
                     "updated_at": None,
                     "expires_at": None,
-                    "last_used_at": None,
+                    "last_used_at": last_used_at,
+                    "request_count": request_count,
                     "revoked_at": None,
                     "enabled": settings.get("enabled", True) is True,
                     "management": "yaml",
@@ -352,6 +369,63 @@ class UnifiedConfigurationService:
                 }
             )
         return applications
+
+    def record_application_usage(self, name: str) -> None:
+        application_name = str(name or "")[:128]
+        if not application_name:
+            return
+        with self.database.transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO application_usage(application_name, last_used_at, request_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(application_name) DO UPDATE SET
+                    last_used_at = excluded.last_used_at,
+                    request_count = application_usage.request_count + 1
+                """,
+                (application_name, int(time.time())),
+            )
+
+    def update_application(self, actor: Actor, application_id: str, *, enabled: bool):
+        self._require_admin(actor)
+        self._ready()
+        name = self._application_name(application_id)
+        candidate = self.config_service.snapshot()
+        tokens = candidate.get("api", {}).get("tokens", {})
+        if not isinstance(tokens, dict) or not isinstance(tokens.get(name), dict):
+            raise KeyError("application not found")
+        tokens[name]["enabled"] = self._boolean(enabled, "enabled")
+        self.config_service.replace(candidate)
+        self.synchronize(force=True)
+        self._audit(
+            actor,
+            "application.enable" if enabled else "application.disable",
+            "success",
+            {"name": name},
+        )
+        return next(
+            item for item in self.legacy_applications()
+            if item["id"] == application_id
+        )
+
+    def delete_application(self, actor: Actor, application_id: str) -> None:
+        self._require_admin(actor)
+        self._ready()
+        name = self._application_name(application_id)
+        candidate = self.config_service.snapshot()
+        api = candidate.get("api")
+        tokens = api.get("tokens") if isinstance(api, dict) else None
+        if not isinstance(tokens, dict) or name not in tokens:
+            raise KeyError("application not found")
+        del tokens[name]
+        self.config_service.replace(candidate)
+        self.synchronize(force=True)
+        with self.database.transaction() as connection:
+            connection.execute(
+                "DELETE FROM application_usage WHERE application_name = ?",
+                (name,),
+            )
+        self._audit(actor, "application.delete", "success", {"name": name})
 
     def preferences(self) -> dict:
         self.synchronize()
@@ -386,6 +460,90 @@ class UnifiedConfigurationService:
         self.synchronize(force=True)
         self._audit(actor, "preferences.update", "success", self.preferences())
         return self.preferences()
+
+    def update_input(self, actor: Actor, name: str, enabled: bool) -> dict:
+        self._require_admin(actor)
+        self._ready()
+        input_name = str(name or "").strip().casefold()
+        if input_name not in {"smtp", "http", "redfish", "home_assistant", "unifi"}:
+            raise ValueError("input is not managed by the WebUI")
+        candidate = self.config_service.snapshot()
+        section = candidate.get(input_name)
+        if section is None:
+            section = {}
+            candidate[input_name] = section
+        if not isinstance(section, dict):
+            raise ValueError("input configuration must be an object")
+        section["enabled"] = self._boolean(enabled, "enabled")
+        self.config_service.replace(candidate)
+        self.synchronize(force=True)
+        self._audit(
+            actor,
+            "input.enable" if enabled else "input.disable",
+            "success",
+            {"input": input_name, "restart_required": True},
+        )
+        return {
+            "name": input_name,
+            "enabled": enabled,
+            "restart_required": True,
+        }
+
+    def backup_settings(self) -> dict:
+        self.synchronize()
+        platform = self.config_service.configuration.get("platform", default={}) or {}
+        values = platform.get("backups") if isinstance(platform, dict) else {}
+        values = values if isinstance(values, dict) else {}
+        return {
+            "schedule": str(values.get("schedule") or "disabled"),
+            "time": str(values.get("time") or "02:00"),
+            "weekday": int(values.get("weekday", 0)),
+            "day": int(values.get("day", 1)),
+            "external_enabled": values.get("external_enabled", False) is True,
+            "external_type": str(values.get("external_type") or "nfs"),
+            "external_path": str(values.get("external_path") or ""),
+        }
+
+    def update_backup_settings(self, actor: Actor, values: dict) -> dict:
+        self._require_admin(actor)
+        self._ready()
+        schedule = str(values.get("schedule") or "").strip().casefold()
+        clock_time = str(values.get("time") or "").strip()
+        external_type = str(values.get("external_type") or "").strip().casefold()
+        external_path = str(values.get("external_path") or "").strip()
+        external_enabled = self._boolean(values.get("external_enabled"), "external_enabled")
+        if schedule not in {"disabled", "daily", "weekly", "monthly"}:
+            raise ValueError("backup schedule is invalid")
+        if not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", clock_time):
+            raise ValueError("backup time must use HH:MM")
+        if external_type not in {"nfs", "smb"}:
+            raise ValueError("external backup type must be NFS or SMB")
+        if external_enabled and (
+            not external_path.startswith("/") or external_path == "/"
+        ):
+            raise ValueError("external backup path must be an absolute mounted directory")
+        weekday = int(values.get("weekday", 0))
+        day = int(values.get("day", 1))
+        if not 0 <= weekday <= 6 or not 1 <= day <= 28:
+            raise ValueError("backup weekday or day is invalid")
+        candidate = self.config_service.snapshot()
+        platform = candidate.setdefault("platform", {})
+        platform["backups"] = {
+            "schedule": schedule,
+            "time": clock_time,
+            "weekday": weekday,
+            "day": day,
+            "external_enabled": external_enabled,
+            "external_type": external_type,
+            "external_path": external_path,
+        }
+        errors = validate_config(candidate)
+        if errors:
+            raise ValueError("; ".join(errors))
+        self.config_service.replace(candidate)
+        self.synchronize(force=True)
+        self._audit(actor, "backup.schedule.update", "success", self.backup_settings())
+        return self.backup_settings()
 
     def adopt_unmanaged_resources(self, actor: Actor) -> int:
         """Move newly imported database resources into authoritative YAML."""
@@ -460,7 +618,7 @@ class UnifiedConfigurationService:
                         id, owner_user_id, name, name_normalized, output_type,
                         settings_json, shared, enabled, created_at, updated_at,
                         configuration_key
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         destination_id,
@@ -469,6 +627,7 @@ class UnifiedConfigurationService:
                         normalized,
                         spec["output_type"],
                         encoded_settings,
+                        1 if spec["shared"] else 0,
                         1 if spec["enabled"] else 0,
                         now,
                         now,
@@ -482,7 +641,7 @@ class UnifiedConfigurationService:
                     """
                     UPDATE destinations
                     SET owner_user_id = ?, name = ?, name_normalized = ?,
-                        output_type = ?, settings_json = ?, shared = 1,
+                        output_type = ?, settings_json = ?, shared = ?,
                         enabled = ?, updated_at = ?, configuration_key = ?
                     WHERE id = ?
                     """,
@@ -492,6 +651,7 @@ class UnifiedConfigurationService:
                         normalized,
                         spec["output_type"],
                         encoded_settings,
+                        1 if spec["shared"] else 0,
                         1 if spec["enabled"] else 0,
                         now,
                         key,
@@ -750,11 +910,12 @@ class UnifiedConfigurationService:
             "name": str(entry.get("name") or target),
             "settings": settings,
             "enabled": entry.get("enabled", True) is True,
+            "shared": entry.get("shared", True) is True,
             "secret_value": secret,
         }
 
-    def _destination_entry(self, output_type, name, settings, enabled, secret):
-        entry = {"name": name, "enabled": bool(enabled)}
+    def _destination_entry(self, output_type, name, settings, enabled, secret, shared=True):
+        entry = {"name": name, "enabled": bool(enabled), "shared": bool(shared)}
         if settings:
             entry["settings"] = deepcopy(settings)
         if secret is not None:
@@ -774,7 +935,7 @@ class UnifiedConfigurationService:
             "name": name,
             "output": output_type,
             "target": target,
-            "priority": priority,
+            "priority": route_priority_name(priority),
             "enabled": bool(enabled),
         }
         if filters:
@@ -811,10 +972,7 @@ class UnifiedConfigurationService:
 
     @staticmethod
     def _priority(value):
-        priority = int(value)
-        if not 0 <= priority <= 1000:
-            raise ValueError("route priority must be between 0 and 1000")
-        return priority
+        return route_priority_value(value)
 
     @staticmethod
     def _boolean(value, name):
@@ -854,6 +1012,13 @@ class UnifiedConfigurationService:
                 """
             ).fetchone()
         return str(row["id"]) if row is not None else None
+
+    def _application_name(self, application_id: str) -> str:
+        wanted = str(application_id or "")
+        for item in self.legacy_applications():
+            if item["id"] == wanted:
+                return item["name"]
+        raise KeyError("application not found")
 
     def _destination_location(self, destination_id):
         with self.database.connect() as connection:

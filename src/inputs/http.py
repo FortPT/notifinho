@@ -182,6 +182,10 @@ class HTTPHandler(BaseHTTPRequestHandler):
                 self._respond(400)
                 return
             for notification in notifications:
+                notification.metadata = dict(
+                    getattr(notification, "metadata", None) or {}
+                )
+                notification.metadata.setdefault("_input_type", "HTTP")
                 if application in {"redfish", "supermicro", "hpe", "dell"} and self.server.duplicate(notification):
                     log.info("Duplicate Redfish event ignored")
                     continue

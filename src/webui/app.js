@@ -11,7 +11,7 @@ const VIEW_TITLES = {
   audit: ["Security", "Audit log"],
   users: ["Administration", "Users"],
   settings: ["Administration", "Settings"],
-  data: ["Administration", "Data tools"],
+  data: ["Administration", "Inputs & backups"],
   account: ["Profile", "Account security"],
 };
 const OUTPUT_NAMES = {
@@ -22,6 +22,18 @@ const OUTPUT_NAMES = {
   mqtt: "MQTT",
   ntfy: "ntfy",
 };
+const OUTPUT_ICONS = {
+  discord: "/ui/icons/discord.svg",
+  mqtt: "/ui/icons/mqtt.svg",
+  ntfy: "/ui/icons/ntfy.svg",
+};
+const PRIORITIES = [
+  ["critical", "Critical"],
+  ["high", "High"],
+  ["normal", "Normal"],
+  ["low", "Low"],
+  ["lowest", "Lowest"],
+];
 const PT_TRANSLATIONS = {
   "Overview": "Visão geral",
   "Destinations": "Destinos",
@@ -108,6 +120,12 @@ const state = {
   users: [],
   backups: [],
   configuration: null,
+  notices: [],
+  metrics: null,
+  healthChecks: [],
+  backupSettings: null,
+  backupLastRun: null,
+  historyRange: "1h",
   preferences: { timezone: "Europe/Lisbon", language: "en-GB", time_format: "24" },
   pendingImport: null,
   sessionExpiresAt: null,
@@ -154,6 +172,27 @@ function badge(label, style = "") {
 
 function initials(name) {
   return String(name || "N").trim().slice(0, 1).toUpperCase() || "N";
+}
+
+function avatarElement(user, large = false) {
+  if (user && user.avatar_data) {
+    return element("img", {
+      className: `avatar avatar-image${large ? " large" : ""}`,
+      attributes: { src: user.avatar_data, alt: `${user.username} profile picture` },
+    });
+  }
+  return element("span", {
+    className: `avatar${large ? " large" : ""}`,
+    text: initials(user && user.username),
+    attributes: { "aria-hidden": "true" },
+  });
+}
+
+function applyAvatar(id, user) {
+  const current = byId(id);
+  const replacement = avatarElement(user, current.classList.contains("large"));
+  replacement.id = id;
+  current.replaceWith(replacement);
 }
 
 function readCsrfCookie() {
@@ -325,7 +364,7 @@ function showApp(session) {
   byId("add-route-button").hidden = !isAdmin();
   const name = state.user.username;
   const role = state.user.role;
-  for (const id of ["profile-avatar", "account-avatar"]) byId(id).textContent = initials(name);
+  for (const id of ["profile-avatar", "account-avatar"]) applyAvatar(id, state.user);
   for (const id of ["profile-name", "account-name"]) byId(id).textContent = name;
   byId("profile-role").textContent = role;
   byId("account-role").textContent = role === "admin" ? "Administrator" : "User";
@@ -417,29 +456,40 @@ async function initialize() {
 }
 
 async function loadWorkspace() {
-  const tasks = [
-    request("/destinations"),
-    request("/routes"),
-    request("/tokens"),
-    request("/deliveries"),
-    request("/audit-events"),
-    request("/preferences"),
-  ];
+  const tasks = {
+    destinations: request("/destinations"),
+    routes: request("/routes"),
+    tokens: request("/tokens"),
+    deliveries: request("/deliveries"),
+    audit: request("/audit-events"),
+    preferences: request("/preferences"),
+    notices: request("/notices"),
+    metrics: request(`/metrics/${state.historyRange}`),
+    health: request("/health-checks"),
+  };
   if (isAdmin()) {
-    tasks.push(request("/users"));
-    tasks.push(request("/backups"));
-    tasks.push(request("/configuration/inventory"));
+    tasks.users = request("/users");
+    tasks.backups = request("/backups");
+    tasks.configuration = request("/configuration/inventory");
+    tasks.backupSettings = request("/backup-settings");
   }
-  const results = await Promise.all(tasks);
-  state.destinations = results[0].destinations;
-  state.routes = results[1].routes;
-  state.tokens = results[2].tokens;
-  state.deliveries = results[3].deliveries;
-  state.audit = results[4].audit_events;
-  state.preferences = results[5].preferences;
-  state.users = isAdmin() ? results[6].users : [];
-  state.backups = isAdmin() ? results[7].backups : [];
-  state.configuration = isAdmin() ? results[8].configuration : null;
+  const keys = Object.keys(tasks);
+  const values = await Promise.all(Object.values(tasks));
+  const results = Object.fromEntries(keys.map((key, index) => [key, values[index]]));
+  state.destinations = results.destinations.destinations;
+  state.routes = results.routes.routes;
+  state.tokens = results.tokens.tokens;
+  state.deliveries = results.deliveries.deliveries;
+  state.audit = results.audit.audit_events;
+  state.preferences = results.preferences.preferences;
+  state.notices = results.notices.notices;
+  state.metrics = results.metrics.metrics;
+  state.healthChecks = results.health.checks;
+  state.users = isAdmin() ? results.users.users : [];
+  state.backups = isAdmin() ? results.backups.backups : [];
+  state.configuration = isAdmin() ? results.configuration.configuration : null;
+  state.backupSettings = isAdmin() ? results.backupSettings.settings : null;
+  state.backupLastRun = isAdmin() ? results.backupSettings.last_run : null;
   renderAll();
   const requested = window.location.hash.slice(1);
   navigate(VIEW_TITLES[requested] && (!["users", "settings", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
@@ -459,6 +509,7 @@ async function refreshWorkspace() {
 }
 
 function renderAll() {
+  renderNotices();
   renderDashboard();
   renderDestinations();
   renderRoutes();
@@ -468,6 +519,8 @@ function renderAll() {
   renderUsers();
   renderBackups();
   renderConfiguration();
+  renderHealthChecks();
+  renderBackupSettings();
   renderPreferences();
   applyLanguage();
 }
@@ -506,19 +559,15 @@ function navigate(view) {
 }
 
 function renderDashboard() {
-  const activeDestinations = state.destinations.filter((item) => item.enabled).length;
-  const activeRoutes = state.routes.filter((item) => item.enabled).length;
-  const activeTokens = state.tokens.filter((item) => !item.revoked_at && item.enabled !== false && item.credential_available !== false).length;
-  const completed = state.deliveries.filter((item) => ["delivered", "success"].includes(item.outcome)).length;
-  const success = state.deliveries.length ? Math.round((completed / state.deliveries.length) * 100) : null;
-  byId("metric-destinations").textContent = state.destinations.length;
-  byId("metric-destinations-note").textContent = `${activeDestinations} active · config.yaml`;
-  byId("metric-routes").textContent = activeRoutes;
-  byId("metric-routes-note").textContent = `${state.routes.length} configured · config.yaml`;
-  byId("metric-tokens").textContent = activeTokens;
-  byId("metric-tokens-note").textContent = `${state.tokens.length} issued`;
-  byId("metric-success").textContent = success === null ? "—" : `${success}%`;
-  byId("metric-success-note").textContent = state.deliveries.length ? `${state.deliveries.length} recent attempts` : "No attempts yet";
+  const metrics = state.metrics || {};
+  byId("metric-sources").textContent = metrics.sources ?? "—";
+  byId("metric-destinations").textContent = metrics.destinations ?? "—";
+  byId("metric-routes").textContent = metrics.routes ?? "—";
+  byId("metric-tokens").textContent = metrics.applications ?? "—";
+  byId("metric-success").textContent = metrics.success_percent === null || metrics.success_percent === undefined ? "—" : `${metrics.success_percent}%`;
+  byId("metric-success-note").textContent = metrics.requests ? `${metrics.delivered} of ${metrics.requests} delivered` : "No requests in range";
+  byId("metric-requests").textContent = metrics.requests ?? "—";
+  byId("history-range").value = state.historyRange;
   renderFlow();
   const container = byId("dashboard-deliveries");
   container.replaceChildren();
@@ -532,36 +581,76 @@ function renderDashboard() {
     container.append(element("div", { className: "activity-item" }, [
       element("span", { className: "event-indicator", text: delivered ? "✓" : "!" }),
       element("div", {}, [
-        element("strong", { text: item.title || "Untitled event" }),
-        element("small", { text: `${item.source} · ${item.severity} · attempt ${item.attempt_number}` }),
+        element("strong", { text: item.device_name ? `${item.device_name} · ${item.event_name || item.title}` : item.event_name || item.title || "Untitled event" }),
+        element("small", { text: `${friendlyName(item.source)} · ${capitalize(item.severity)} · attempt ${item.attempt_number}` }),
       ]),
       element("div", {}, [badge(item.outcome, outcome), element("small", { text: relativeTime(item.completed_at || item.created_at) })]),
     ]));
   }
 }
 
+function renderNotices() {
+  const console = byId("notice-console");
+  const composer = byId("notice-composer");
+  const panel = byId("notice-panel");
+  const list = byId("notice-list");
+  composer.hidden = !isAdmin();
+  panel.hidden = !state.notices.length;
+  console.hidden = !isAdmin() && !state.notices.length;
+  list.replaceChildren();
+  for (const item of state.notices) {
+    const status = item.status === "severe" ? "danger" : item.status === "warning" ? "warning" : "information";
+    const close = actionButton("×", "dismiss-notice", item.id, "icon-button notice-close");
+    close.setAttribute("aria-label", item.persistent ? "This notice clears automatically" : `Close ${item.name}`);
+    close.disabled = item.persistent;
+    close.title = item.persistent ? "This error or update clears automatically when resolved" : "Close notice";
+    list.append(element("div", { className: `notice-item ${status}` }, [
+      element("div", {}, [
+        element("div", { className: "notice-title" }, [element("strong", { text: item.name }), badge(capitalize(item.status), status)]),
+        element("p", { text: item.message }),
+        element("small", { text: formatTime(item.created_at) }),
+      ]),
+      close,
+    ]));
+  }
+}
+
+function capitalize(value) {
+  const text = String(value || "");
+  return text ? text[0].toUpperCase() + text.slice(1) : "—";
+}
+
+function friendlyName(value) {
+  const special = { home_assistant: "Home Assistant", hpe_ilo: "HPE iLO", dell_idrac: "Dell iDRAC", xen_orchestra: "Xen Orchestra", unifi_network: "UniFi Network", unifi_protect: "UniFi Protect", unifi_drive: "UniFi Drive" };
+  const key = String(value || "").casefold ? String(value || "").casefold() : String(value || "").toLowerCase();
+  return special[key] || String(value || "Unknown").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function outputIcon(type) {
+  if (OUTPUT_ICONS[type]) return element("img", { className: "output-icon-image", attributes: { src: OUTPUT_ICONS[type], alt: "" } });
+  const labels = { teams: "T", slack: "S", webhook: "↗" };
+  return element("span", { className: `output-icon-fallback ${type}`, text: labels[type] || String(type || "?").slice(0, 1).toUpperCase(), attributes: { "aria-hidden": "true" } });
+}
+
+function sourceInputType(source) {
+  const observed = state.deliveries.find((item) => item.source === source && item.input_type);
+  return observed ? observed.input_type : "HTTP";
+}
+
 function renderFlow() {
   const container = byId("dashboard-flow");
   container.replaceChildren();
-  const enabledRoutes = state.routes.filter((item) => item.enabled);
-  const routedDestinations = new Set();
-  for (const route of enabledRoutes) {
+  for (const route of state.routes) {
     const destination = state.destinations.find((item) => item.id === route.destination_id);
-    if (destination) routedDestinations.add(destination.id);
-    container.append(element("div", { className: "flow-row" }, [
-      element("div", { className: "flow-node source-node" }, [element("strong", { text: route.source }), element("small", { text: route.source === "*" ? "Every source" : "Event source" })]),
+    const problem = route.enabled && (!destination || !destination.enabled || (!destination.secret_configured && ["discord", "teams", "slack", "webhook"].includes(destination.output_type)));
+    const status = !route.enabled ? "disabled" : problem ? "problem" : "active";
+    container.append(element("div", { className: `flow-row ${status}` }, [
+      element("div", { className: "flow-node source-node" }, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: route.source === "*" ? "HTTP / SMTP" : sourceInputType(route.source) })]),
       element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: "→" }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow", text: "→" })]),
-      element("div", { className: "flow-node destination-node" }, [element("strong", { text: destination ? destination.name : "Missing destination" }), element("small", { text: destination ? (OUTPUT_NAMES[destination.output_type] || destination.output_type) : "Configuration error" })]),
+      element("div", { className: "flow-node destination-node" }, [outputIcon(destination && destination.output_type), element("div", {}, [element("strong", { text: destination ? (OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)) : "Missing destination" }), element("small", { text: destination ? (destination.settings.channel_name || destination.name) : "Configuration error" })])]),
     ]));
   }
-  for (const destination of state.destinations.filter((item) => item.enabled && !routedDestinations.has(item.id))) {
-    container.append(element("div", { className: "flow-row unrouted" }, [
-      element("div", { className: "flow-node muted-node" }, [element("strong", { text: "No source" }), element("small", { text: "Unrouted" })]),
-      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: "·" }), element("div", {}, [element("strong", { text: "No active route" }), element("small", { text: "Destination is enabled but unused" })]), element("span", { className: "flow-arrow", text: "→" })]),
-      element("div", { className: "flow-node destination-node" }, [element("strong", { text: destination.name }), element("small", { text: OUTPUT_NAMES[destination.output_type] || destination.output_type })]),
-    ]));
-  }
-  if (!container.children.length) empty(container, "No active signal flow", "Enable a destination and route to display it here.");
+  if (!container.children.length) empty(container, "No routing flow", "Create a destination and route to display it here.");
 }
 
 function renderDestinations() {
@@ -583,7 +672,6 @@ function renderDestinations() {
         actionButton("Delete", "delete-destination", item.id, "danger"),
       );
     }
-    const ownership = "Shared configuration";
     const meta = element("div", { className: "resource-meta" }, [
       badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning"),
       badge(item.shared ? "Shared" : "Private"),
@@ -592,11 +680,10 @@ function renderDestinations() {
     container.append(element("article", { className: "resource-card" }, [
       element("div", { className: "resource-heading" }, [
         element("div", { className: "resource-identity" }, [
-          element("span", { className: "resource-icon", text: item.output_type.slice(0, 2) }),
-          element("div", {}, [element("strong", { text: item.name }), element("small", { text: `${OUTPUT_NAMES[item.output_type] || item.output_type} · ${ownership}` })]),
+          element("span", { className: "resource-icon" }, outputIcon(item.output_type)),
+          element("div", {}, [element("strong", { text: item.name }), element("small", { text: OUTPUT_NAMES[item.output_type] || friendlyName(item.output_type) })]),
         ]),
       ]),
-      element("div", { className: "resource-meta" }, [badge("config.yaml", "success")]),
       meta,
       actions,
     ]));
@@ -608,13 +695,19 @@ function destinationName(id) {
   return item ? item.name : "Unavailable destination";
 }
 
+function destinationTypeName(id) {
+  const item = state.destinations.find((candidate) => candidate.id === id);
+  return item ? (OUTPUT_NAMES[item.output_type] || friendlyName(item.output_type)) : "Unavailable destination";
+}
+
 function filterSummary(filters) {
   const parts = [];
   for (const key of ["severities", "statuses", "hosts", "events"]) {
     const values = filters && filters[key];
-    if (Array.isArray(values) && values.length) parts.push(`${key}: ${values.join(", ")}`);
+    if (Array.isArray(values) && values.length) parts.push(`${capitalize(key.replace(/s$/, ""))}: ${values.map(capitalize).join(", ")}`);
   }
-  return parts.join(" · ") || "All matching events";
+  if (parts.length === 1 && filters.severities && filters.severities.length === 1 && filters.severities[0] === "critical") return "Just Critical";
+  return parts.join(" · ") || "All Events";
 }
 
 function renderRoutes() {
@@ -626,21 +719,27 @@ function renderRoutes() {
     return;
   }
   for (const item of state.routes) {
-    const actions = element("div", { className: "row-actions" });
-    if (isAdmin()) actions.append(
-      actionButton("Edit", "edit-route", item.id),
-      actionButton(item.enabled ? "Disable" : "Enable", "toggle-route", item.id),
-      actionButton("Delete", "delete-route", item.id, "danger"),
-    );
+    const order = element("div", { className: "row-actions order-actions" });
+    if (isAdmin()) order.append(actionButton("↑", "move-route-up", item.id), actionButton("↓", "move-route-down", item.id));
+    const name = isAdmin()
+      ? element("button", { className: "route-name-button", text: item.name, type: "button", dataset: { action: "edit-route", id: item.id } })
+      : element("strong", { text: item.name });
+    const status = element("button", {
+      className: `badge status-button ${item.enabled ? "success" : "warning"}`,
+      text: item.enabled ? "Enabled" : "Disabled",
+      type: "button",
+      disabled: !isAdmin(),
+      dataset: { action: "toggle-route", id: item.id },
+    });
     body.append(element("tr", {}, [
-      element("td", {}, element("strong", { text: item.name })),
-      element("td", { text: item.source }),
-      element("td", { text: destinationName(item.destination_id) }),
+      element("td", {}, name),
+      element("td", { text: item.source === "*" ? "All Sources" : friendlyName(item.source) }),
+      element("td", { text: destinationTypeName(item.destination_id) }),
       element("td", {}, element("small", { text: filterSummary(item.filters) })),
-      element("td", { text: item.priority }),
-      element("td", {}, badge("config.yaml", "success")),
-      element("td", {}, badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning")),
-      element("td", {}, actions),
+      element("td", { text: capitalize(item.priority_name || "normal") }),
+      element("td", {}, status),
+      element("td", {}, order),
+      element("td", {}, isAdmin() ? actionButton("Delete", "delete-route", item.id, "danger") : null),
     ]));
   }
 }
@@ -656,17 +755,27 @@ function renderTokens() {
   for (const item of state.tokens) {
     const yamlManaged = item.management === "yaml";
     const unavailable = yamlManaged && item.credential_available === false;
-    const revoked = Boolean(item.revoked_at) || item.enabled === false || unavailable;
+    const revoked = Boolean(item.revoked_at);
+    const inactive = item.enabled === false || unavailable;
     const actions = element("div", { className: "row-actions" });
-    if (!revoked && !yamlManaged) {
-      actions.append(actionButton("Rotate", "rotate-token", item.id), actionButton("Revoke", "revoke-token", item.id, "danger"));
+    if (!revoked) {
+      actions.append(
+        actionButton("Delete", "delete-token", item.id, "danger"),
+      );
+      if (!yamlManaged) actions.prepend(actionButton("Rotate", "rotate-token", item.id));
     }
     body.append(element("tr", {}, [
-      element("td", {}, [element("strong", { text: item.name }), element("small", { text: yamlManaged ? `config.yaml · ${item.credential_source}` : `Platform · version ${item.version}` })]),
-      element("td", { text: item.source_scopes.join(", ") || "None" }),
+      element("td", {}, [element("strong", { text: item.name }), element("small", { text: yamlManaged ? `Configured credential · ${item.credential_source}` : `Issued credential · version ${item.version}` })]),
+      element("td", { text: item.source_scopes.map(friendlyName).join(", ") || "None" }),
       element("td", { text: `${item.rate_limit_per_minute}/min` }),
-      element("td", { text: yamlManaged ? "Not tracked" : relativeTime(item.last_used_at) }),
-      element("td", {}, badge(unavailable ? "Credential unavailable" : revoked ? (yamlManaged ? "Disabled" : "Revoked") : "Active", revoked ? "danger" : "success")),
+      element("td", { text: item.last_used_at ? relativeTime(item.last_used_at) : "Never" }),
+      element("td", {}, element("button", {
+        className: `badge status-button ${unavailable || revoked ? "danger" : inactive ? "warning" : "success"}`,
+        text: unavailable ? "Credential unavailable" : revoked ? "Revoked" : inactive ? "Inactive" : "Active",
+        type: "button",
+        disabled: unavailable || revoked,
+        dataset: { action: "toggle-token", id: item.id },
+      })),
       element("td", {}, actions),
     ]));
   }
@@ -684,15 +793,19 @@ function renderDeliveries() {
   for (const item of items) {
     const delivered = ["delivered", "success"].includes(item.outcome);
     const style = delivered ? "success" : item.retryable ? "warning" : "danger";
-    const error = item.safe_error || item.error_code || "No transport error reported";
+    const error = item.safe_error || item.error_code || (delivered ? "Delivery completed" : "No transport error reported");
+    const heading = item.device_name
+      ? `${item.device_name} · ${item.event_name || item.title || "Event"}`
+      : item.event_name || item.title || "Untitled event";
     container.append(element("article", { className: "timeline-item" }, [
       element("span", { className: "event-indicator", text: delivered ? "✓" : "!" }),
       element("div", {}, [
-        element("strong", { text: item.title || "Untitled event" }),
-        element("p", { text: `${item.source} · ${item.severity} · ${error}` }),
-        element("div", { className: "resource-meta" }, [badge(item.outcome, style), badge(`Attempt ${item.attempt_number}`), item.response_status ? badge(`HTTP ${item.response_status}`) : null]),
+        element("strong", { text: heading }),
+        element("small", { text: `${friendlyName(item.source)} · ${item.input_type || "HTTP"}` }),
+        element("p", { text: item.event_description || error }),
+        element("div", { className: "resource-meta" }, [badge(capitalize(item.severity), style), badge(capitalize(item.event_status || item.outcome), style), badge(`Attempt ${item.attempt_number}`), badge(item.input_type || "HTTP"), item.response_status ? badge(`HTTP ${item.response_status}`) : null]),
       ]),
-      element("div", { className: "timeline-meta" }, [element("span", { text: formatTime(item.completed_at || item.created_at) }), element("small", { text: item.retryable ? "Retryable" : "Final" })]),
+      element("div", { className: "timeline-meta" }, [element("span", { text: formatTime(item.completed_at || item.created_at) }), item.retryable ? element("small", { text: "Retryable" }) : null]),
     ]));
   }
 }
@@ -729,14 +842,19 @@ function renderUsers() {
     if (!self) {
       actions.append(
         actionButton("Reset password", "reset-user", item.id),
-        actionButton(item.enabled ? "Disable" : "Enable", "toggle-user", item.id, item.enabled ? "danger" : "secondary"),
       );
     }
     body.append(element("tr", {}, [
-      element("td", {}, [element("strong", { text: item.username }), element("small", { text: self ? "Current account" : item.id.slice(0, 8) })]),
+      element("td", {}, element("div", { className: "user-cell" }, [avatarElement(item), element("div", {}, [element("strong", { text: item.username }), element("small", { text: self ? "Current account" : item.id.slice(0, 8) })])])),
       element("td", { text: item.role }),
       element("td", { text: formatTime(item.last_login_at) }),
-      element("td", {}, badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "danger")),
+      element("td", {}, element("button", {
+        className: `badge status-button ${item.enabled ? "success" : "danger"}`,
+        text: item.enabled ? "Enabled" : "Disabled",
+        type: "button",
+        disabled: self,
+        dataset: { action: "toggle-user", id: item.id },
+      })),
       element("td", {}, actions),
     ]));
   }
@@ -770,22 +888,14 @@ function renderBackups() {
 }
 
 function renderConfiguration() {
-  const panel = byId("configuration-status");
   if (!isAdmin() || !state.configuration) {
-    panel.hidden = true;
     return;
   }
   const configuration = state.configuration;
   const summary = configuration.summary;
   const sync = configuration.sync || { ready: true, errors: [] };
-  panel.hidden = false;
-  byId("configuration-status-title").textContent = sync.ready ? "config.yaml is synchronized" : "config.yaml requires repair";
-  byId("configuration-status-copy").textContent = sync.ready
-    ? `${summary.outputs} destinations and ${summary.routes} routes use one authoritative mounted file. WebUI and external edits stay synchronized.`
-    : "Notifinho is preserving the last known-good runtime configuration. Repair the mounted file to resume synchronization.";
-
-  byId("configuration-card-title").textContent = sync.ready ? "Unified YAML configuration is active" : "Mounted configuration is invalid";
-  byId("configuration-card-copy").textContent = "WebUI changes are validated, backed up, and written atomically to config.yaml. Valid external edits are detected before the next event or refresh.";
+  byId("configuration-card-title").textContent = sync.ready ? "Configured listeners" : "Inputs require configuration repair";
+  byId("configuration-card-copy").textContent = "Click an input status to change it. Restart Notifinho after listener changes.";
   const badges = byId("configuration-summary");
   badges.replaceChildren(
     badge(`${summary.inputs} inputs`),
@@ -802,13 +912,45 @@ function renderConfiguration() {
       const detail = Object.entries(item.details || {}).map(([key, value]) => `${key} ${value}`).join(" · ");
       inputs.append(element("div", { className: "configuration-input" }, [
         element("div", {}, [element("strong", { text: item.label }), element("small", { text: detail || item.name })]),
-        badge(item.enabled ? "YAML active" : "Disabled", item.enabled ? "success" : "warning"),
+        element("button", {
+          className: `badge status-button ${item.enabled ? "success" : "warning"}`,
+          text: item.enabled ? "Enabled" : "Disabled",
+          type: "button",
+          dataset: { action: "toggle-input", id: item.name },
+        }),
       ]));
     }
   }
   const error = byId("configuration-errors");
   error.textContent = (sync.errors || []).join(" · ");
   error.hidden = !(sync.errors || []).length;
+}
+
+function renderHealthChecks() {
+  const container = byId("health-check-list");
+  container.replaceChildren();
+  for (const item of state.healthChecks) {
+    container.append(element("div", { className: "health-check" }, [
+      element("span", { className: `health-indicator ${item.status}`, text: item.status === "healthy" ? "✓" : "!" }),
+      element("div", {}, [element("strong", { text: item.name }), element("small", { text: item.detail })]),
+      badge(capitalize(item.status), item.status === "healthy" ? "success" : item.status === "warning" ? "warning" : "danger"),
+    ]));
+  }
+}
+
+function renderBackupSettings() {
+  if (!isAdmin() || !state.backupSettings) return;
+  const settings = state.backupSettings;
+  byId("backup-schedule").value = settings.schedule;
+  byId("backup-time").value = settings.time;
+  byId("backup-weekday").value = String(settings.weekday);
+  byId("backup-day").value = String(settings.day);
+  byId("backup-external-enabled").checked = settings.external_enabled;
+  byId("backup-external-type").value = settings.external_type;
+  byId("backup-external-path").value = settings.external_path;
+  byId("backup-last-run").textContent = state.backupLastRun
+    ? `Last scheduled run: ${capitalize(state.backupLastRun.outcome || "pending")} · ${formatTime(state.backupLastRun.completed_at || state.backupLastRun.started_at)}`
+    : "No scheduled run recorded.";
 }
 
 function renderPreferences() {
@@ -836,6 +978,88 @@ async function savePreferences(event) {
     toast("Regional settings saved.");
   } catch (error) {
     toast(error.message || "Settings could not be saved.", "error");
+  }
+}
+
+async function saveNotice(event) {
+  event.preventDefault();
+  try {
+    await request("/notices", {
+      method: "POST",
+      body: {
+        name: byId("notice-name").value.trim(),
+        message: byId("notice-message").value.trim(),
+        status: byId("notice-status").value,
+      },
+    });
+    event.currentTarget.reset();
+    await loadWorkspace();
+    toast("Notice sent to users.");
+  } catch (error) {
+    toast(error.message || "Notice could not be sent.", "error");
+  }
+}
+
+async function changeHistoryRange() {
+  state.historyRange = byId("history-range").value;
+  try {
+    const response = await request(`/metrics/${state.historyRange}`);
+    state.metrics = response.metrics;
+    renderDashboard();
+  } catch (error) {
+    toast(error.message || "History could not be loaded.", "error");
+  }
+}
+
+async function saveBackupSettings(event) {
+  event.preventDefault();
+  try {
+    const response = await request("/backup-settings", {
+      method: "PUT",
+      body: {
+        schedule: byId("backup-schedule").value,
+        time: byId("backup-time").value,
+        weekday: Number(byId("backup-weekday").value),
+        day: Number(byId("backup-day").value),
+        external_enabled: byId("backup-external-enabled").checked,
+        external_type: byId("backup-external-type").value,
+        external_path: byId("backup-external-path").value.trim(),
+      },
+    });
+    state.backupSettings = response.settings;
+    renderBackupSettings();
+    toast("Backup settings saved.");
+  } catch (error) {
+    toast(error.message || "Backup settings could not be saved.", "error");
+  }
+}
+
+async function saveAvatar(event) {
+  event.preventDefault();
+  const file = byId("avatar-file").files && byId("avatar-file").files[0];
+  if (!file) {
+    toast("Choose a picture first.", "error");
+    return;
+  }
+  if (file.size > 256 * 1024) {
+    toast("Profile pictures must not exceed 256 KiB.", "error");
+    return;
+  }
+  try {
+    const imageData = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("The picture could not be read."));
+      reader.readAsDataURL(file);
+    });
+    const response = await request("/account/avatar", { method: "PUT", body: { image_data: imageData } });
+    state.user = response.user;
+    applyAvatar("profile-avatar", state.user);
+    applyAvatar("account-avatar", state.user);
+    byId("avatar-file").value = "";
+    toast("Profile picture updated.");
+  } catch (error) {
+    toast(error.message || "Profile picture could not be saved.", "error");
   }
 }
 
@@ -1027,25 +1251,27 @@ function formField(definition, value) {
 
 function destinationDefinition(type) {
   const adminPrivate = isAdmin() ? [{ key: "allow_private_network", label: "Allow private-network target", kind: "checkbox", default: false }] : [];
+  const presentation = { key: "channel_name", label: "Channel / destination label", help: "Shown in Routing Flow (for example #infrastructure)." };
   const definitions = {
     discord: {
       help: "Discord components-v2 formatting with source-aware fallback.",
-      settings: [{ key: "components_v2", label: "Use Components v2", kind: "checkbox", default: true }],
+      settings: [presentation, { key: "components_v2", label: "Use Components v2", kind: "checkbox", default: true }],
       secrets: [{ key: "url", label: "Webhook URL", kind: "password", required: true, wide: true }],
     },
     teams: {
       help: "Microsoft Teams workflow or incoming webhook delivery.",
-      settings: [],
+      settings: [presentation],
       secrets: [{ key: "url", label: "Webhook URL", kind: "password", required: true, wide: true }],
     },
     slack: {
       help: "Slack Block Kit delivery to an official Slack webhook host.",
-      settings: [{ key: "include_metadata", label: "Include event metadata", kind: "checkbox", default: true }],
+      settings: [presentation, { key: "include_metadata", label: "Include event metadata", kind: "checkbox", default: true }],
       secrets: [{ key: "url", label: "Slack webhook URL", kind: "password", required: true, wide: true }],
     },
     webhook: {
       help: "Bounded JSON delivery with optional headers, templating, and HMAC signing.",
       settings: [
+        presentation,
         { key: "method", label: "Method", kind: "select", choices: [["POST", "POST"], ["PUT", "PUT"], ["PATCH", "PATCH"]], default: "POST" },
         { key: "timeout_seconds", label: "Timeout (seconds)", kind: "number", valueType: "number", default: 15, attributes: { min: 1, max: 30 } },
         { key: "headers", label: "Public headers (JSON)", kind: "textarea", valueType: "json", default: "{}", wide: true },
@@ -1062,6 +1288,7 @@ function destinationDefinition(type) {
     mqtt: {
       help: "Publish the stable event envelope to a bounded MQTT topic.",
       settings: [
+        presentation,
         { key: "host", label: "Broker host", required: true },
         { key: "port", label: "Port", kind: "number", valueType: "number", default: 8883, attributes: { min: 1, max: 65535 } },
         { key: "topic", label: "Topic", required: true, wide: true },
@@ -1077,6 +1304,7 @@ function destinationDefinition(type) {
     ntfy: {
       help: "Publish to a hosted or self-hosted ntfy server.",
       settings: [
+        presentation,
         { key: "server", label: "Server URL", required: true, wide: true },
         { key: "topic", label: "Topic", required: true },
         { key: "priority", label: "Priority", kind: "select", choices: [["min", "Minimum"], ["low", "Low"], ["default", "Default"], ["high", "High"], ["max", "Maximum"]], default: "default" },
@@ -1202,12 +1430,14 @@ function openRoute(id = "") {
   byId("route-id").value = item ? item.id : "";
   byId("route-name").value = item ? item.name : "";
   byId("route-source").value = item ? item.source : "";
-  byId("route-priority").value = item ? item.priority : 100;
+  byId("route-priority").value = item ? (item.priority_name || "normal") : "normal";
   byId("route-enabled").checked = item ? item.enabled : true;
   setRouteOptions(item ? item.destination_id : "");
-  for (const key of ["severities", "statuses", "hosts", "events"]) {
-    byId(`route-${key}`).value = item && item.filters[key] ? item.filters[key].join(", ") : "";
+  for (const key of ["severities", "statuses"]) {
+    const selected = new Set(item && item.filters[key] ? item.filters[key] : []);
+    for (const option of byId(`route-${key}`).options) option.selected = selected.has(option.value);
   }
+  for (const key of ["hosts", "events"]) byId(`route-${key}`).value = item && item.filters[key] ? item.filters[key].join(", ") : "";
   byId("route-dialog-title").textContent = item ? `Edit ${item.name}` : "Add route";
   byId("route-dialog").showModal();
 }
@@ -1221,7 +1451,11 @@ async function saveRoute(event) {
   clearError("route-error");
   const id = byId("route-id").value;
   const filters = {};
-  for (const key of ["severities", "statuses", "hosts", "events"]) {
+  for (const key of ["severities", "statuses"]) {
+    const values = [...byId(`route-${key}`).selectedOptions].map((option) => option.value);
+    if (values.length) filters[key] = values;
+  }
+  for (const key of ["hosts", "events"]) {
     const values = splitList(byId(`route-${key}`).value);
     if (values.length) filters[key] = values;
   }
@@ -1232,7 +1466,7 @@ async function saveRoute(event) {
         name: byId("route-name").value.trim(),
         source: byId("route-source").value.trim(),
         destination_id: byId("route-destination").value,
-        priority: Number(byId("route-priority").value),
+        priority: byId("route-priority").value,
         enabled: byId("route-enabled").checked,
         filters,
       },
@@ -1327,6 +1561,8 @@ function openPreview(id) {
   byId("preview-form").reset();
   byId("preview-destination-id").value = id;
   byId("preview-title").textContent = `Preview ${item.name}`;
+  const route = state.routes.find((candidate) => candidate.destination_id === id && candidate.source !== "*");
+  byId("preview-source").value = route ? route.source : "home_assistant";
   byId("preview-result").hidden = true;
   byId("test-button").hidden = !isAdmin();
   clearError("preview-error");
@@ -1362,7 +1598,9 @@ async function runPreview(event) {
   try {
     const response = await request(`/destinations/${destinationId}/${action}`, { method: "POST", body: { event: sampleEvent() } });
     const result = byId("preview-result");
-    result.textContent = JSON.stringify(response, null, 2);
+    const selectedDestination = state.destinations.find((candidate) => candidate.id === destinationId);
+    const outputType = response.preview ? response.preview.output_type : selectedDestination && selectedDestination.output_type;
+    result.textContent = `${OUTPUT_NAMES[outputType] || friendlyName(outputType)} preview\n\n${JSON.stringify(response, null, 2)}`;
     result.hidden = false;
     if (action === "test") {
       const delivery = response.result || {};
@@ -1394,7 +1632,25 @@ function resolveConfirm(value) {
 
 async function resourceAction(action, id) {
   try {
-    if (action === "export-platform") {
+    if (action === "dismiss-notice") {
+      await request(`/notices/${id}/dismiss`, { method: "POST", body: {} });
+      state.notices = state.notices.filter((item) => item.id !== id);
+      renderNotices();
+      return;
+    } else if (action === "run-health-checks") {
+      const response = await request("/health-checks");
+      state.healthChecks = response.checks;
+      renderHealthChecks();
+      toast("Health checks completed.");
+      return;
+    } else if (action === "remove-avatar") {
+      const response = await request("/account/avatar", { method: "DELETE" });
+      state.user = response.user;
+      applyAvatar("profile-avatar", state.user);
+      applyAvatar("account-avatar", state.user);
+      toast("Profile picture removed.");
+      return;
+    } else if (action === "export-platform") {
       await exportPlatform();
       return;
     } else if (action === "preview-portable") {
@@ -1434,6 +1690,13 @@ async function resourceAction(action, id) {
       const item = state.routes.find((candidate) => candidate.id === id);
       await request(`/routes/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
       toast(`Route ${item.enabled ? "disabled" : "enabled"}.`);
+    } else if (action === "move-route-up" || action === "move-route-down") {
+      const item = state.routes.find((candidate) => candidate.id === id);
+      const current = PRIORITIES.findIndex(([value]) => value === item.priority_name);
+      const next = Math.max(0, Math.min(PRIORITIES.length - 1, current + (action === "move-route-up" ? -1 : 1)));
+      if (current === next) return;
+      await request(`/routes/${id}`, { method: "PATCH", body: { priority: PRIORITIES[next][0] } });
+      toast(`Route priority changed to ${PRIORITIES[next][1]}.`);
     } else if (action === "delete-route") {
       const accepted = await confirmAction("Delete route?", "Events will stop using this route immediately.", "Delete");
       if (!accepted) return;
@@ -1449,6 +1712,19 @@ async function resourceAction(action, id) {
       if (!accepted) return;
       await request(`/tokens/${id}/revoke`, { method: "POST", body: {} });
       toast("Token revoked.");
+    } else if (action === "toggle-token") {
+      const item = state.tokens.find((candidate) => candidate.id === id);
+      await request(`/tokens/${id}`, { method: "PATCH", body: { enabled: item.enabled === false } });
+      toast(`Application ${item.enabled === false ? "enabled" : "disabled"}.`);
+    } else if (action === "delete-token") {
+      const accepted = await confirmAction("Delete application credential?", "The credential stops working immediately and cannot be recovered.", "Delete");
+      if (!accepted) return;
+      await request(`/tokens/${id}`, { method: "DELETE" });
+      toast("Application credential deleted.");
+    } else if (action === "toggle-input") {
+      const item = state.configuration.inputs.find((candidate) => candidate.name === id);
+      await request(`/configuration/inputs/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
+      toast(`Input ${item.enabled ? "disabled" : "enabled"}. Restart Notifinho to apply listener changes.`);
     } else if (action === "toggle-user") {
       const item = state.users.find((candidate) => candidate.id === id);
       const accepted = await confirmAction(`${item.enabled ? "Disable" : "Enable"} ${item.username}?`, item.enabled ? "Disabling the account revokes every active session." : "The user will be able to sign in again.", item.enabled ? "Disable" : "Enable");
@@ -1533,6 +1809,10 @@ function bindEvents() {
   byId("preview-form").addEventListener("submit", runPreview);
   byId("password-form").addEventListener("submit", changePassword);
   byId("preferences-form").addEventListener("submit", savePreferences);
+  byId("notice-form").addEventListener("submit", saveNotice);
+  byId("backup-settings-form").addEventListener("submit", saveBackupSettings);
+  byId("avatar-form").addEventListener("submit", saveAvatar);
+  byId("history-range").addEventListener("change", changeHistoryRange);
   byId("logout-button").addEventListener("click", logout);
   byId("copy-secret").addEventListener("click", copySecret);
   byId("refresh-button").addEventListener("click", refreshWorkspace);

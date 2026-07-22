@@ -237,6 +237,40 @@ class StateBackupStore:
         })
         return result
 
+    def mirror(self, actor: Actor, backup_id: str, external_root: str | Path) -> Path:
+        """Copy one verified state backup to a host-mounted NFS/SMB directory."""
+
+        self._require_admin(actor)
+        root = Path(external_root).expanduser().absolute()
+        if root == Path("/") or root.is_symlink() or not root.is_dir():
+            raise ValueError("external backup path must be a mounted directory")
+        source = self.backup_directory / str(backup_id)
+        self._validate(source)
+        managed = root / "notifinho-state-backups"
+        if managed.is_symlink():
+            raise ValueError("external backup directory must not be a symbolic link")
+        managed.mkdir(mode=0o700, exist_ok=True)
+        final = managed / str(backup_id)
+        temporary = managed / f".copy-{uuid.uuid4().hex}"
+        if final.exists():
+            return final
+        try:
+            shutil.copytree(source, temporary, symlinks=False)
+            for path in temporary.rglob("*"):
+                if path.is_symlink():
+                    raise ValueError("backup copy contains a symbolic link")
+            os.replace(temporary, final)
+        except Exception:
+            shutil.rmtree(temporary, ignore_errors=True)
+            raise
+        self._audit(
+            actor,
+            "state.backup.mirror",
+            "success",
+            {"backup_id": backup_id, "external_path": str(final)},
+        )
+        return final
+
     def _validate(self, directory: Path) -> StateBackup:
         if directory.is_symlink() or not directory.is_dir():
             raise ValueError("backup path must be a directory")

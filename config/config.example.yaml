@@ -63,7 +63,7 @@ home_assistant:
 # absolute inside the container and writable by the configured non-root UID/GID.
 platform:
   enabled: true
-  # v2.1 uses config.yaml as the single source of truth. SQLite mirrors these
+  # v2.2 uses config.yaml as the single source of truth. SQLite mirrors these
   # resources for history, retries, previews, and test delivery.
   configuration_model: "unified_yaml_v1"
   # Safe for upgrades that already persist /notifinho/config. The hardened
@@ -71,6 +71,16 @@ platform:
   state_dir: "/notifinho/config/platform-state"
   # Retain the newest private server-side state backups (1-100).
   backup_retention: 20
+  # Scheduled private-state backups. Mount NFS/SMB on the Docker host and bind
+  # it into the container; Notifinho does not receive share credentials.
+  backups:
+    schedule: disabled  # disabled, daily, weekly, or monthly
+    time: "02:00"
+    weekday: 0          # Monday=0, used for weekly schedules
+    day: 1              # used for monthly schedules
+    external_enabled: false
+    external_type: nfs  # nfs or smb
+    external_path: "/notifinho/external-backups"
   # Keep true behind HTTPS. Set false only for isolated loopback development.
   secure_cookies: true
 
@@ -126,6 +136,9 @@ outputs:
 
     # Primary Discord destination.
     default:
+      name: "Discord default"
+      channel_name: "infrastructure-alerts"
+      shared: true
       webhook: "PASTE_DISCORD_WEBHOOK_HERE"
 
     # Dedicated Grafana alert destination.

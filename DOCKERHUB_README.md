@@ -193,12 +193,13 @@ https://github.com/FortPT/notifinho
 - User- and application-scoped event endpoints and API tokens
 - Private/shared destinations and user-owned routing
 - Searchable delivery history, safe errors, and audit events
-- Preview, test delivery, configuration import/export, backup, and restore
+- Preview, test delivery, credential-free configuration import/export,
+  integrity-checked private backup/restore, and v1.x YAML migration previews
 - Slack output
 - Generic outbound webhook output
 - MQTT output
 - ntfy output
-- Automatic v1.x YAML import
+- Previewed v1.x Discord/Teams YAML import
 - Production Docker Compose, Portainer, and reverse-proxy examples
 - Broader real-system Redfish compatibility validation
 - Additional UniFi event variants

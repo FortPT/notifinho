@@ -47,7 +47,9 @@ directly to the Internet.
   deletion;
 - one-time application-token creation and rotation plus permanent revocation;
 - searchable delivery history and audit events;
-- administrator account creation, enable/disable, and password reset; and
+- administrator account creation, enable/disable, and password reset;
+- administrator-only safe JSON export/import, v1.x YAML migration preview,
+  private state backup, and confirmed restore; and
 - account-aware navigation that hides administrator controls from users.
 
 Destination secrets and application-token values are never loaded back into
@@ -82,9 +84,12 @@ credential. Run tests only against a destination you are authorized to use.
 Delivery results contain bounded status and safe error fields, never remote
 response bodies or credentials.
 
-## Deferred migration workflows
+## Data tools
 
-Configuration import/export, database backup/restore, and automatic v1.x YAML
-target/route import remain outside Phase 5. They require dedicated backend
-transactions, rollback checks, and migration previews before they can be
-exposed safely in the browser. Existing YAML routing continues unchanged.
+Administrators can export credential-free platform JSON, preview and apply an
+unchanged JSON import, migrate supported v1.x Discord/Teams YAML targets and
+routes, and manage private server-side state snapshots. The browser never
+downloads state backups or receives stored credential values. See the
+[data-portability guide](data-portability.md) for fingerprint, rollback,
+retention, and restore-token cautions. Existing YAML routing continues
+unchanged until the operator deliberately changes it.

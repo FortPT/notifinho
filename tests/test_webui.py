@@ -167,12 +167,14 @@ def test_webui_markup_is_semantic_external_and_complete():
         "view-deliveries",
         "view-audit",
         "view-users",
+        "view-data",
         "view-account",
         "destination-dialog",
         "route-dialog",
         "token-dialog",
         "preview-dialog",
         "secret-dialog",
+        "import-dialog",
     }
     assert required <= inspector.ids
     assert inspector.scripts == ["/ui/app.js"]
@@ -193,6 +195,12 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
         "/deliveries",
         "/audit-events",
         "/users",
+        "/portability/export",
+        "/portability/preview",
+        "/portability/import",
+        "/migrations/v1/preview",
+        "/migrations/v1/import",
+        "/backups",
         "/account/password",
     ):
         assert endpoint in script

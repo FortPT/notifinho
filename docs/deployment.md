@@ -52,7 +52,10 @@ Files mounted below `/run/secrets` must be readable by this identity and mode
 The writable `state` mount is reserved for the opt-in v2 SQLite database and
 owner-scoped secret files. Platform state remains disabled by default. See the
 [platform-state guide](platform-state.md) before enabling it or creating local
-accounts.
+accounts. Private state snapshots also live in this mount; configure
+`platform.backup_retention`, include the mount in encrypted off-host backups,
+and read the [data-portability guide](data-portability.md) before restore or
+v1.x migration.
 
 Validate and start the production definition:
 

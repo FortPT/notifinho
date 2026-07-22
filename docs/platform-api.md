@@ -94,6 +94,14 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | POST | `/api/v2/events` | scoped token or session + CSRF | route an event |
 | GET | `/api/v2/deliveries` | session | list up to 100 visible attempts |
 | GET | `/api/v2/audit-events` | session | list up to 100 visible audit events |
+| GET | `/api/v2/portability/export` | administrator session | export credential-free platform JSON |
+| POST | `/api/v2/portability/preview` | administrator + CSRF | preview platform JSON import |
+| POST | `/api/v2/portability/import` | administrator + CSRF | apply fingerprinted JSON import |
+| POST | `/api/v2/migrations/v1/preview` | administrator + CSRF | preview v1.x YAML migration |
+| POST | `/api/v2/migrations/v1/import` | administrator + CSRF | apply fingerprinted YAML migration |
+| GET | `/api/v2/backups` | administrator session | list verified state backups |
+| POST | `/api/v2/backups` | administrator + CSRF | create a private state backup |
+| POST | `/api/v2/backups/{id}/restore` | administrator + CSRF | confirmed restore and session revocation |
 
 An administrator may create a resource for another owner by including
 `owner_user_id`. A regular user cannot select another owner. Only an
@@ -191,5 +199,6 @@ events are owner-filtered; administrators may inspect all retained records.
 
 Enabling the platform API does not import, modify, or disable existing YAML
 tokens, destinations, routes, or listeners. Platform events use only platform
-routes. Existing SMTP and source-specific HTTP inputs continue to use the YAML
-router until a separate, explicit migration is implemented and validated.
+routes. Administrators may explicitly preview and import supported v1.x
+Discord/Teams targets and routes, but the migration never rewrites the YAML
+file. See the [data-portability guide](data-portability.md).

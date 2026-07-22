@@ -60,6 +60,17 @@ class SecretStore:
         kind: str,
         value: str | bytes,
     ) -> SecretMetadata:
+        with self.database.maintenance():
+            return self._create(actor, owner_user_id, name, kind, value)
+
+    def _create(
+        self,
+        actor: Actor,
+        owner_user_id: str,
+        name: str,
+        kind: str,
+        value: str | bytes,
+    ) -> SecretMetadata:
         OwnershipPolicy.require_write(actor, str(owner_user_id))
         display, normalized = normalized_name(name, "secret name", maximum=128)
         _kind_display, normalized_kind = normalized_identifier(
@@ -130,6 +141,11 @@ class SecretStore:
     def resolve(self, actor: Actor, secret_id: str) -> bytes:
         """Resolve a value for an authorized internal delivery operation."""
 
+        with self.database.maintenance():
+            return self._resolve(actor, secret_id)
+
+    def _resolve(self, actor: Actor, secret_id: str) -> bytes:
+
         row = self._record(secret_id)
         OwnershipPolicy.require_read(actor, str(row["owner_user_id"]), shared=False)
         payload = self._read(str(row["file_name"]))
@@ -139,6 +155,15 @@ class SecretStore:
         return payload
 
     def rotate(self, actor: Actor, secret_id: str, value: str | bytes) -> SecretMetadata:
+        with self.database.maintenance():
+            return self._rotate(actor, secret_id, value)
+
+    def _rotate(
+        self,
+        actor: Actor,
+        secret_id: str,
+        value: str | bytes,
+    ) -> SecretMetadata:
         row = self._record(secret_id)
         OwnershipPolicy.require_write(actor, str(row["owner_user_id"]))
         payload = self._payload(value)
@@ -172,6 +197,26 @@ class SecretStore:
             raise
         self._remove(previous_file)
         return self.metadata(actor, secret_id)
+
+    def delete(self, actor: Actor, secret_id: str) -> None:
+        """Delete an unreferenced secret record and its value file."""
+
+        with self.database.maintenance():
+            self._delete(actor, secret_id)
+
+    def _delete(self, actor: Actor, secret_id: str) -> None:
+
+        row = self._record(secret_id)
+        OwnershipPolicy.require_write(actor, str(row["owner_user_id"]))
+        try:
+            with self.database.transaction() as connection:
+                connection.execute(
+                    "DELETE FROM secret_records WHERE id = ?",
+                    (str(secret_id),),
+                )
+        except sqlite3.IntegrityError as error:
+            raise ValueError("secret is referenced by a destination") from error
+        self._remove(str(row["file_name"]))
 
     def _record(self, secret_id: str):
         with self.database.connect() as connection:

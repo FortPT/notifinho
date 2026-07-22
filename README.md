@@ -489,6 +489,10 @@ owned-resource management, and user/application-scoped event submission.
 The fifth phase packages a responsive, same-origin
 [WebUI](docs/webui.md) for accounts, destinations, routes, application tokens,
 preview/test delivery, delivery history, and audit events.
+The sixth phase adds administrator-only, preview-first
+[data portability, v1.x YAML migration, and private state backup/restore](docs/data-portability.md)
+with credential-free exports, integrity manifests, rollback, and session
+revocation.
 
 ---
 
@@ -1669,14 +1673,14 @@ without duplicating parser, formatter, or routing logic in the browser.
 - Private and shared destinations with secrets never returned to the browser
 - User-owned routing rules for source, host, event, and severity filters
 - Visual route editor, configuration validation, import/export, backup, and
-  restore
+  restore with preview fingerprints and credential-free portable documents
 - Preview and test delivery using the real backend formatters
 - Searchable delivery history, safe error details, and audit events
 - Slack output
 - Generic outbound webhook output with customizable headers and JSON templates
 - MQTT output for automation and Home Assistant workflows
 - ntfy output for a lightweight self-hosted mobile/desktop destination
-- Automatic import of supported v1.x YAML routes and targets
+- Previewed import of supported v1.x Discord/Teams YAML routes and targets
 - Production examples for Docker Compose, Portainer stacks, persistent data,
   and Nginx Proxy Manager TLS termination
 

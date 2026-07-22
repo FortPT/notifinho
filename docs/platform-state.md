@@ -2,9 +2,9 @@
 
 Notifinho's v2 platform foundation uses SQLite and owner-only secret files. It
 does not require PostgreSQL, Redis, or another container. The feature remains
-disabled by default. Phase 4 provides an opt-in authenticated API while the
-WebUI remains under development, so existing v1.x YAML configuration, tokens,
-routes, and delivery behavior remain authoritative.
+disabled by default. The authenticated API and same-origin WebUI expose the
+state only when explicitly enabled, while existing v1.x YAML configuration,
+tokens, routes, and delivery behavior remain authoritative.
 
 ## Storage layout
 
@@ -13,8 +13,10 @@ When enabled, the default container layout is:
 ```text
 /notifinho/state/
 |- notifinho.db
-`- secrets/
-   `- generated-identifier.v1
+|- secrets/
+|  `- generated-identifier.v1
+`- backups/
+   `- state-YYYYMMDDTHHMMSSZ-identifier/
 ```
 
 The state directory and secret directory are mode `0700`. The SQLite database
@@ -57,10 +59,9 @@ Local login protection includes:
 - a `__Host-` session cookie with `HttpOnly`, `Secure`, `SameSite=Strict`, and
   path `/` defaults.
 
-The Phase 4 API wires browser login and platform routing to these services with
-CSRF and ownership enforcement. See the
-[authenticated platform API guide](platform-api.md). The WebUI is still not
-included.
+The platform API wires browser login and platform routing to these services
+with CSRF and ownership enforcement. See the
+[authenticated platform API guide](platform-api.md) and [WebUI guide](webui.md).
 
 ## Production preparation
 
@@ -79,12 +80,14 @@ the first administrator is bootstrapped and TLS/proxy validation is planned:
 platform:
   enabled: false
   state_dir: "/notifinho/state"
+  backup_retention: 20
   secure_cookies: true
 ```
 
 Enabling platform state initializes or migrates the database at application
 startup. When `api.enabled` and the HTTP listener are also enabled, `/api/v2`
-becomes available. This does not enable a WebUI or replace YAML routes.
+becomes available. `webui.enabled` separately gates the browser interface.
+Neither switch replaces YAML routes.
 
 ## Administrator CLI
 
@@ -113,9 +116,16 @@ environment after reading it. Never pass passwords as command arguments.
 
 ## Backup and rollback
 
-Before a schema-changing upgrade, stop the container and copy the complete
-state directory to an owner-only backup. Do not copy a live SQLite database
-with ordinary filesystem tools.
+The administrator Data tools page can create a consistent live SQLite and
+secret-file snapshot with an integrity manifest. These private snapshots stay
+below the state mount and are subject to `platform.backup_retention`. Restore
+creates a safety snapshot, stages and verifies the selected backup, and revokes
+every browser session. See the [data-portability guide](data-portability.md).
+
+For off-host disaster recovery, stop the container and copy the complete state
+directory into encrypted owner-only storage. Do not copy a live SQLite database
+with ordinary filesystem tools. Server-side snapshots are not a substitute for
+off-host backups.
 
 Phase 1 rollback is non-destructive: set `platform.enabled` to `false` and run
 the previously validated image. The older image ignores the preserved state

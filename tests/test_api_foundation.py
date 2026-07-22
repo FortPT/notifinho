@@ -255,6 +255,18 @@ def test_configuration_validation_accepts_boolean_webui_switches(value):
     assert validate_config({"webui": {"enabled": value}}) == []
 
 
+@pytest.mark.parametrize("value", [0, 101, "20", None, True])
+def test_configuration_validation_rejects_invalid_backup_retention(value):
+    errors = validate_config({"platform": {"backup_retention": value}})
+
+    assert "platform.backup_retention must be between 1 and 100" in errors
+
+
+@pytest.mark.parametrize("value", [1, 20, 100])
+def test_configuration_validation_accepts_backup_retention(value):
+    assert validate_config({"platform": {"backup_retention": value}}) == []
+
+
 @pytest.mark.parametrize("value", ["false", 0, 1, None, []])
 def test_configuration_validation_rejects_non_boolean_secure_cookie_switch(value):
     errors = validate_config({

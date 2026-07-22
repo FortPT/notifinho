@@ -22,6 +22,18 @@
 
 ### Added
 
+- Added administrator-only safe platform JSON export/import with owner-aware
+  destination references, strict schema/size validation, merge-only behavior,
+  credential exclusion, preview fingerprints, and failed-import rollback.
+- Added previewed v1.x Discord/Teams YAML target and route migration with
+  write-only credential storage, placeholder detection, supported host-filter
+  translation, and unchanged legacy YAML behavior.
+- Added integrity-manifested private state backups for SQLite and secret files,
+  bounded retention, pre-restore safety snapshots, staged rollback, exact-ID
+  confirmation, and mandatory browser-session revocation after restore.
+- Added responsive administrator Data tools for safe download, JSON/YAML
+  previews, confirmed imports, backup creation/listing, and restore, plus data
+  portability and restore-security documentation.
 - Added a disabled-by-default, responsive, same-origin v2 WebUI for login,
   account security, destinations, routes, application tokens, delivery
   history, audit events, and administrator user management.
@@ -75,6 +87,12 @@
 
 ### Compatibility
 
+- Data import is additive and never overwrites existing platform resource
+  names or modifies the legacy YAML file. Credential-dependent safe-JSON
+  imports remain disabled until a new write-only credential is supplied.
+- State backups remain server-side under the private state mount. Restore
+  revokes browser sessions and may return application-token records to the
+  selected snapshot, so sensitive deployments should review token rotation.
 - The WebUI is served only when `http.enabled`, `api.enabled`,
   `platform.enabled`, and `webui.enabled` are all explicitly true. Existing
   configurations omit the new switch and therefore retain current behavior.

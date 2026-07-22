@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+## 2.0.2 - 2026-07-22
+
+### Added
+
+- Added an administrator-only server-side inventory of mounted YAML inputs,
+  Discord/Teams destinations, routes, credential presence, supported migration
+  scope, and active routing authority. Secret values never enter the browser,
+  preview response, or database.
+- Added a previewed mounted-configuration takeover that verifies an unchanged
+  SHA-256 fingerprint, creates automatic platform-state and atomic YAML
+  backups, imports credentials directly into owner-only secret files, and
+  activates WebUI-managed routing in one confirmed operation.
+- Added clearly labelled YAML-managed and WebUI-managed resources throughout
+  the dashboard, destinations, routes, and Data tools views.
+- Added confirmed routing-authority controls that can immediately return legacy
+  SMTP and webhook events to the retained YAML fallback or reactivate WebUI
+  routing without repeating migration.
+
+### Changed
+
+- Updated GitHub and Docker workflow actions to their current Node.js 24
+  majors, removing the release-runner Node.js 20 deprecation annotation.
+- Legacy SMTP and native webhook events use platform-owned destinations and
+  routes after `platform.routing_authority` becomes `database`; before takeover
+  the existing YAML router remains the only authority.
+- Dashboard counts now reflect the active routing authority, so upgraded
+  installations no longer appear unconfigured while YAML routing is active.
+- The manual YAML upload remains available for another server, while the
+  mounted configuration uses the safer server-side flow.
+
+### Security
+
+- Migration is administrator-only, CSRF-protected, preview-first, fingerprint
+  bound, collision rejecting, and single-authority. A failed configuration
+  switch removes only the newly created database resources and leaves the
+  original YAML routing active.
+- The original YAML destinations and routes remain untouched as an inactive
+  rollback fallback after takeover, preventing both destructive migration and
+  duplicate delivery.
+
 ## 2.0.1 - 2026-07-22
 
 ### Changed

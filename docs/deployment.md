@@ -86,6 +86,25 @@ NOTIFINHO_STATE_DIR=/docker/notifinho/state
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.0.2 mounted-configuration activation
+
+Upgrading the image does not silently change routing authority. After signing
+in, the dashboard displays the mounted YAML resources and continues using them.
+Open **Data tools**, review the detected inputs/destinations/routes, and choose
+**Preview safe takeover**. Apply only after the preview matches the active
+configuration.
+
+The confirmed operation creates a platform-state snapshot and an atomic
+`config.yaml` backup before `platform.routing_authority` becomes `database`.
+Run one real source test afterward and verify that it appears in delivery
+history and reaches exactly one destination. Keep both automatic backups and
+the host-level pre-upgrade backup until acceptance is complete.
+
+If delivery must return to the original configuration, choose **Use YAML
+fallback**. This writes another configuration backup and changes only the
+authority flag; no container restart is required. Do not manually delete the
+imported database destinations or the retained YAML routes during acceptance.
+
 ## Reverse proxy boundary
 
 Port `8080` is HTTP and may be published through Nginx Proxy Manager. Publishing
@@ -116,3 +135,9 @@ docker logs --tail 100 notifinho
 
 Configuration and logs remain on the host. Review release-specific migration
 notes before rolling back across a configuration or data-schema change.
+
+v2.0.2 retains schema 3, so v2.0.1 can read its platform database. Before an
+image rollback, use **Use YAML fallback**, confirm a real legacy delivery, then
+pin `2.0.1`. The imported platform resources may remain in state; v2.0.1 will
+not route legacy inputs through them. Restore the pre-takeover configuration
+backup only if the authority setting itself must be removed.

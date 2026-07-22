@@ -17,6 +17,7 @@ from storage.api_tokens import APITokenStore
 from storage.audit_events import AuditEventStore
 from storage.backups import StateBackupStore
 from storage.bootstrap import BootstrapStore
+from storage.configuration_bridge import ConfigurationBridgeService
 from storage.delivery import DeliveryHistoryStore, PlatformDeliveryService
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
@@ -35,7 +36,15 @@ _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 class PlatformAPI:
     """Expose platform state without mixing session and application authority."""
 
-    def __init__(self, database, dispatcher, configuration, *, registry=None):
+    def __init__(
+        self,
+        database,
+        dispatcher,
+        configuration,
+        *,
+        registry=None,
+        config_service=None,
+    ):
         self.database = database
         self.dispatcher = dispatcher
         self.configuration = configuration
@@ -75,6 +84,16 @@ class PlatformAPI:
             self.secrets,
             self.history,
             self.registry.delivery_adapters(),
+        )
+        self.configuration_bridge = (
+            ConfigurationBridgeService(
+                config_service,
+                self.portability,
+                self.backups,
+                audit=self.audit,
+            )
+            if config_service is not None
+            else None
         )
         self.token_limiter = RateLimiter()
         self.login_limiter = RateLimiter()
@@ -143,6 +162,14 @@ class PlatformAPI:
                 return self._v1_migration_preview(method, payload, actor)
             if path == "/api/v2/migrations/v1/import":
                 return self._v1_migration_import(method, payload, actor)
+            if path == "/api/v2/configuration/inventory":
+                return self._configuration_inventory(method, actor)
+            if path == "/api/v2/configuration/migration/preview":
+                return self._configuration_migration_preview(method, actor)
+            if path == "/api/v2/configuration/migration/apply":
+                return self._configuration_migration_apply(method, payload, actor)
+            if path == "/api/v2/configuration/routing-authority":
+                return self._configuration_authority(method, payload, actor)
             if path == "/api/v2/backups":
                 return self._backups_endpoint(method, actor)
             response = self._resource_endpoint(method, path, payload, actor)
@@ -500,6 +527,62 @@ class PlatformAPI:
             str(data.get("fingerprint") or ""),
         )
         return APIResponse(200, {"import": result})
+
+    def _configuration_inventory(self, method, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "GET":
+            return self._method_not_allowed("GET")
+        bridge = self._configuration_bridge()
+        return APIResponse(
+            200,
+            {"configuration": bridge.inventory(actor)},
+            (("Cache-Control", "no-store"),),
+        )
+
+    def _configuration_migration_preview(self, method, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        plan, inventory, warnings = self._configuration_bridge().preview(actor)
+        public = plan.public()
+        public["warnings"] = list(warnings)
+        public["inventory"] = inventory["summary"]
+        public["current_authority"] = inventory["authority"]
+        return APIResponse(
+            200,
+            {"preview": public},
+            (("Cache-Control", "no-store"),),
+        )
+
+    def _configuration_migration_apply(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"fingerprint", "confirm"})
+        if self._boolean(data, "confirm") is not True:
+            raise ValueError("confirmed migration is required")
+        result = self._configuration_bridge().activate(
+            actor,
+            str(data.get("fingerprint") or ""),
+        )
+        return APIResponse(200, {"migration": result})
+
+    def _configuration_authority(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "PUT":
+            return self._method_not_allowed("PUT")
+        data = self._object(payload, {"authority", "confirmation"})
+        result = self._configuration_bridge().set_authority(
+            actor,
+            str(data.get("authority") or ""),
+            str(data.get("confirmation") or ""),
+        )
+        return APIResponse(200, {"routing": result})
+
+    def _configuration_bridge(self) -> ConfigurationBridgeService:
+        if self.configuration_bridge is None:
+            raise RuntimeError("mounted configuration bridge is unavailable")
+        return self.configuration_bridge
 
     def _backups_endpoint(self, method, actor) -> APIResponse:
         self._require_admin(actor)

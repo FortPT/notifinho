@@ -322,6 +322,99 @@ routing:
     assert "api-private" not in json.dumps(exported.payload, sort_keys=True)
 
 
+def test_admin_mounted_configuration_bridge_endpoints_are_confirmed(platform_api):
+    class Plan:
+        def public(self):
+            return {
+                "valid": True,
+                "fingerprint": "a" * 64,
+                "warnings": [],
+                "errors": [],
+                "summary": {"destinations": 1, "routes": 1},
+            }
+
+    class Bridge:
+        def inventory(self, _actor):
+            return {
+                "authority": "yaml",
+                "summary": {"inputs": 2, "outputs": 1, "routes": 1},
+            }
+
+        def preview(self, _actor):
+            return Plan(), self.inventory(_actor), ("safe preview",)
+
+        def activate(self, _actor, fingerprint):
+            assert fingerprint == "a" * 64
+            return {
+                "destinations_created": 1,
+                "routes_created": 1,
+                "authority": "database",
+            }
+
+        def set_authority(self, _actor, authority, confirmation):
+            assert confirmation == "USE YAML ROUTING"
+            return {"previous": "database", "authority": authority}
+
+    platform_api["service"].platform.configuration_bridge = Bridge()
+    admin_headers = login(platform_api)
+    user_headers = login(
+        platform_api,
+        "owner-user",
+        "owner secure password",
+        client="127.0.0.21",
+    )
+
+    inventory = call(
+        platform_api,
+        "GET",
+        "/api/v2/configuration/inventory",
+        headers=admin_headers,
+    )
+    denied = call(
+        platform_api,
+        "GET",
+        "/api/v2/configuration/inventory",
+        headers=user_headers,
+    )
+    preview = call(
+        platform_api,
+        "POST",
+        "/api/v2/configuration/migration/preview",
+        {},
+        admin_headers,
+    )
+    missing_confirmation = call(
+        platform_api,
+        "POST",
+        "/api/v2/configuration/migration/apply",
+        {"fingerprint": "a" * 64, "confirm": False},
+        admin_headers,
+    )
+    applied = call(
+        platform_api,
+        "POST",
+        "/api/v2/configuration/migration/apply",
+        {"fingerprint": "a" * 64, "confirm": True},
+        admin_headers,
+    )
+    fallback = call(
+        platform_api,
+        "PUT",
+        "/api/v2/configuration/routing-authority",
+        {"authority": "yaml", "confirmation": "USE YAML ROUTING"},
+        admin_headers,
+    )
+
+    assert inventory.status == 200
+    assert inventory.payload["configuration"]["authority"] == "yaml"
+    assert denied.status == 403
+    assert preview.status == 200
+    assert preview.payload["preview"]["warnings"] == ["safe preview"]
+    assert missing_confirmation.status == 400
+    assert applied.payload["migration"]["authority"] == "database"
+    assert fallback.payload["routing"]["authority"] == "yaml"
+
+
 def test_admin_backup_restore_is_confirmed_and_revokes_http_session(platform_api):
     headers = login(platform_api)
     created = call(

@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.0.1-blue" alt="Stable release v2.0.1">
+  <img src="https://img.shields.io/badge/stable-v2.0.2-blue" alt="Stable release v2.0.2">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.0.1** |
+| **Current Stable Release** | **v2.0.2** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,17 +57,20 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.0.1 release notes](docs/releases/v2.0.1.md) for upgrade, rollback,
+See the [v2.0.2 release notes](docs/releases/v2.0.2.md) for upgrade, rollback,
 security, and release-acceptance guidance.
 
 Notifinho v2 adds a self-hosted notification platform with local
 accounts, user-owned destinations and routes, scoped application tokens,
 six output adapters, preview and test delivery, searchable history and audit,
-a responsive same-origin WebUI, credential-free portability, v1.x migration,
-and integrity-checked state recovery. Existing YAML configuration, SMTP and
-webhook inputs, routes, Discord and Teams targets, parsers, and formatters
-remain compatible because the platform database is additive and does not
-replace the YAML delivery pipeline. Fresh installations and legacy
+a responsive same-origin WebUI, credential-free portability, mounted-YAML
+inventory and takeover, and integrity-checked state recovery. Existing YAML
+configuration, SMTP and webhook inputs, routes, Discord and Teams targets,
+parsers, and formatters remain compatible. v2.0.2 displays mounted YAML inputs,
+destinations, and routes immediately; an administrator can preview a
+credential-redacted migration that creates automatic backups, imports secrets
+without returning them to the browser, and makes WebUI routes authoritative.
+The original YAML routes remain an inactive rollback fallback. Fresh installations and legacy
 configurations that omit the v2 switches enable the WebUI automatically;
 explicit `enabled: false` settings remain authoritative. First startup emits a
 short-lived, single-use setup token so the operator can choose the first
@@ -767,6 +770,7 @@ http:
 platform:
   enabled: true
   state_dir: "/notifinho/state"
+  routing_authority: "yaml"
   secure_cookies: true
 
 webui:
@@ -1026,6 +1030,13 @@ An output target is a reusable destination such as a Discord channel or Teams
 workflow. A source route references that target by name, so webhook URLs are
 defined once and are not copied into every rule. SMTP and native HTTP inputs
 use the same normalized source keys and the same router.
+
+On v2.0.2 upgrades, `yaml` remains the default authority and these entries are
+shown in the WebUI as active YAML-managed resources. After the administrator
+previews and confirms mounted-configuration takeover, Notifinho sets
+`platform.routing_authority: database`; the same SMTP and native HTTP events
+then use WebUI-managed routes while these YAML entries remain as rollback
+fallback.
 
 QNAP uses the same source-based routing model:
 
@@ -1700,6 +1711,22 @@ upgrade, and rollback guidance.
 Telegram and additional destination adapters remain candidates for the v2.x
 series after the core v2.0 transports and self-service security model are
 stable.
+
+---
+
+## ✅ v2.0.2 — Mounted configuration bridge
+
+v2.0.2 makes existing production configuration visible and safely manageable
+from the WebUI. The authenticated administrator sees YAML-managed inputs,
+Discord/Teams destinations, routes, credential state, and the active routing
+authority without exposing credential values. A previewed takeover creates an
+automatic platform-state backup and an atomic `config.yaml` backup, imports
+credentials directly inside the server, activates database-managed routing for
+legacy SMTP and webhook events, and retains the original YAML routes as an
+immediate fallback. Fingerprints, explicit confirmation, collision rejection,
+single-authority routing, and interrupted-migration rollback prevent stale or
+duplicate activation. See the
+[v2.0.2 release notes](docs/releases/v2.0.2.md).
 
 ---
 

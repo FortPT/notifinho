@@ -444,6 +444,29 @@ h3 {
   max-width: 650px;
 }
 
+.configuration-status {
+  align-items: center;
+  background: linear-gradient(135deg, rgba(245, 191, 100, 0.09), rgba(72, 214, 186, 0.07));
+  border: 1px solid rgba(245, 191, 100, 0.2);
+  border-radius: var(--radius);
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 1.1rem 1.3rem;
+}
+
+.configuration-status h3,
+.configuration-status p {
+  margin-bottom: 0;
+}
+
+.configuration-status p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-top: 0.25rem;
+}
+
 .metric-grid {
   display: grid;
   gap: 1rem;
@@ -695,6 +718,20 @@ h3 {
 
 .resource-actions .button {
   flex: 1 1 auto;
+}
+
+.yaml-resource {
+  border-style: dashed;
+}
+
+.resource-note {
+  color: var(--muted);
+  font-size: 0.74rem;
+  margin-bottom: 0;
+}
+
+.yaml-row {
+  background: rgba(245, 191, 100, 0.025);
 }
 
 .badge {
@@ -1036,6 +1073,44 @@ textarea:focus {
   margin: 0;
 }
 
+.configuration-card {
+  grid-column: 1 / -1;
+}
+
+.configuration-summary,
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.configuration-inputs {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.configuration-input {
+  align-items: center;
+  background: rgba(4, 14, 26, 0.4);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: space-between;
+  padding: 0.72rem 0.8rem;
+}
+
+.configuration-input strong,
+.configuration-input small {
+  display: block;
+}
+
+.configuration-input small {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
 .backup-card {
   grid-column: 1 / -1;
 }
@@ -1274,6 +1349,7 @@ dialog::backdrop {
   }
 
   .hero-panel,
+  .configuration-status,
   .section-toolbar,
   .danger-panel {
     align-items: stretch;

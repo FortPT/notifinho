@@ -5,9 +5,10 @@ Teams, Slack, generic outbound webhooks, MQTT, and ntfy. It uses the ownership,
 secret, route, retry, history, and audit services from Phases 1 and 2.
 
 Phase 4 exposes these adapters through authenticated, ownership-safe preview,
-test, and platform event endpoints. They remain disconnected from the existing
-YAML router; existing v1.x delivery remains authoritative for YAML inputs.
-See the [platform API guide](platform-api.md).
+test, and platform event endpoints. v2.0.2 also connects them to legacy SMTP
+and webhook events after the administrator confirms database routing authority;
+YAML delivery remains authoritative before that takeover. See the
+[platform API guide](platform-api.md).
 
 ## Common contract
 

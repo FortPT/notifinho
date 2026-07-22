@@ -243,6 +243,21 @@ def test_configuration_validation_accepts_disabled_platform_state():
     }) == []
 
 
+@pytest.mark.parametrize("authority", ["yaml", "database"])
+def test_configuration_validation_accepts_routing_authorities(authority):
+    assert validate_config({
+        "platform": {"routing_authority": authority},
+    }) == []
+
+
+@pytest.mark.parametrize("authority", ["", "both", "legacy", 1])
+def test_configuration_validation_rejects_unknown_routing_authorities(authority):
+    errors = validate_config({
+        "platform": {"routing_authority": authority},
+    })
+    assert "platform.routing_authority must be yaml or database" in errors
+
+
 @pytest.mark.parametrize("value", ["false", 0, 1, None, []])
 def test_configuration_validation_rejects_non_boolean_webui_switches(value):
     errors = validate_config({"webui": {"enabled": value}})

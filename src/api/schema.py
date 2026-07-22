@@ -108,6 +108,12 @@ def validate_config(data) -> list[str]:
             bool,
         ):
             errors.append("platform.secure_cookies must be a boolean")
+        if "routing_authority" in platform:
+            authority = str(platform.get("routing_authority") or "").casefold()
+            if authority not in {"yaml", "database"}:
+                errors.append(
+                    "platform.routing_authority must be yaml or database"
+                )
         if "backup_retention" in platform:
             retention = platform.get("backup_retention")
             if (

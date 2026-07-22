@@ -6,6 +6,7 @@ import os
 import shutil
 import tempfile
 
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +22,16 @@ class ConfigService:
 
     def read_masked(self) -> dict:
         return mask_secrets(self._read())
+
+    def snapshot(self) -> dict:
+        """Return an isolated server-side copy without exposing it to clients."""
+
+        return deepcopy(self._read())
+
+    def source_text(self) -> str:
+        """Read the mounted source for server-side fingerprinting and migration."""
+
+        return self.path.read_text(encoding="utf-8")
 
     def validate(self, data) -> list[str]:
         try:

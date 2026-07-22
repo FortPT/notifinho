@@ -4,8 +4,9 @@ Notifinho's v2 platform foundation uses SQLite and owner-only secret files. It
 does not require PostgreSQL, Redis, or another container. Platform state and
 the same-origin WebUI are enabled by default, while explicit
 `platform.enabled: false` and `webui.enabled: false` settings remain
-authoritative. Existing v1.x YAML configuration, tokens, routes, and delivery
-behavior remain independent and authoritative for the legacy pipeline.
+authoritative. Existing v1.x YAML configuration remains authoritative for the
+legacy pipeline until an administrator confirms the v2.0.2 takeover. Inputs
+and non-routing behavior continue to be YAML-managed afterward.
 
 ## Storage layout
 
@@ -85,6 +86,7 @@ platform:
   enabled: true
   state_dir: "/notifinho/state"
   backup_retention: 20
+  routing_authority: "yaml"
   secure_cookies: true
 ```
 
@@ -93,8 +95,10 @@ exist, every startup rotates a random 256-bit setup token, writes only its
 SHA-256 digest to SQLite, and prints the plaintext token once to container
 output. Open the WebUI over HTTPS, enter that token, and choose the first
 administrator username and password. The token expires after 30 minutes and is
-consumed immediately after successful setup. Neither platform state nor the
-WebUI replaces YAML routes.
+consumed immediately after successful setup. The WebUI inventories YAML routes
+without changing them. Only the separately previewed and confirmed takeover
+imports their supported destinations/routes and sets database authority; the
+YAML values remain as rollback fallback.
 
 ## Trusted recovery CLI
 

@@ -5,8 +5,10 @@ audit foundations through the `/api/v2` JSON API. It also provides the
 user/application event-ingestion path used by platform routes. Phase 5 adds a
 same-origin browser client for this contract; see the [WebUI guide](webui.md).
 
-The API does not include automatic v1.x YAML import or an implicit production
-migration. Existing YAML inputs and routes continue to operate independently.
+The API never performs an unconfirmed migration. v2.0.2 exposes a server-side,
+administrator-confirmed bridge for the mounted YAML configuration: inventory
+and preview are credential-free, apply creates automatic backups, and only the
+confirmed unchanged fingerprint can change legacy routing authority.
 
 ## Default and activation boundary
 
@@ -25,6 +27,7 @@ api:
 platform:
   enabled: true
   state_dir: "/notifinho/state"
+  routing_authority: "yaml"
   secure_cookies: true
 ```
 
@@ -104,6 +107,10 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | POST | `/api/v2/portability/import` | administrator + CSRF | apply fingerprinted JSON import |
 | POST | `/api/v2/migrations/v1/preview` | administrator + CSRF | preview v1.x YAML migration |
 | POST | `/api/v2/migrations/v1/import` | administrator + CSRF | apply fingerprinted YAML migration |
+| GET | `/api/v2/configuration/inventory` | administrator session | inspect mounted YAML without credentials |
+| POST | `/api/v2/configuration/migration/preview` | administrator + CSRF | fingerprint the mounted takeover |
+| POST | `/api/v2/configuration/migration/apply` | administrator + CSRF | back up, import, and activate the unchanged takeover |
+| PUT | `/api/v2/configuration/routing-authority` | administrator + CSRF | confirm YAML fallback or WebUI routing |
 | GET | `/api/v2/backups` | administrator session | list verified state backups |
 | POST | `/api/v2/backups` | administrator + CSRF | create a private state backup |
 | POST | `/api/v2/backups/{id}/restore` | administrator + CSRF | confirmed restore and session revocation |
@@ -202,8 +209,12 @@ messages are intentionally generic. Preview and test responses use bounded
 backend formatters and safe transport results. Delivery history and audit
 events are owner-filtered; administrators may inspect all retained records.
 
-Enabling the platform API does not import, modify, or disable existing YAML
-tokens, destinations, routes, or listeners. Platform events use only platform
-routes. Administrators may explicitly preview and import supported v1.x
-Discord/Teams targets and routes, but the migration never rewrites the YAML
-file. See the [data-portability guide](data-portability.md).
+Enabling the platform API alone does not import or modify existing YAML
+routing. The manual v1.x upload endpoints remain additive. The
+mounted-configuration endpoints are different: after preview, automatic
+state/configuration backups, and explicit confirmation, they import selected
+Discord/Teams targets and routes and atomically set
+`platform.routing_authority: database`. The YAML values remain in the file as
+an inactive rollback fallback and can be restored as authority with another
+confirmed, backed-up request. See the
+[data-portability guide](data-portability.md).

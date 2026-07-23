@@ -35,7 +35,7 @@ const SOURCE_ICONS = {
   xen_orchestra: "/ui/source-icons/xen-orchestra.png",
   xo: "/ui/source-icons/xen-orchestra.png",
   xenorchestra: "/ui/source-icons/xen-orchestra.png",
-  redfish: "/ui/source-icons/rest-api.svg",
+  redfish: "/ui/source-icons/redfish.jpg",
   restful: "/ui/source-icons/rest-api.svg",
   rest_api: "/ui/source-icons/rest-api.svg",
   grafana: "/ui/source-icons/grafana.png",

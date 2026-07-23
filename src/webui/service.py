@@ -90,6 +90,11 @@ class WebUIService:
                 "image/svg+xml",
                 "public, max-age=86400",
             ),
+            "/ui/source-icons/redfish.jpg": (
+                "assets/icons/redfish.jpg",
+                "image/jpeg",
+                "public, max-age=86400",
+            ),
         }
         for filename in (
             "xen-orchestra.png",

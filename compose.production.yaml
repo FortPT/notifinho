@@ -2,7 +2,7 @@ name: notifinho
 
 services:
   notifinho:
-    image: "${NOTIFINHO_IMAGE:-fortpt/notifinho:2.3.5}"
+    image: "${NOTIFINHO_IMAGE:-fortpt/notifinho:2.3.6}"
     container_name: notifinho
     restart: unless-stopped
     init: true

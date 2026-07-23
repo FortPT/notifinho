@@ -1,4 +1,4 @@
-/* Notifinho WebUI v2.3.6 scoped source icon polish. */
+/* Notifinho WebUI v2.3.7 fixed-box Overview icon normalization. */
 #restart-header-button {
   display: none !important;
 }
@@ -21,7 +21,7 @@
   width: 44px !important;
 }
 
-/* Keep every normal Overview source at the pre-v2.3.5 size. */
+/* Every Overview card and icon layout box matches Home Assistant. */
 .flow-node.source-node {
   min-height: 72px;
   overflow: visible;
@@ -29,34 +29,34 @@
 
 .flow-node.source-node .source-product-icon {
   height: 48px !important;
-  transform: none !important;
+  position: relative;
+  transform: scale(var(--overview-source-icon-scale, 1)) !important;
+  transform-origin: center;
   width: 48px !important;
+  z-index: 1;
 }
 
-/* Only the explicitly requested products are enlarged. */
+/* Only artwork is scaled. These rules never change width, height, or row size. */
 .flow-node.source-node .source-product-icon[data-source-key="*"],
 .flow-node.source-node .source-product-icon[src*="notifinho"] {
-  height: 60px !important;
-  transform: scale(1.08);
-  transform-origin: center;
-  width: 60px !important;
+  --overview-source-icon-scale: 1.22;
 }
 
-.flow-node.source-node .source-product-icon[data-source-key="dell_idrac"],
+.flow-node.source-node .source-product-icon[data-source-key="dell_idrac"] {
+  --overview-source-icon-scale: 1.90;
+}
+
 .flow-node.source-node .source-product-icon[data-source-key="unifi_network"],
-.flow-node.source-node .source-product-icon[data-source-key="unifi_protect"],
+.flow-node.source-node .source-product-icon[data-source-key="unifi_protect"] {
+  --overview-source-icon-scale: 1.35;
+}
+
 .flow-node.source-node .source-product-icon[data-source-key="qnap"] {
-  height: 68px !important;
-  transform: scale(1.18);
-  transform-origin: center;
-  width: 84px !important;
+  --overview-source-icon-scale: 1.45;
 }
 
 .flow-node.source-node .source-product-icon[data-source-key="synology"] {
-  height: 64px !important;
-  transform: scale(1.14);
-  transform-origin: center;
-  width: 78px !important;
+  --overview-source-icon-scale: 1.45;
 }
 
 .platform-menu {
@@ -151,24 +151,21 @@
 
   .flow-node.source-node .source-product-icon[data-source-key="*"],
   .flow-node.source-node .source-product-icon[src*="notifinho"] {
-    height: 52px !important;
-    transform: scale(1.06);
-    width: 52px !important;
+    --overview-source-icon-scale: 1.16;
   }
 
-  .flow-node.source-node .source-product-icon[data-source-key="dell_idrac"],
+  .flow-node.source-node .source-product-icon[data-source-key="dell_idrac"] {
+    --overview-source-icon-scale: 1.70;
+  }
+
   .flow-node.source-node .source-product-icon[data-source-key="unifi_network"],
-  .flow-node.source-node .source-product-icon[data-source-key="unifi_protect"],
-  .flow-node.source-node .source-product-icon[data-source-key="qnap"] {
-    height: 58px !important;
-    transform: scale(1.12);
-    width: 72px !important;
+  .flow-node.source-node .source-product-icon[data-source-key="unifi_protect"] {
+    --overview-source-icon-scale: 1.25;
   }
 
+  .flow-node.source-node .source-product-icon[data-source-key="qnap"],
   .flow-node.source-node .source-product-icon[data-source-key="synology"] {
-    height: 56px !important;
-    transform: scale(1.1);
-    width: 68px !important;
+    --overview-source-icon-scale: 1.30;
   }
 }
 

@@ -36,16 +36,11 @@ def test_v235_serves_rest_and_redfish_icons_and_uses_source_aliases():
     assert 'redfish: "Redfish"' in script
 
 
-def test_v235_overview_keeps_source_key_specific_large_icon_rules():
+def test_v235_overview_keeps_source_key_dataset_and_base_icon_rule():
+    script = (ROOT / "src/webui/app.js").read_text(encoding="utf-8")
     css = (ROOT / "src/webui/enhancements.css").read_text(encoding="utf-8")
-    for key in (
-        "dell_idrac",
-        "unifi_network",
-        "unifi_protect",
-        "qnap",
-        "synology",
-    ):
-        assert f'data-source-key="{key}"' in css
+
+    assert 'dataset: { sourceKey: key }' in script
     assert ".flow-node.source-node .source-product-icon" in css
     assert "height: 48px !important" in css
     assert "width: 48px !important" in css

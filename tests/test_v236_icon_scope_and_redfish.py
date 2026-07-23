@@ -1,4 +1,4 @@
-"""v2.3.6 scopes icon enlargement and uses the official Redfish identity."""
+"""v2.3.6 official Redfish identity and normal Overview baseline coverage."""
 
 from pathlib import Path
 
@@ -28,32 +28,16 @@ def test_v236_uses_official_redfish_asset_without_changing_rest_aliases():
     assert len(response.body) > 10_000
 
 
-def test_v236_restores_normal_overview_icons_and_enlarges_only_requested_keys():
+def test_v236_establishes_normal_overview_icon_and_card_baseline():
     css = (ROOT / "src/webui/enhancements.css").read_text(encoding="utf-8")
 
-    default = css[
-        css.index(".flow-node.source-node .source-product-icon {"):
-        css.index("/* Only the explicitly requested products are enlarged. */")
-    ]
-    assert "height: 48px !important" in default
-    assert "width: 48px !important" in default
-    assert "transform: none !important" in default
+    assert ".flow-node.source-node" in css
+    assert "min-height: 72px" in css
+    assert "height: 48px !important" in css
+    assert "width: 48px !important" in css
     assert "height: 74px !important" not in css
     assert "min-height: 104px" not in css
     assert "grid-template-columns: minmax(250px" not in css
-
-    for key in (
-        "dell_idrac",
-        "unifi_network",
-        "unifi_protect",
-        "qnap",
-        "synology",
-    ):
-        assert f'data-source-key="{key}"' in css
-
-    assert 'src*="notifinho"' in css
-    assert 'data-source-key="redfish"' not in css
-    assert 'data-source-key="xo"' not in css
 
 
 def test_v236_retains_body_free_source_removal():

@@ -1,8 +1,8 @@
 "use strict";
 
-
-/* Notifinho WebUI runtime polish: persistent views, header actions, source-aware tests,
- * scheduled update checks, and locale-respecting backup time entry.
+/* Notifinho WebUI final polish: persistent views, header actions, source-aware
+ * tests, scheduled update checks, regional backup time, and reliable
+ * inactive-source removal.
  */
 (() => {
   const VIEW_STORAGE_KEY = "notifinho.active-view";
@@ -22,7 +22,7 @@
     try {
       storage.setItem(key, value);
     } catch (_error) {
-      // Storage can be unavailable in privacy-restricted browser contexts.
+      // Some privacy-restricted browser contexts can disable storage.
     }
   }
 
@@ -351,21 +351,43 @@
     if (restart) restart.hidden = !isAdmin();
   }
 
-  function restorePersistedView() {
+  function desiredView() {
     const requested = window.location.hash.slice(1);
+    if (VIEW_TITLES[requested]) return requested;
     const stored = storageRead(window.sessionStorage, VIEW_STORAGE_KEY);
-    if ((!requested || !VIEW_TITLES[requested]) && VIEW_TITLES[stored]) {
-      window.history.replaceState(null, "", `#${stored}`);
+    return VIEW_TITLES[stored] ? stored : "";
+  }
+
+  function persistDesiredView(view) {
+    if (!view || !VIEW_TITLES[view]) return;
+    storageWrite(window.sessionStorage, VIEW_STORAGE_KEY, view);
+    if (window.location.hash !== `#${view}`) {
+      window.history.replaceState(null, "", `#${view}`);
     }
+  }
+
+  function restorePersistedView() {
+    const view = desiredView();
+    if (view) persistDesiredView(view);
+  }
+
+  let originalNavigate = navigate;
+
+  function ensureRequestedView() {
+    const view = desiredView();
+    if (!view || !VIEW_TITLES[view]) return;
+    if (state.currentView !== view && typeof originalNavigate === "function") {
+      originalNavigate(view);
+    }
+    persistDesiredView(view);
   }
 
   restorePersistedView();
   installHeaderMenu();
 
-  const originalNavigate = navigate;
   navigate = function enhancedNavigate(view) {
     const result = originalNavigate(view);
-    storageWrite(window.sessionStorage, VIEW_STORAGE_KEY, state.currentView);
+    persistDesiredView(state.currentView || view);
     return result;
   };
 
@@ -373,6 +395,7 @@
   showApp = function enhancedShowApp(session) {
     const result = originalShowApp(session);
     syncHeaderMenu();
+    window.setTimeout(() => ensureRequestedView(), 0);
     return result;
   };
 
@@ -390,6 +413,7 @@
     if (!checkedAt || Date.now() - checkedAt >= UPDATE_INTERVAL_MS) {
       window.setTimeout(() => checkForUpdates(), 250);
     }
+    window.setTimeout(() => ensureRequestedView(), 0);
     return result;
   };
 
@@ -450,6 +474,10 @@
       }
     }, true);
   }
+
+  window.addEventListener("pageshow", () => {
+    window.setTimeout(() => ensureRequestedView(), 0);
+  });
 
   window.setInterval(() => {
     if (state.user && document.visibilityState !== "hidden") checkForUpdates();

@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.3.3**.
+The current stable release is **v2.3.4**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -104,12 +104,12 @@ up, and written atomically to the same file. SQLite remains a private mirror
 for history, preview/test delivery, and retries; it is not a competing fallback
 configuration.
 
-The v2.3.3 WebUI retains the current page across reloads, replaces the
-standalone restart button with a compact operations menu, performs bounded
-checks against the official GitHub releases API, presents source icons without
-white tiles, permits wildcard-safe inactive-source removal, sends source-aware
-destination tests, and makes scheduled backup time follow the selected regional
-clock preference.
+The v2.3.4 WebUI finalizes the requested presentation and lifecycle fixes:
+Notifinho is slightly larger, Dell iDRAC, UniFi Network, UniFi Protect, and
+QNAP are much larger, Synology is larger, F5 returns to the current page,
+inactive-source removal accepts the browser payload shape, and the bounded
+GitHub update checks, source-aware destination tests, and regional backup-clock
+behaviour continue unchanged.
 
 The v2.3.2 WebUI uses official vendor source icons, purpose-specific source
 categories, safe inactive-source removal, wildcard-aware activity, generic

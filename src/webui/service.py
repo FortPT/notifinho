@@ -103,6 +103,10 @@ class WebUIService:
     def redirect_location(self, path: str, headers) -> str | None:
         """Return the configured HTTPS public URL for plain-HTTP UI requests."""
 
+        if self.configuration.get(
+            "webui", "enforce_https", default=False
+        ) is not True:
+            return None
         public_url = str(
             self.configuration.get("webui", "public_url", default="") or ""
         ).strip().rstrip("/")

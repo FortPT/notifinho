@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+## 2.3.1 - 2026-07-23
+
+### Fixed
+
+- Allowed direct HTTP WebUI login on trusted networks by making HTTPS
+  redirection explicit and defaulting new installations to non-Secure cookies.
+- Replaced the header connection, refresh, and sign-out controls with a profile
+  picture dropdown containing Security and Sign out.
+- Fixed administrator notice create/update rendering without F5 by retaining
+  the form reference across the asynchronous request.
+- Corrected Home Assistant API and vendor Redfish input names in Routing Flow,
+  Routes, and Sources.
+- Automatically enables managed mounting when an NFS or SMB destination is
+  saved through the WebUI.
+- Made scheduled-backup display follow the selected 12/24-hour preference.
+- Added a bitmap/data-URL profile-picture decode fallback before drag/zoom crop.
+
+### Added
+
+- Added Sources and Updates views plus administrator-editable source tags.
+- Added category-specific source colours, stopped yellow disabled flows, moving
+  red error crosses, and blue information deliveries.
+
+### Changed
+
+- Metric cards now explicitly count Active Sources, Active Destinations, and
+  Active Routes.
+- Moved Audit Log row selection to the bottom and increased spacing before
+  Restart Notifinho.
+- Platform schema remains 6 and v2.3.0 configuration/state are directly
+  compatible.
+
 ## 2.3.0 - 2026-07-23
 
 ### Added

@@ -5,7 +5,7 @@ audit foundations through the `/api/v2` JSON API. It also provides the
 user/application event-ingestion path used by platform routes. Phase 5 adds a
 same-origin browser client for this contract; see the [WebUI guide](webui.md).
 
-v2.3.0 exposes credential-free mounted YAML metadata, administrator-only
+v2.3.1 exposes credential-free mounted YAML metadata, administrator-only
 atomic mutations, notice lifecycle controls, backup destinations, and audited
 restart. The browser never receives destination, application-token, or remote
 share credential material.
@@ -28,15 +28,16 @@ platform:
   enabled: true
   state_dir: "/notifinho/state"
   configuration_model: "unified_yaml_v1"
-  secure_cookies: true
+  secure_cookies: false
 ```
 
 On an empty database, `GET /api/v2/bootstrap` reports that setup is required.
 The image prints a short-lived, single-use setup token to container output;
 `POST /api/v2/bootstrap` consumes it while creating the first administrator
-and browser session. Keep `secure_cookies: true` behind HTTPS. The `false` value is
-only for isolated loopback development because a browser will otherwise send
-the session cookie over plain HTTP.
+and browser session. The `false` value permits direct HTTP login only on a
+trusted private network because a browser sends the session cookie without
+transport encryption. Use `secure_cookies: true`, `webui.enforce_https: true`,
+and a TLS reverse proxy for untrusted or Internet-facing access.
 
 Do not expose port 8080 directly to the Internet. Terminate TLS at a trusted
 reverse proxy, apply firewall restrictions, preserve the original client
@@ -84,6 +85,8 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | GET | `/api/v2/users/{id}/routes` | administrator session | list an owner's routes |
 | PUT | `/api/v2/account/password` | session + CSRF | change the current password |
 | PUT/DELETE | `/api/v2/account/avatar` | session + CSRF | set or remove the current profile picture |
+| GET/PUT | `/api/v2/source-categories` | session / administrator + CSRF for PUT | list or update source presentation tags |
+| GET | `/api/v2/version` | session | return running and advertised update versions |
 | GET/POST | `/api/v2/notices` | session / administrator + CSRF | list or publish operational notices |
 | POST | `/api/v2/notices/{id}/dismiss` | session + CSRF | dismiss an ordinary notice for this account |
 | PATCH/DELETE | `/api/v2/notices/{id}` | administrator + CSRF | edit or resolve an administrator notice |

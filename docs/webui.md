@@ -23,11 +23,12 @@ platform:
   enabled: true
   state_dir: "/notifinho/state"
   configuration_model: "unified_yaml_v1"
-  secure_cookies: true
+  secure_cookies: false
 
 webui:
   enabled: true
-  public_url: "https://notifinho.example.com"
+  public_url: ""
+  enforce_https: false
   language: "en-GB"
 
 presentation:
@@ -36,26 +37,28 @@ presentation:
 ```
 
 On the first start, read the single-use setup token from container output and
-open the HTTPS URL for port 8080. The first-run screen lets you choose the
+open the HTTP URL for port 8080 on the trusted LAN. The first-run screen lets you choose the
 administrator username and password. No default account exists, and no shell
 command is required. The interface is served at `/`; packaged assets live
 below `/ui/`.
 
-`webui.public_url` is optional. When it contains the canonical HTTPS URL, a
-plain-HTTP WebUI request receives a 308 redirect before login. Notifinho does
-not provision a certificate or HTTPS listener; the configured reverse proxy
-must terminate TLS at that URL. Forwarded HTTPS requests are served normally.
+`webui.public_url` is optional. A plain-HTTP WebUI request receives a 308
+redirect only when the canonical URL is set and `webui.enforce_https: true`.
+Notifinho does not provision a certificate or HTTPS listener; the configured
+reverse proxy must terminate TLS at that URL.
 
-Keep `platform.secure_cookies: true` outside isolated loopback development.
-The login session is unusable over plain HTTP with secure cookies enabled by
-design. Terminate TLS at a trusted reverse proxy and do not expose port 8080
-directly to the Internet.
+Use `platform.secure_cookies: false` only on a trusted private network. Set it
+to `true` with HTTPS enforcement for Internet-facing or reverse-proxied access.
+The login session is intentionally unusable over plain HTTP when Secure cookies
+are enabled.
 
 ## Included workflows
 
 - local login, logout, current-session status, and password change;
 - administrator notice publishing, per-user ordinary-notice dismissal, and
   lifecycle-bound system error/update notices;
+- a profile-picture dropdown for Security and Sign out, plus dedicated Sources
+  and Updates views;
 - responsive overview with every active, disabled, or unhealthy source → route
   → destination path, five server-side history ranges, and recent deliveries;
 - private/shared destination creation, editing, enable/disable, deletion,
@@ -70,7 +73,7 @@ directly to the Internet.
 - searchable semantic device/event/input delivery history, audit events with
   selectable 25–500-row page sizes, and operational health checks;
 - administrator account creation, enable/disable, and password reset plus a
-  movable, zoomable circular crop for account-owned profile pictures;
+  resiliently decoded, movable, zoomable circular crop for account pictures;
 - separate administrator Inputs and Backups views, named Local/NFS/SMB backup
   targets, private state backup, scheduled or manual copies, safe JSON
   export/import, mounted YAML synchronization, and confirmed restore;

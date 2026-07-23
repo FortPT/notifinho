@@ -110,8 +110,29 @@ def validate_config(data) -> list[str]:
     if isinstance(webui, dict):
         if "enabled" in webui and not isinstance(webui.get("enabled"), bool):
             errors.append("webui.enabled must be a boolean")
+        if "enforce_https" in webui and not isinstance(
+            webui.get("enforce_https"), bool
+        ):
+            errors.append("webui.enforce_https must be a boolean")
         if "language" in webui and webui.get("language") not in {"en-GB", "pt-PT"}:
             errors.append("webui.language must be en-GB or pt-PT")
+        source_categories = webui.get("source_categories", {})
+        if not isinstance(source_categories, dict):
+            errors.append("webui.source_categories must be an object")
+        else:
+            allowed_categories = {
+                "servers", "services", "applications", "storage", "controllers",
+            }
+            for source, category in source_categories.items():
+                if not re.fullmatch(
+                    r"[a-z0-9][a-z0-9_.-]{0,79}",
+                    str(source or "").strip().casefold(),
+                ):
+                    errors.append("webui.source_categories contains an invalid source")
+                    break
+                if str(category or "").strip().casefold() not in allowed_categories:
+                    errors.append("webui.source_categories contains an invalid category")
+                    break
         public_url = str(webui.get("public_url") or "").strip()
         if public_url and not re.fullmatch(r"https://[^/\s]+(?:/[^\s]*)?", public_url):
             errors.append("webui.public_url must be an HTTPS URL")

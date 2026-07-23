@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.3.0-blue" alt="Stable release v2.3.0">
+  <img src="https://img.shields.io/badge/stable-v2.3.1-blue" alt="Stable release v2.3.1">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.3.0** |
+| **Current Stable Release** | **v2.3.1** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,9 +57,10 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.3.0 release notes](docs/releases/v2.3.0.md) for upgrade, rollback,
-security, and release-acceptance guidance. The complete operator walkthrough
-is in the [v2.3.0 acceptance checklist](docs/v2.3.0-acceptance-checklist.md).
+See the [v2.3.1 release notes](docs/releases/v2.3.1.md) for the corrective
+upgrade, HTTP/HTTPS login modes, and managed NFS/SMB deployment guidance. The
+complete operator walkthrough is in the
+[v2.3.1 acceptance checklist](docs/v2.3.1-acceptance-checklist.md).
 
 Notifinho v2 adds a self-hosted notification platform with local
 accounts, user-owned destinations and routes, scoped application tokens,
@@ -785,10 +786,12 @@ platform:
   enabled: true
   state_dir: "/notifinho/state"
   configuration_model: "unified_yaml_v1"
-  secure_cookies: true
+  secure_cookies: false
 
 webui:
   enabled: true
+  public_url: ""
+  enforce_https: false
   language: "en-GB"
 
 presentation:
@@ -1728,6 +1731,23 @@ upgrade, and rollback guidance.
 Telegram and additional destination adapters remain candidates for the v2.x
 series after the core v2.0 transports and self-service security model are
 stable.
+
+---
+
+## ✅ v2.3.1 — WebUI corrective release
+
+v2.3.1 closes the post-v2.3.0 WebUI findings: trusted-LAN HTTP login, a profile
+dropdown, immediate notices without F5, editable source tags, accurate input
+labels, active-resource counts, semantic route animation, blue informational
+deliveries, bottom Audit pagination, automatic managed-mount selection, global
+12/24-hour backup presentation, and resilient avatar decoding/cropping.
+
+The SQLite schema remains 6. Existing v2.3.0 state and configuration can be
+used directly. Remote NFS/SMB auto-mounting still requires the dedicated
+managed-backup Compose override because Linux mount capability cannot be added
+from inside a running unprivileged container. See the
+[v2.3.1 release notes](docs/releases/v2.3.1.md) and
+[acceptance checklist](docs/v2.3.1-acceptance-checklist.md).
 
 ---
 

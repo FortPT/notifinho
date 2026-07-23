@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.3.0**.
+The current stable release is **v2.3.1**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -104,13 +104,13 @@ up, and written atomically to the same file. SQLite remains a private mirror
 for history, preview/test delivery, and retries; it is not a competing fallback
 configuration.
 
-The v2.3.0 WebUI adds immediate notice and audit updates, source categories and
-real input transports, animated route flow, channel-aware destination tests,
-semantic Delivery History, avatar cropping, and separate Inputs and Backups
-views. Backups support named Local, NFS, and SMB targets, connection/write
-tests, manual runs, and schedules. Host-mounted shares remain recommended; the
-repository documents an explicit privileged override for deployments that
-require application-managed remote mounts.
+The v2.3.1 WebUI adds trusted-LAN HTTP login, a profile Security/Sign out menu,
+editable source tags, accurate API/Redfish input names, active-resource counts,
+semantic route state animation, blue information deliveries, bottom Audit row
+selection, automatic managed-mount selection, 12/24-hour backup presentation,
+and resilient avatar decoding/cropping. Backups support named Local, NFS, and
+SMB targets, real write tests, manual runs, and schedules. Managed NFS/SMB
+mounting requires the repository's explicit privileged Compose override.
 
 ```yaml
 http:

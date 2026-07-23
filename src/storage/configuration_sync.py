@@ -461,6 +461,55 @@ class UnifiedConfigurationService:
         self._audit(actor, "preferences.update", "success", self.preferences())
         return self.preferences()
 
+    def source_categories(self) -> dict[str, str]:
+        self.synchronize()
+        webui = self.config_service.configuration.get("webui", default={}) or {}
+        values = webui.get("source_categories") if isinstance(webui, dict) else {}
+        if not isinstance(values, dict):
+            return {}
+        allowed = {"servers", "services", "applications", "storage", "controllers"}
+        return {
+            str(source).strip().casefold(): str(category).strip().casefold()
+            for source, category in values.items()
+            if re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,79}", str(source).strip().casefold())
+            and str(category).strip().casefold() in allowed
+        }
+
+    def update_source_category(
+        self,
+        actor: Actor,
+        source: str,
+        category: str,
+    ) -> dict[str, str]:
+        self._require_admin(actor)
+        self._ready()
+        source_name = str(source or "").strip().casefold()
+        category_name = str(category or "").strip().casefold()
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,79}", source_name):
+            raise ValueError("source name is invalid")
+        if category_name not in {
+            "servers", "services", "applications", "storage", "controllers",
+        }:
+            raise ValueError("source category is invalid")
+        candidate = self.config_service.snapshot()
+        webui = candidate.setdefault("webui", {})
+        categories = webui.setdefault("source_categories", {})
+        if not isinstance(categories, dict):
+            raise ValueError("webui.source_categories must be an object")
+        categories[source_name] = category_name
+        errors = validate_config(candidate)
+        if errors:
+            raise ValueError("; ".join(errors))
+        self.config_service.replace(candidate)
+        self.synchronize(force=True)
+        self._audit(
+            actor,
+            "source.category.update",
+            "success",
+            {"source": source_name, "category": category_name},
+        )
+        return self.source_categories()
+
     def update_input(self, actor: Actor, name: str, enabled: bool) -> dict:
         self._require_admin(actor)
         self._ready()

@@ -87,6 +87,45 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.3.1 corrective WebUI upgrade
+
+v2.3.1 keeps platform schema 6. Stop the container, copy the complete
+configuration and state mounts, then change only the image from `2.3.0` to
+`2.3.1`.
+
+For trusted-LAN HTTP login:
+
+```yaml
+platform:
+  secure_cookies: false
+webui:
+  public_url: ""
+  enforce_https: false
+```
+
+For reverse-proxied HTTPS:
+
+```yaml
+platform:
+  secure_cookies: true
+webui:
+  public_url: "https://notifinho.example.com"
+  enforce_https: true
+```
+
+Saving an NFS or SMB destination enables managed mounts automatically. Start
+the service with both Compose files when using that feature:
+
+```bash
+docker compose \
+  -f compose.production.yaml \
+  -f compose.managed-backups.yaml \
+  up -d
+```
+
+Complete the
+[v2.3.1 acceptance checklist](v2.3.1-acceptance-checklist.md) before production.
+
 ## v2.3.0 WebUI and backup-destination upgrade
 
 Stop the existing container and copy the complete configuration and state
@@ -120,9 +159,9 @@ host and backup path. SMB secrets are encrypted in private state and remain
 write-only, but moving mount authority into the container increases impact if
 the application is compromised.
 
-For HTTP entry, set `webui.public_url` to the external HTTPS URL. The reverse
-proxy supplies TLS; Notifinho redirects only browser WebUI requests and does
-not manufacture an HTTPS endpoint.
+For enforced HTTPS entry, set `webui.public_url` to the external HTTPS URL and
+`webui.enforce_https: true`. The reverse proxy supplies TLS; Notifinho redirects
+only browser WebUI requests and does not manufacture an HTTPS endpoint.
 
 After deployment, complete the
 [v2.3.0 acceptance checklist](v2.3.0-acceptance-checklist.md).

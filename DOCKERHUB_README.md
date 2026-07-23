@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.3.2**.
+The current stable release is **v2.3.3**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -103,6 +103,13 @@ edits appear in the WebUI, and administrator WebUI edits are validated, backed
 up, and written atomically to the same file. SQLite remains a private mirror
 for history, preview/test delivery, and retries; it is not a competing fallback
 configuration.
+
+The v2.3.3 WebUI retains the current page across reloads, replaces the
+standalone restart button with a compact operations menu, performs bounded
+checks against the official GitHub releases API, presents source icons without
+white tiles, permits wildcard-safe inactive-source removal, sends source-aware
+destination tests, and makes scheduled backup time follow the selected regional
+clock preference.
 
 The v2.3.2 WebUI uses official vendor source icons, purpose-specific source
 categories, safe inactive-source removal, wildcard-aware activity, generic

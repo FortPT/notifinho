@@ -11,7 +11,7 @@ SECURITY_HEADERS = (
     (
         "Content-Security-Policy",
         "default-src 'none'; script-src 'self'; style-src 'self'; "
-        "img-src 'self' data:; connect-src 'self'; base-uri 'none'; "
+        "img-src 'self' data:; connect-src 'self' https://api.github.com; base-uri 'none'; "
         "form-action 'self'; frame-ancestors 'none'",
     ),
     ("Cross-Origin-Opener-Policy", "same-origin"),
@@ -56,8 +56,18 @@ class WebUIService:
                 "text/javascript; charset=utf-8",
                 "no-cache",
             ),
+            "/ui/enhancements.js": (
+                "src/webui/enhancements.js",
+                "text/javascript; charset=utf-8",
+                "no-cache",
+            ),
             "/ui/styles.css": (
                 "src/webui/styles.css",
+                "text/css; charset=utf-8",
+                "no-cache",
+            ),
+            "/ui/enhancements.css": (
+                "src/webui/enhancements.css",
                 "text/css; charset=utf-8",
                 "no-cache",
             ),

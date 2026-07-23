@@ -117,7 +117,7 @@ def test_source_categories_migrate_legacy_values_and_removal_is_persistent(
     assert saved["webui"]["removed_sources"] == []
 
 
-def test_source_removal_rejects_enabled_exact_and_wildcard_routes():
+def test_source_removal_ignores_wildcard_and_rejects_enabled_exact_route():
     actor = Actor("admin-user", "admin")
 
     class Sync:
@@ -141,16 +141,25 @@ def test_source_removal_rejects_enabled_exact_and_wildcard_routes():
     api.configuration_sync = Sync([
         SimpleNamespace(source="*", enabled=True),
     ])
-    try:
-        api._source_categories_endpoint(
-            "DELETE",
-            {"source": "dell_idrac"},
-            actor,
-        )
-    except ValueError as error:
-        assert "active sources" in str(error)
-    else:
-        raise AssertionError("enabled wildcard route must block source removal")
+    response = api._source_categories_endpoint(
+        "DELETE",
+        {"source": "dell_idrac"},
+        actor,
+    )
+    assert response.status == 200
+    assert response.payload["removed_sources"] == ["dell_idrac"]
+
+    api.configuration_sync = Sync([
+        SimpleNamespace(source="dell_idrac", enabled=True),
+    ])
+    response = api._source_categories_endpoint(
+        "DELETE",
+        {"source": "dell_idrac"},
+        actor,
+    )
+    assert response.status == 409
+    assert "enabled route" in response.payload["error"]
+    assert api.configuration_sync.removed == []
 
     api.configuration_sync = Sync([
         SimpleNamespace(source="dell_idrac", enabled=False),

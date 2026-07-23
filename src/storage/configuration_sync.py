@@ -28,6 +28,24 @@ CONFIGURATION_MODEL = "unified_yaml_v1"
 _SYNC_LOCK = threading.RLock()
 _TARGET = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$")
 _ROUTE_ID = re.compile(r"^[0-9a-f]{12,32}$")
+_SOURCE = re.compile(r"^[a-z0-9][a-z0-9_.-]{0,79}$")
+_SOURCE_CATEGORY_ALIASES = {
+    "servers": "hardware",
+    "services": "monitoring",
+    "applications": "generic",
+    "controllers": "networking",
+}
+_SOURCE_CATEGORIES = {
+    "virtualization",
+    "monitoring",
+    "storage",
+    "networking",
+    "hardware",
+    "automation",
+    "containers",
+    "security",
+    "generic",
+}
 _INTERNAL_OUTPUT_FIELDS = {
     "enabled",
     "name",
@@ -467,13 +485,30 @@ class UnifiedConfigurationService:
         values = webui.get("source_categories") if isinstance(webui, dict) else {}
         if not isinstance(values, dict):
             return {}
-        allowed = {"servers", "services", "applications", "storage", "controllers"}
         return {
-            str(source).strip().casefold(): str(category).strip().casefold()
+            str(source).strip().casefold(): _SOURCE_CATEGORY_ALIASES.get(
+                str(category).strip().casefold(),
+                str(category).strip().casefold(),
+            )
             for source, category in values.items()
-            if re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,79}", str(source).strip().casefold())
-            and str(category).strip().casefold() in allowed
+            if _SOURCE.fullmatch(str(source).strip().casefold())
+            and _SOURCE_CATEGORY_ALIASES.get(
+                str(category).strip().casefold(),
+                str(category).strip().casefold(),
+            ) in _SOURCE_CATEGORIES
         }
+
+    def removed_sources(self) -> list[str]:
+        self.synchronize()
+        webui = self.config_service.configuration.get("webui", default={}) or {}
+        values = webui.get("removed_sources") if isinstance(webui, dict) else []
+        if not isinstance(values, list):
+            return []
+        return sorted({
+            str(source).strip().casefold()
+            for source in values
+            if _SOURCE.fullmatch(str(source).strip().casefold())
+        })
 
     def update_source_category(
         self,
@@ -485,11 +520,10 @@ class UnifiedConfigurationService:
         self._ready()
         source_name = str(source or "").strip().casefold()
         category_name = str(category or "").strip().casefold()
-        if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,79}", source_name):
+        if not _SOURCE.fullmatch(source_name):
             raise ValueError("source name is invalid")
-        if category_name not in {
-            "servers", "services", "applications", "storage", "controllers",
-        }:
+        category_name = _SOURCE_CATEGORY_ALIASES.get(category_name, category_name)
+        if category_name not in _SOURCE_CATEGORIES:
             raise ValueError("source category is invalid")
         candidate = self.config_service.snapshot()
         webui = candidate.setdefault("webui", {})
@@ -497,6 +531,12 @@ class UnifiedConfigurationService:
         if not isinstance(categories, dict):
             raise ValueError("webui.source_categories must be an object")
         categories[source_name] = category_name
+        removed = webui.get("removed_sources", [])
+        if isinstance(removed, list):
+            webui["removed_sources"] = [
+                value for value in removed
+                if str(value).strip().casefold() != source_name
+            ]
         errors = validate_config(candidate)
         if errors:
             raise ValueError("; ".join(errors))
@@ -509,6 +549,41 @@ class UnifiedConfigurationService:
             {"source": source_name, "category": category_name},
         )
         return self.source_categories()
+
+    def remove_source(self, actor: Actor, source: str) -> None:
+        self._require_admin(actor)
+        self._ready()
+        source_name = str(source or "").strip().casefold()
+        if not _SOURCE.fullmatch(source_name):
+            raise ValueError("source name is invalid")
+        candidate = self.config_service.snapshot()
+        webui = candidate.setdefault("webui", {})
+        categories = webui.setdefault("source_categories", {})
+        if not isinstance(categories, dict):
+            raise ValueError("webui.source_categories must be an object")
+        categories.pop(source_name, None)
+        removed = webui.setdefault("removed_sources", [])
+        if not isinstance(removed, list):
+            raise ValueError("webui.removed_sources must be a list")
+        webui["removed_sources"] = sorted({
+            *(
+                str(value).strip().casefold()
+                for value in removed
+                if _SOURCE.fullmatch(str(value).strip().casefold())
+            ),
+            source_name,
+        })
+        errors = validate_config(candidate)
+        if errors:
+            raise ValueError("; ".join(errors))
+        self.config_service.replace(candidate)
+        self.synchronize(force=True)
+        self._audit(
+            actor,
+            "source.remove",
+            "success",
+            {"source": source_name},
+        )
 
     def update_input(self, actor: Actor, name: str, enabled: bool) -> dict:
         self._require_admin(actor)

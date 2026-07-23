@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.3.1-blue" alt="Stable release v2.3.1">
+  <img src="https://img.shields.io/badge/stable-v2.3.2-blue" alt="Stable release v2.3.2">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.3.1** |
+| **Current Stable Release** | **v2.3.2** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,10 +57,11 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.3.1 release notes](docs/releases/v2.3.1.md) for the corrective
-upgrade, HTTP/HTTPS login modes, and managed NFS/SMB deployment guidance. The
+See the [v2.3.2 release notes](docs/releases/v2.3.2.md) for the corrective
+upgrade, source-management, HTTP/HTTPS cookie migration, and managed NFS/SMB
+deployment guidance. The
 complete operator walkthrough is in the
-[v2.3.1 acceptance checklist](docs/v2.3.1-acceptance-checklist.md).
+[v2.3.2 acceptance checklist](docs/v2.3.2-acceptance-checklist.md).
 
 Notifinho v2 adds a self-hosted notification platform with local
 accounts, user-owned destinations and routes, scoped application tokens,
@@ -95,6 +96,12 @@ History, live Audit Log updates, avatar cropping, an audited restart control,
 and separate Inputs and Backups pages. Backup destinations can now be named
 Local, NFS, or SMB targets with connectivity/write tests and manual or
 scheduled execution; host-mounted shares remain the safest default.
+
+v2.3.2 completes the follow-up production corrections: vendor source icons and
+purpose-specific categories, safe removal of inactive sources, accurate
+wildcard-route activity, destination-branded test events, a header restart
+control, dual HTTP/HTTPS cookie migration, and a directly usable managed-mount
+Compose profile including NFSv3 backup behavior in the read-only container.
 
 ---
 
@@ -1731,6 +1738,30 @@ upgrade, and rollback guidance.
 Telegram and additional destination adapters remain candidates for the v2.x
 series after the core v2.0 transports and self-service security model are
 stable.
+
+---
+
+## ✅ v2.3.2 — Source identity and managed-mount corrections
+
+v2.3.2 completes the production findings from v2.3.1. Overview and Sources use
+the packaged official vendor icons, unknown sources use the Notifinho icon, and
+purpose-specific categories replace the old broad visual tags. Enabled All
+Sources routes now mark discovered sources Active. Administrators may remove an
+inactive source only after confirmation; active exact or wildcard routing
+blocks removal and historical deliveries are retained.
+
+Destination-card tests now use the selected destination name and generic
+Notifinho identity instead of Home Assistant branding. The audited Restart
+action moves from Settings to the top-right header. Session lookup prefers the
+cookie matching the configured HTTP/HTTPS mode, preventing an old Secure cookie
+from overriding a new dual-access login.
+
+The managed-backup Compose override now includes the exact root capability set
+required for existing UID-owned configuration, log, and state mounts.
+Application-managed NFS backups use `nolock`, avoiding `rpc.statd` runtime
+files inside the read-only container while preserving the backup archive
+workflow. See the [v2.3.2 release notes](docs/releases/v2.3.2.md) and
+[acceptance checklist](docs/v2.3.2-acceptance-checklist.md).
 
 ---
 

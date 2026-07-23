@@ -303,14 +303,20 @@ class BackupTargetStore:
 
     def _mount(self, actor: Actor, target: BackupTarget, local: Path) -> None:
         common = "rw,nosuid,nodev,noexec"
-        options = ",".join(value for value in (common, target.mount_options) if value)
         if target.target_type == "nfs":
+            # Backup archives do not use advisory locks. Disabling NLM avoids
+            # starting rpc.statd, which cannot create runtime state inside the
+            # intentionally read-only application container.
+            options = ",".join(
+                value for value in (common, "nolock", target.mount_options) if value
+            )
             command = [
                 "mount", "-t", "nfs", "-o", options,
                 f"{target.host}:{target.remote_path}", str(local),
             ]
             self._run_mount(command)
             return
+        options = ",".join(value for value in (common, target.mount_options) if value)
         secret_id = self._secret_id(target.id)
         password = ""
         if secret_id:

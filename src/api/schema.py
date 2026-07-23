@@ -121,7 +121,9 @@ def validate_config(data) -> list[str]:
             errors.append("webui.source_categories must be an object")
         else:
             allowed_categories = {
-                "servers", "services", "applications", "storage", "controllers",
+                "servers", "services", "applications", "controllers",
+                "virtualization", "monitoring", "storage", "networking",
+                "hardware", "automation", "containers", "security", "generic",
             }
             for source, category in source_categories.items():
                 if not re.fullmatch(
@@ -133,6 +135,15 @@ def validate_config(data) -> list[str]:
                 if str(category or "").strip().casefold() not in allowed_categories:
                     errors.append("webui.source_categories contains an invalid category")
                     break
+        removed_sources = webui.get("removed_sources", [])
+        if not isinstance(removed_sources, list) or not all(
+            re.fullmatch(
+                r"[a-z0-9][a-z0-9_.-]{0,79}",
+                str(source or "").strip().casefold(),
+            )
+            for source in removed_sources
+        ):
+            errors.append("webui.removed_sources must be a list of source names")
         public_url = str(webui.get("public_url") or "").strip()
         if public_url and not re.fullmatch(r"https://[^/\s]+(?:/[^\s]*)?", public_url):
             errors.append("webui.public_url must be an HTTPS URL")

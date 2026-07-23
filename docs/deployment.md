@@ -87,6 +87,36 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.3.2 corrective upgrade
+
+v2.3.2 keeps platform schema 6. Stop the container and copy the complete
+configuration, state, log, and secrets mounts before changing the image from
+`2.3.1` to `2.3.2`.
+
+For direct NFS/SMB mounting, render and deploy the production definition with
+the managed-backup override:
+
+```bash
+docker compose \
+  -f compose.production.yaml \
+  -f compose.managed-backups.yaml \
+  config
+
+docker compose \
+  -f compose.production.yaml \
+  -f compose.managed-backups.yaml \
+  up -d
+```
+
+The override runs as root and adds `DAC_OVERRIDE`, `FOWNER`, and `SYS_ADMIN`
+after the base service drops every capability. These are required to access
+existing UID-owned bind mounts, apply the platform state mode, and perform the
+remote mount. Managed NFS backup mounts add `nolock`, so NFSv3 does not need
+`rpc.statd` runtime files below the read-only `/run`.
+
+Complete the
+[v2.3.2 acceptance checklist](v2.3.2-acceptance-checklist.md) before production.
+
 ## v2.3.1 corrective WebUI upgrade
 
 v2.3.1 keeps platform schema 6. Stop the container, copy the complete
@@ -139,7 +169,7 @@ dropped capabilities.
 
 Application-managed NFS/SMB mounts are opt-in. They require the mount helpers
 packaged in the image, `platform.backups.managed_mounts: true`, and the
-privileged override:
+managed-mount override:
 
 ```bash
 docker compose \
@@ -153,11 +183,11 @@ docker compose \
   up -d
 ```
 
-The override runs the service as root with `SYS_ADMIN`. Use it only on a
-dedicated trusted host. Prefer a read/write share restricted to the Notifinho
-host and backup path. SMB secrets are encrypted in private state and remain
-write-only, but moving mount authority into the container increases impact if
-the application is compromised.
+The v2.3.2 override runs the service as root with `DAC_OVERRIDE`, `FOWNER`, and
+`SYS_ADMIN`. Use it only on a dedicated trusted host. Prefer a read/write share
+restricted to the Notifinho host and backup path. SMB secrets are encrypted in
+private state and remain write-only, but moving mount authority into the
+container increases impact if the application is compromised.
 
 For enforced HTTPS entry, set `webui.public_url` to the external HTTPS URL and
 `webui.enforce_https: true`. The reverse proxy supplies TLS; Notifinho redirects

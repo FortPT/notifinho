@@ -1,8 +1,11 @@
 # Optional override for WebUI-managed NFS/SMB mounts.
-# This grants the container CAP_SYS_ADMIN and runs it as root. Use only on a
-# dedicated, trusted host after reviewing the security trade-off.
+# This runs the container as root and grants only the additional capabilities
+# needed to access existing UID-owned bind mounts, secure platform state, and
+# mount remote filesystems. Use only on a dedicated, trusted host.
 services:
   notifinho:
     user: "0:0"
     cap_add:
+      - DAC_OVERRIDE
+      - FOWNER
       - SYS_ADMIN

@@ -139,6 +139,9 @@
       <header class="topbar">
         <button id="mobile-menu" class="icon-button mobile-only" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
         <h1 id="page-title">Overview</h1>
+        <div class="topbar-actions">
+          <button id="restart-header-button" class="button danger" type="button" data-action="restart-platform" hidden>Restart</button>
+        </div>
       </header>
 
       <main id="main-content" class="content" tabindex="-1">
@@ -187,7 +190,7 @@
 
         <section id="view-sources" class="view" data-page="sources" hidden>
           <div class="section-toolbar"><div><h2>Sources</h2></div></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Source</th><th>Input</th><th>Tag</th><th>Status</th></tr></thead><tbody id="source-table"></tbody></table></div><div id="source-empty" class="empty-state" hidden></div></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Source</th><th>Input</th><th>Category</th><th>Status</th><th>Management</th></tr></thead><tbody id="source-table"></tbody></table></div><div id="source-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-destinations" class="view" data-page="destinations" hidden>
@@ -233,7 +236,6 @@
               <div class="wide"><button class="button primary" type="submit">Save settings</button></div>
             </form>
           </article>
-          <article class="panel danger-panel restart-panel"><div><p class="eyebrow">Service control</p><h3>Restart Notifinho</h3><p>Gracefully restart the container after recording a mandatory reason. No shutdown action is provided.</p></div><button class="button danger" type="button" data-action="restart-platform">Restart</button></article>
         </section>
 
         <section id="view-updates" class="view" data-page="updates" hidden>

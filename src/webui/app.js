@@ -31,6 +31,24 @@ const OUTPUT_ICONS = {
   mqtt: "/ui/icons/mqtt.svg",
   ntfy: "/ui/icons/ntfy.svg",
 };
+const SOURCE_ICONS = {
+  xen_orchestra: "/ui/source-icons/xen-orchestra.png",
+  grafana: "/ui/source-icons/grafana.png",
+  portainer: "/ui/source-icons/portainer.png",
+  proxmox: "/ui/source-icons/proxmox.png",
+  qnap: "/ui/source-icons/qnap.png",
+  synology: "/ui/source-icons/synology.png",
+  truenas: "/ui/source-icons/truenas.png",
+  unifi_network: "/ui/source-icons/unifi-network.png",
+  unifi_protect: "/ui/source-icons/unifi-protect.png",
+  unifi_drive: "/ui/source-icons/unifi-drive.png",
+  zabbix: "/ui/source-icons/zabbix.png",
+  supermicro: "/ui/source-icons/supermicro.png",
+  hpe_ilo: "/ui/source-icons/hpe-ilo.png",
+  dell_idrac: "/ui/source-icons/dell-idrac.png",
+  home_assistant: "/ui/source-icons/home-assistant.png",
+};
+const GENERIC_SOURCE_ICON = "/ui/source-icons/notifinho.png";
 const PRIORITIES = [
   ["critical", "Critical"],
   ["high", "High"],
@@ -47,11 +65,15 @@ const SOURCE_TRANSPORTS = {
   dell_idrac: "Dell iDRAC Redfish", alfa: "Redfish", synology: "Synology API",
 };
 const SOURCE_CATEGORIES = {
-  servers: { key: "servers", label: "Servers", icon: "▦" },
-  services: { key: "services", label: "Services", icon: "⚙" },
-  applications: { key: "applications", label: "Applications", icon: "◆" },
-  storage: { key: "storage", label: "Storage", icon: "▤" },
-  controllers: { key: "controllers", label: "Controllers", icon: "⌘" },
+  virtualization: { key: "virtualization", label: "Virtualization" },
+  monitoring: { key: "monitoring", label: "Monitoring" },
+  storage: { key: "storage", label: "Storage" },
+  networking: { key: "networking", label: "Networking" },
+  hardware: { key: "hardware", label: "Hardware" },
+  automation: { key: "automation", label: "Automation" },
+  containers: { key: "containers", label: "Containers" },
+  security: { key: "security", label: "Security" },
+  generic: { key: "generic", label: "Generic" },
 };
 const PT_TRANSLATIONS = {
   "Overview": "Visão geral",
@@ -140,6 +162,7 @@ const state = {
   backups: [],
   backupTargets: [],
   sourceCategories: {},
+  removedSources: [],
   versionStatus: null,
   managedMounts: false,
   configuration: null,
@@ -221,11 +244,13 @@ function applyAvatar(id, user) {
   current.replaceWith(replacement);
 }
 
-function readCsrfCookie() {
-  const names = new Set(["__Host-notifinho_csrf", "notifinho_csrf"]);
+function readCsrfCookie(mode = "") {
+  const names = mode === "secure"
+    ? ["__Host-notifinho_csrf", "notifinho_csrf"]
+    : ["notifinho_csrf", "__Host-notifinho_csrf"];
   for (const pair of document.cookie.split(";")) {
     const [rawName, ...rest] = pair.trim().split("=");
-    if (names.has(rawName)) return decodeURIComponent(rest.join("="));
+    if (names.includes(rawName)) return decodeURIComponent(rest.join("="));
   }
   return "";
 }
@@ -371,7 +396,7 @@ function showBootstrap(status) {
 function showApp(session) {
   state.user = session.user;
   state.sessionExpiresAt = session.expires_at;
-  state.csrf = session.csrf_token || readCsrfCookie();
+  state.csrf = session.csrf_token || readCsrfCookie(session.cookie_mode);
   byId("login-view").hidden = true;
   byId("app-shell").hidden = false;
   byId("users-nav").hidden = !isAdmin();
@@ -381,6 +406,7 @@ function showApp(session) {
   byId("data-nav").hidden = !isAdmin();
   byId("add-destination-button").hidden = !isAdmin();
   byId("add-route-button").hidden = !isAdmin();
+  byId("restart-header-button").hidden = !isAdmin();
   const name = state.user.username;
   const role = state.user.role;
   for (const id of ["profile-avatar", "account-avatar"]) applyAvatar(id, state.user);
@@ -488,7 +514,10 @@ async function initialize() {
 
 async function loadWorkspace() {
   const tasks = {
-    sourceCategories: ["Source tags", request("/source-categories"), (value) => { state.sourceCategories = value.categories; }],
+    sourceCategories: ["Source tags", request("/source-categories"), (value) => {
+      state.sourceCategories = value.categories;
+      state.removedSources = value.removed_sources || [];
+    }],
     destinations: ["Destinations", request("/destinations"), (value) => { state.destinations = value.destinations; }],
     routes: ["Routes", request("/routes"), (value) => { state.routes = value.routes; }],
     tokens: ["Applications", request("/tokens"), (value) => { state.tokens = value.tokens; }],
@@ -704,6 +733,18 @@ function outputIcon(type) {
   return element("span", { className: `output-icon-fallback ${type}`, text: labels[type] || String(type || "?").slice(0, 1).toUpperCase(), attributes: { "aria-hidden": "true" } });
 }
 
+function sourceIcon(source) {
+  const key = String(source || "").toLowerCase();
+  return element("img", {
+    className: "source-product-icon",
+    attributes: {
+      src: SOURCE_ICONS[key] || GENERIC_SOURCE_ICON,
+      alt: "",
+      loading: "lazy",
+    },
+  });
+}
+
 function sourceInputType(source) {
   const observed = state.deliveries.find((item) => item.source === source && item.input_type);
   const key = String(source || "").toLowerCase();
@@ -720,13 +761,28 @@ function sourceInputType(source) {
 
 function sourceCategory(source) {
   const key = String(source || "").toLowerCase();
-  const configured = state.sourceCategories[key];
+  const aliases = {
+    servers: "hardware",
+    services: "monitoring",
+    applications: "generic",
+    controllers: "networking",
+  };
+  const configured = aliases[state.sourceCategories[key]] || state.sourceCategories[key];
   if (SOURCE_CATEGORIES[configured]) return SOURCE_CATEGORIES[configured];
-  if (["qnap", "truenas", "synology"].includes(key)) return SOURCE_CATEGORIES.storage;
-  if (["unifi_network", "unifi_protect", "unifi_drive", "home_assistant"].includes(key)) return SOURCE_CATEGORIES.controllers;
-  if (["xen_orchestra", "proxmox", "supermicro", "hpe_ilo", "dell_idrac", "alfa"].includes(key)) return SOURCE_CATEGORIES.servers;
-  if (["grafana", "zabbix", "portainer"].includes(key)) return SOURCE_CATEGORIES.services;
-  return SOURCE_CATEGORIES.applications;
+  if (["xen_orchestra", "proxmox"].includes(key)) return SOURCE_CATEGORIES.virtualization;
+  if (["grafana", "zabbix"].includes(key)) return SOURCE_CATEGORIES.monitoring;
+  if (["qnap", "truenas", "synology", "unifi_drive"].includes(key)) return SOURCE_CATEGORIES.storage;
+  if (key === "unifi_network") return SOURCE_CATEGORIES.networking;
+  if (["supermicro", "hpe_ilo", "dell_idrac"].includes(key)) return SOURCE_CATEGORIES.hardware;
+  if (key === "home_assistant") return SOURCE_CATEGORIES.automation;
+  if (key === "portainer") return SOURCE_CATEGORIES.containers;
+  if (key === "unifi_protect") return SOURCE_CATEGORIES.security;
+  return SOURCE_CATEGORIES.generic;
+}
+
+function sourceIsActive(source) {
+  return state.routes.some((route) =>
+    route.enabled && (route.source === source || route.source === "*"));
 }
 
 function renderFlow() {
@@ -736,10 +792,10 @@ function renderFlow() {
     const destination = state.destinations.find((item) => item.id === route.destination_id);
     const problem = route.enabled && (!destination || !destination.enabled || (!destination.secret_configured && ["discord", "teams", "slack", "webhook"].includes(destination.output_type)));
     const status = !route.enabled ? "disabled" : problem ? "problem" : "active";
-    const category = route.source === "*" ? { key: "applications", label: "All categories", icon: "✣" } : sourceCategory(route.source);
+    const category = route.source === "*" ? SOURCE_CATEGORIES.generic : sourceCategory(route.source);
     const arrow = status === "problem" ? "×" : "➜";
     container.append(element("div", { className: `flow-row ${status}` }, [
-      element("div", { className: `flow-node source-node category-${category.key}` }, [element("span", { className: "source-category-icon", text: category.icon, title: category.label }), element("div", {}, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: route.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(route.source) })])]),
+      element("div", { className: `flow-node source-node category-${category.key}` }, [sourceIcon(route.source), element("div", {}, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: route.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(route.source) })])]),
       element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: arrow }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow delayed", text: arrow })]),
       element("div", { className: "flow-node destination-node" }, [outputIcon(destination && destination.output_type), element("div", {}, [element("strong", { text: destination ? (OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)) : "Missing destination" }), element("small", { text: destination ? (destination.settings.channel_name || destination.name) : "Configuration error" })])]),
     ]));
@@ -760,7 +816,10 @@ function discoveredSources() {
       if (source && source !== "*") sources.add(source);
     }
   }
-  return [...sources].sort((left, right) => friendlyName(left).localeCompare(friendlyName(right)));
+  const removed = new Set(state.removedSources);
+  return [...sources]
+    .filter((source) => !removed.has(source) || sourceIsActive(source))
+    .sort((left, right) => friendlyName(left).localeCompare(friendlyName(right)));
 }
 
 function renderSources() {
@@ -783,12 +842,17 @@ function renderSources() {
       select.append(element("option", { value: item.key, text: item.label }));
     }
     select.value = category.key;
-    const active = state.routes.some((route) => route.source === source && route.enabled);
+    const active = sourceIsActive(source);
+    const management = element("div", { className: "source-actions" });
+    if (isAdmin() && !active) {
+      management.append(actionButton("Remove", "remove-source", source, "danger"));
+    }
     body.append(element("tr", {}, [
-      element("td", {}, [element("strong", { text: friendlyName(source) }), element("small", { text: source })]),
+      element("td", {}, [element("div", { className: "source-identity" }, [sourceIcon(source), element("div", {}, [element("strong", { text: friendlyName(source) }), element("small", { text: source })])])]),
       element("td", { text: sourceInputType(source) }),
       element("td", {}, select),
       element("td", {}, badge(active ? "Active" : "Inactive", active ? "success" : "warning")),
+      element("td", {}, management),
     ]));
   }
 }
@@ -804,6 +868,7 @@ async function saveSourceCategory(event) {
       body: { source, category: select.value },
     });
     state.sourceCategories = response.categories;
+    state.removedSources = response.removed_sources || [];
     renderSources();
     renderFlow();
     toast(`${friendlyName(source)} moved to ${SOURCE_CATEGORIES[select.value].label}.`);
@@ -2014,15 +2079,16 @@ function sampleEvent() {
   };
 }
 
-function cardSampleEvent() {
+function cardSampleEvent(destination) {
   return {
     schema: "notifinho.event.v1",
-    source: "home_assistant",
-    title: "Notifinho test delivery",
-    message: "This is a safe test event sent from the destination card.",
+    source: "notifinho",
+    title: `${destination.name} test delivery`,
+    message: `This is a safe Notifinho test for the ${OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)} destination "${destination.name}".`,
     severity: "information",
     status: "active",
-    metadata: { host: "notifinho-webui" },
+    provider: "Notifinho",
+    metadata: { host: destination.name, component: "Destination test" },
   };
 }
 
@@ -2147,6 +2213,24 @@ async function resourceAction(action, id) {
       clearError("restart-error");
       byId("restart-dialog").showModal();
       return;
+    } else if (action === "remove-source") {
+      const source = id;
+      const accepted = await confirmAction(
+        `Remove ${friendlyName(source)}?`,
+        "This hides the inactive source and removes its saved tag. Delivery history is retained. A source used by an enabled route cannot be removed.",
+        "Remove",
+      );
+      if (!accepted) return;
+      const response = await request("/source-categories", {
+        method: "DELETE",
+        body: { source },
+      });
+      state.sourceCategories = response.categories;
+      state.removedSources = response.removed_sources || [];
+      renderSources();
+      renderFlow();
+      toast(`${friendlyName(source)} removed.`);
+      return;
     } else if (action === "restore-backup") {
       await restoreBackup(id);
       return;
@@ -2155,9 +2239,11 @@ async function resourceAction(action, id) {
       await request(`/destinations/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
       toast(`Destination ${item.enabled ? "disabled" : "enabled"}.`);
     } else if (action === "test-destination-card") {
+      const destination = state.destinations.find((candidate) => candidate.id === id);
+      if (!destination) return;
       const response = await request(`/destinations/${id}/test`, {
         method: "POST",
-        body: { event: cardSampleEvent() },
+        body: { event: cardSampleEvent(destination) },
       });
       const delivery = response.result || {};
       const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.error_code || "No status returned";

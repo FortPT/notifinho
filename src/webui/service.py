@@ -76,6 +76,29 @@ class WebUIService:
                 "assets/icons/ntfy.svg", "image/svg+xml", "public, max-age=86400"
             ),
         }
+        for filename in (
+            "xen-orchestra.png",
+            "grafana.png",
+            "portainer.png",
+            "proxmox.png",
+            "qnap.png",
+            "synology.png",
+            "truenas.png",
+            "unifi-network.png",
+            "unifi-protect.png",
+            "unifi-drive.png",
+            "zabbix.png",
+            "supermicro.png",
+            "hpe-ilo.png",
+            "dell-idrac.png",
+            "home-assistant.png",
+            "notifinho.png",
+        ):
+            self.assets[f"/ui/source-icons/{filename}"] = (
+                f"assets/icons/{filename}",
+                "image/png",
+                "public, max-age=86400",
+            )
 
     @property
     def enabled(self) -> bool:

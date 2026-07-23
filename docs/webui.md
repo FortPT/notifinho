@@ -59,6 +59,9 @@ are enabled.
   lifecycle-bound system error/update notices;
 - a profile-picture dropdown for Security and Sign out, plus dedicated Sources
   and Updates views;
+- packaged vendor icons, purpose-specific source categories, wildcard-aware
+  Active status, and confirmation-protected removal of inactive sources while
+  retaining delivery history;
 - responsive overview with every active, disabled, or unhealthy source → route
   → destination path, five server-side history ranges, and recent deliveries;
 - private/shared destination creation, editing, enable/disable, deletion,
@@ -77,8 +80,8 @@ are enabled.
 - separate administrator Inputs and Backups views, named Local/NFS/SMB backup
   targets, private state backup, scheduled or manual copies, safe JSON
   export/import, mounted YAML synchronization, and confirmed restore;
-- administrator-only, reasoned, audited process restart (the container
-  supervisor performs the actual restart; no shutdown action exists);
+- a top-right administrator-only, reasoned, audited process restart (the
+  container supervisor performs the actual restart; no shutdown action exists);
 - English/Portuguese, IANA timezone, and 12/24-hour global presentation
   settings; and
 - account-aware navigation that hides administrator controls from users.
@@ -132,9 +135,10 @@ error and update notices remain lifecycle-bound and are not dismissible.
 ## Test delivery caution
 
 Preview is local and never contacts the destination. Card-level and preview
-test delivery are intentional one-click external actions and use the
-configured owner-only credential. Run tests only against a destination you are
-authorized to use.
+test delivery are intentional one-click external actions and use the configured
+owner-only credential. Card tests use a generic Notifinho event with the
+selected destination name; they never impersonate a configured infrastructure
+source. Run tests only against a destination you are authorized to use.
 Delivery results contain bounded status and safe error fields, never remote
 response bodies or credentials.
 

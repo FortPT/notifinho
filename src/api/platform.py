@@ -326,6 +326,7 @@ class PlatformAPI:
                 "user": self._user(user),
                 "csrf_token": credentials.csrf_token,
                 "expires_at": credentials.expires_at,
+                "cookie_mode": "secure" if self.secure_cookies else "standard",
             },
             headers,
         )
@@ -338,6 +339,7 @@ class PlatformAPI:
                     "user": self._user(self.users.get(principal.user_id)),
                     "expires_at": principal.expires_at,
                     "csrf_required": True,
+                    "cookie_mode": "secure" if self.secure_cookies else "standard",
                 },
                 (("Cache-Control", "no-store"),),
             )
@@ -928,7 +930,10 @@ class PlatformAPI:
         if method == "GET":
             return APIResponse(
                 200,
-                {"categories": self.configuration_sync.source_categories()},
+                {
+                    "categories": self.configuration_sync.source_categories(),
+                    "removed_sources": self.configuration_sync.removed_sources(),
+                },
             )
         if method == "PUT":
             self._require_admin(actor)
@@ -942,10 +947,30 @@ class PlatformAPI:
                         actor,
                         data.get("source"),
                         data.get("category"),
-                    )
+                    ),
+                    "removed_sources": self.configuration_sync.removed_sources(),
                 },
             )
-        return self._method_not_allowed("GET, PUT")
+        if method == "DELETE":
+            self._require_admin(actor)
+            data = self._object(payload, {"source"})
+            if set(data) != {"source"}:
+                raise ValueError("source is required")
+            source = str(data.get("source") or "").strip().casefold()
+            if any(
+                route.enabled and route.source in {source, "*"}
+                for route in self.configuration_sync.list_routes(actor)
+            ):
+                raise ValueError("active sources cannot be removed")
+            self.configuration_sync.remove_source(actor, source)
+            return APIResponse(
+                200,
+                {
+                    "categories": self.configuration_sync.source_categories(),
+                    "removed_sources": self.configuration_sync.removed_sources(),
+                },
+            )
+        return self._method_not_allowed("GET, PUT, DELETE")
 
     def _version_endpoint(self, method) -> APIResponse:
         if method != "GET":
@@ -1473,7 +1498,12 @@ class PlatformAPI:
             parsed.load(raw)
         except Exception:
             return ""
-        for name in ("__Host-notifinho_session", "notifinho_session"):
+        names = (
+            ("__Host-notifinho_session", "notifinho_session")
+            if self.secure_cookies
+            else ("notifinho_session", "__Host-notifinho_session")
+        )
+        for name in names:
             if name in parsed:
                 return str(parsed[name].value)
         return ""

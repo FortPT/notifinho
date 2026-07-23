@@ -958,10 +958,13 @@ class PlatformAPI:
                 raise ValueError("source is required")
             source = str(data.get("source") or "").strip().casefold()
             if any(
-                route.enabled and route.source in {source, "*"}
+                route.enabled and route.source == source
                 for route in self.configuration_sync.list_routes(actor)
             ):
-                raise ValueError("active sources cannot be removed")
+                return APIResponse(
+                    409,
+                    {"error": "source is used by an enabled route and cannot be removed"},
+                )
             self.configuration_sync.remove_source(actor, source)
             return APIResponse(
                 200,

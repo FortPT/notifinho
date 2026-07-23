@@ -207,8 +207,11 @@ def test_webui_markup_is_semantic_external_and_complete():
         "import-dialog",
     }
     assert required <= inspector.ids
-    assert inspector.scripts == ["/ui/app.js"]
-    assert inspector.stylesheets == ["/ui/styles.css"]
+    assert inspector.scripts == ["/ui/app.js", "/ui/enhancements.js"]
+    assert inspector.stylesheets == [
+        "/ui/styles.css",
+        "/ui/enhancements.css",
+    ]
     assert inspector.inline_handlers == []
     assert "<style" not in markup
     assert "javascript:" not in markup.casefold()

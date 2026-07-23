@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.3.2-blue" alt="Stable release v2.3.2">
+  <img src="https://img.shields.io/badge/stable-v2.3.3-blue" alt="Stable release v2.3.3">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.3.2** |
+| **Current Stable Release** | **v2.3.3** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,11 +57,10 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.3.2 release notes](docs/releases/v2.3.2.md) for the corrective
-upgrade, source-management, HTTP/HTTPS cookie migration, and managed NFS/SMB
-deployment guidance. The
-complete operator walkthrough is in the
-[v2.3.2 acceptance checklist](docs/v2.3.2-acceptance-checklist.md).
+See the [v2.3.3 release notes](docs/releases/v2.3.3.md) for the WebUI
+navigation, operations-menu, source lifecycle, destination-test, update-check,
+and regional backup-clock corrections. The complete operator walkthrough is in
+the [v2.3.3 acceptance checklist](docs/v2.3.3-acceptance-checklist.md).
 
 Notifinho v2 adds a self-hosted notification platform with local
 accounts, user-owned destinations and routes, scoped application tokens,
@@ -102,6 +101,12 @@ purpose-specific categories, safe removal of inactive sources, accurate
 wildcard-route activity, destination-branded test events, a header restart
 control, dual HTTP/HTTPS cookie migration, and a directly usable managed-mount
 Compose profile including NFSv3 backup behavior in the read-only container.
+
+v2.3.3 completes the WebUI runtime polish: F5 retains the active page, the
+header uses a compact operations menu, official release checks run on a bounded
+schedule, source icons are transparent and clearer, inactive source removal is
+wildcard-safe, destination tests use their routed source formatter, and backup
+time entry follows the selected 12/24-hour preference.
 
 ---
 

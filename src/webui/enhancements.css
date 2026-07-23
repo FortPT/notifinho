@@ -1,0 +1,112 @@
+/* Notifinho WebUI runtime polish. Loaded after styles.css by WebUIService. */
+#restart-header-button {
+  display: none !important;
+}
+
+.source-product-icon {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.28));
+  height: 44px !important;
+  image-rendering: auto;
+  object-fit: contain;
+  padding: 0 !important;
+  width: 44px !important;
+}
+
+.source-identity .source-product-icon {
+  height: 40px !important;
+  width: 40px !important;
+}
+
+.source-node {
+  min-height: 64px;
+}
+
+.platform-menu {
+  position: relative;
+}
+
+.platform-menu-button {
+  border-color: transparent;
+  font-size: 1.75rem;
+  font-weight: 700;
+  height: 42px;
+  line-height: 1;
+  padding: 0 0 0.15rem;
+  width: 42px;
+}
+
+.platform-menu-button:hover,
+.platform-menu-button[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: var(--line-strong);
+}
+
+.platform-menu-popover {
+  background: #1d1d1d;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.44);
+  display: grid;
+  gap: 0.2rem;
+  min-width: 225px;
+  padding: 0.4rem;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.5rem);
+  z-index: 60;
+}
+
+.platform-menu-popover button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  color: #f2f2f2;
+  display: flex;
+  gap: 0.8rem;
+  padding: 0.72rem 0.8rem;
+  text-align: left;
+  width: 100%;
+}
+
+.platform-menu-popover button:hover,
+.platform-menu-popover button:focus-visible {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.platform-menu-popover button > span:first-child {
+  align-items: center;
+  color: #c9c9c9;
+  display: inline-flex;
+  font-size: 1.25rem;
+  justify-content: center;
+  width: 1.4rem;
+}
+
+.update-check-metadata {
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin: 0.8rem 0 0;
+}
+
+.update-check-metadata.error {
+  color: var(--danger);
+}
+
+#backup-time {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 700px) {
+  .source-product-icon {
+    height: 38px !important;
+    width: 38px !important;
+  }
+
+  .platform-menu-popover {
+    right: -0.25rem;
+  }
+}

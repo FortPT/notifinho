@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## 2.3.3 - 2026-07-23
+
+### Fixed
+
+- Preserve the active WebUI page across F5 and browser reloads, with the URL
+  hash authoritative and a session-scoped fallback when it is absent.
+- Allow safe removal of an inactive exact source when only a wildcard route is
+  enabled, while returning HTTP 409 when an enabled exact route still uses it.
+- Send destination-card tests through the formatter associated with the best
+  specific route for that destination, including Supermicro, HPE iLO, Dell
+  iDRAC, Home Assistant, Grafana, Portainer, Proxmox, UniFi, and Zabbix.
+- Render and validate scheduled backup time using the selected 12-hour or
+  24-hour preference instead of the browser or operating-system locale.
+
+### Added
+
+- Add a Home Assistant-style three-dot operations menu with Check for updates
+  and administrator-only Restart Notifinho actions.
+- Check the official GitHub releases API after authenticated startup, every six
+  hours, when a stale tab becomes visible, and on demand without sending
+  Notifinho credentials.
+
+### Changed
+
+- Present packaged source icons transparently at a larger size without the
+  former white background tile.
+- Keep platform schema 6 and the v2.3.2 unified configuration/state model
+  directly compatible.
+
 ## 2.3.2 - 2026-07-23
 
 ### Fixed

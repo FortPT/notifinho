@@ -55,13 +55,9 @@
     <div class="login-card">
       <div class="brand brand-login">
         <span class="brand-mark"><img src="/ui/icon.png" alt=""></span>
-        <span><strong>Notifinho</strong><small>Notification control plane</small></span>
+        <strong>Notifinho</strong>
       </div>
-      <div class="login-copy">
-        <p class="eyebrow">Self-hosted infrastructure alerts</p>
-        <h1 id="login-title">Welcome back</h1>
-        <p>Sign in to manage destinations, routing, and application access.</p>
-      </div>
+      <h1 id="login-title" class="sr-only">Sign in to Notifinho</h1>
       <form id="login-form" class="stack" autocomplete="on">
         <label>
           <span>Username</span>
@@ -74,7 +70,6 @@
         <p id="login-error" class="form-error" role="alert" hidden></p>
         <button class="button primary full" type="submit">Sign in</button>
       </form>
-      <p class="login-note">Use HTTPS when accessing Notifinho outside an isolated loopback environment.</p>
     </div>
   </section>
 
@@ -109,8 +104,14 @@
         <button id="settings-nav" class="nav-item" type="button" data-view="settings" hidden>
           <span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span>
         </button>
+        <button id="inputs-nav" class="nav-item" type="button" data-view="inputs" hidden>
+          <span class="nav-icon" aria-hidden="true">⇥</span><span>Inputs</span>
+        </button>
+        <button id="backups-nav" class="nav-item" type="button" data-view="backups" hidden>
+          <span class="nav-icon" aria-hidden="true">▣</span><span>Backups</span>
+        </button>
         <button id="data-nav" class="nav-item" type="button" data-view="data" hidden>
-          <span class="nav-icon" aria-hidden="true">⇄</span><span>Inputs &amp; backups</span>
+          <span class="nav-icon" aria-hidden="true">⇄</span><span>Data tools</span>
         </button>
       </nav>
       <div class="sidebar-footer">
@@ -131,6 +132,7 @@
         <div class="topbar-actions">
           <span id="connection-state" class="status-dot success">Connected</span>
           <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh current view">↻</button>
+          <button id="logout-button" class="button secondary small" type="button">Sign out</button>
         </div>
       </header>
 
@@ -147,10 +149,11 @@
             <article id="notice-composer" class="panel notice-composer" hidden>
               <div class="panel-heading"><div><p class="eyebrow">Administrator notice</p><h3>Notify every user</h3></div></div>
               <form id="notice-form" class="notice-form">
+                <input id="notice-id" type="hidden">
                 <label><span>Notice name</span><input id="notice-name" required maxlength="120" placeholder="Maintenance window"></label>
                 <label><span>Status</span><select id="notice-status"><option value="information">Information</option><option value="warning">Warning</option><option value="severe">Severe</option></select></label>
                 <label class="wide"><span>Message</span><textarea id="notice-message" rows="2" required maxlength="2000" placeholder="Describe what users need to know."></textarea></label>
-                <button class="button primary" type="submit">Send notice</button>
+                <button id="notice-submit" class="button primary" type="submit">Send notice</button>
               </form>
             </article>
             <article id="notice-panel" class="panel notice-panel" hidden>
@@ -163,11 +166,11 @@
             <article class="metric-card"><span>Destinations</span><strong id="metric-destinations">—</strong><small>Active</small></article>
             <article class="metric-card"><span>Routes</span><strong id="metric-routes">—</strong><small>Active</small></article>
             <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small>Active credentials</small></article>
-            <article class="metric-card"><span>Success</span><strong id="metric-success">—</strong><small id="metric-success-note">Selected history</small></article>
-            <article class="metric-card"><span>Requests</span><strong id="metric-requests">—</strong><small>Selected history</small></article>
+            <article class="metric-card metric-history"><span>Success</span><strong id="metric-success">—</strong><small id="metric-success-note">Selected history</small></article>
+            <article class="metric-card metric-history"><span>Requests</span><strong id="metric-requests">—</strong><label class="history-filter"><span>History</span><select id="history-range"><option value="10m">10 minutes</option><option value="1h" selected>1 hour</option><option value="1d">1 day</option><option value="1m">1 month</option><option value="1y">1 year</option></select></label></article>
           </div>
           <article class="panel flow-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Routing flow</p><h3>Every configured route</h3></div><label class="history-filter"><span>History</span><select id="history-range"><option value="10m">10 minutes</option><option value="1h" selected>1 hour</option><option value="1d">1 day</option><option value="1m">1 month</option><option value="1y">1 year</option></select></label></div>
+            <div class="panel-heading"><div><p class="eyebrow">Routing flow</p><h3>Every configured route</h3></div></div>
             <div class="flow-head" aria-hidden="true"><span>Source</span><span>Route</span><span>Destination</span></div>
             <div id="dashboard-flow" class="flow-map"></div>
           </article>
@@ -184,7 +187,7 @@
 
         <section id="view-routes" class="view" data-page="routes" hidden>
           <div class="section-toolbar"><div><h2>Routes</h2><p>Send matching events to a configured destination.</p></div><button id="add-route-button" class="button primary" type="button" data-action="new-route">Add route</button></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th>Order</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-tokens" class="view" data-page="tokens" hidden>
@@ -198,7 +201,7 @@
         </section>
 
         <section id="view-audit" class="view" data-page="audit" hidden>
-          <div class="section-toolbar"><div><h2>Audit log</h2><p>Ownership-aware account and configuration activity.</p></div><label class="search-field"><span class="sr-only">Search audit events</span><input id="audit-search" type="search" placeholder="Search action or outcome"></label></div>
+          <div class="section-toolbar"><div><h2>Audit log</h2><p>Ownership-aware account and configuration activity.</p></div><div class="toolbar-fields"><label class="search-field"><span class="sr-only">Search audit events</span><input id="audit-search" type="search" placeholder="Search action or outcome"></label><label><span>Entries</span><select id="audit-page-size"><option>25</option><option>50</option><option>100</option><option>150</option><option>250</option><option>500</option></select></label></div></div>
           <article class="panel health-panel"><div class="panel-heading"><div><p class="eyebrow">System checks</p><h3>Notifinho health</h3><p>Read-only tests of configuration, storage, credentials, routes, backups, and recent delivery failures.</p></div><button class="button secondary" type="button" data-action="run-health-checks">Run checks</button></div><div id="health-check-list" class="health-check-list"></div></article>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Resource</th><th>Outcome</th><th>Details</th></tr></thead><tbody id="audit-table"></tbody></table></div><div id="audit-empty" class="empty-state" hidden></div></div>
         </section>
@@ -219,10 +222,11 @@
               <div class="wide"><button class="button primary" type="submit">Save settings</button></div>
             </form>
           </article>
+          <article class="panel danger-panel restart-panel"><div><p class="eyebrow">Service control</p><h3>Restart Notifinho</h3><p>Gracefully restart the container after recording a mandatory reason. No shutdown action is provided.</p></div><button class="button danger" type="button" data-action="restart-platform">Restart</button></article>
         </section>
 
-        <section id="view-data" class="view" data-page="data" hidden>
-          <div class="section-toolbar"><div><h2>Inputs &amp; backups</h2><p>Manage event inputs and protected local or external backups.</p></div></div>
+        <section id="view-inputs" class="view" data-page="inputs" hidden>
+          <div class="section-toolbar"><div><h2>Inputs</h2><p>Manage event listeners and review their restart requirements.</p></div></div>
           <div class="data-tools-grid">
             <article class="panel data-tool-card configuration-card">
               <div><p class="eyebrow">Inputs</p><h3 id="configuration-card-title">Configured listeners</h3><p id="configuration-card-copy">Click a status to enable or disable an input. Listener changes apply after Notifinho restarts.</p></div>
@@ -230,6 +234,12 @@
               <div id="configuration-inputs" class="configuration-inputs"></div>
               <div id="configuration-errors" class="form-error" role="alert" hidden></div>
             </article>
+          </div>
+        </section>
+
+        <section id="view-data" class="view" data-page="data" hidden>
+          <div class="section-toolbar"><div><h2>Data tools</h2><p>Export or import safe platform configuration.</p></div></div>
+          <div class="data-tools-grid">
             <article class="panel data-tool-card">
               <div><p class="eyebrow">Portable configuration</p><h3>Export destinations and routes</h3><p>Downloads owner-aware settings without passwords, application tokens, or destination credentials.</p></div>
               <button class="button secondary" type="button" data-action="export-platform">Download safe JSON</button>
@@ -239,21 +249,30 @@
               <label><span>JSON document</span><input id="portable-file" type="file" accept="application/json,.json"></label>
               <button class="button secondary" type="button" data-action="preview-portable">Preview JSON import</button>
             </article>
+          </div>
+        </section>
+
+        <section id="view-backups" class="view" data-page="backups" hidden>
+          <div class="section-toolbar"><div><h2>Backups</h2><p>Manage Local, NFS, and SMB destinations, schedules, and protected state snapshots.</p></div><button class="button primary" type="button" data-action="new-backup-target">Add backup destination</button></div>
+          <div class="data-tools-grid">
+            <article class="panel data-tool-card backup-targets-card">
+              <div class="panel-heading"><div><p class="eyebrow">Destinations</p><h3>Backup storage</h3><p>Remote targets are reachability-tested, mounted when managed mounts are enabled, and verified with a real write test.</p></div></div>
+              <div class="table-scroll"><table><thead><tr><th>Type</th><th>Name</th><th>Host</th><th>Backup path</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="backup-target-table"></tbody></table></div>
+            </article>
             <article class="panel data-tool-card backup-card">
               <div><p class="eyebrow">Private state</p><h3>Server-side backups</h3><p>Includes the SQLite database and secret files. Backup contents never leave the server through this API.</p></div>
-              <button class="button primary" type="button" data-action="create-backup">Create backup</button>
+              <div class="button-row"><button class="button primary" type="button" data-action="create-backup">Create local snapshot</button><button class="button secondary" type="button" data-action="run-backup-now">Run scheduled backup now</button></div>
               <div id="backup-list" class="backup-list"></div>
             </article>
             <article class="panel data-tool-card backup-schedule-card">
-              <div><p class="eyebrow">Scheduled backups</p><h3>Local, NFS, or Samba</h3><p>Mount the NFS or SMB share on the Docker host and into this container; Notifinho does not require privileged mount capabilities.</p></div>
+              <div><p class="eyebrow">Scheduled backups</p><h3>Local, NFS, or SMB</h3><p>Select a tested destination. Managed remote mounts require the opt-in deployment override.</p></div>
               <form id="backup-settings-form" class="form-grid">
                 <label><span>Schedule</span><select id="backup-schedule"><option value="disabled">Disabled</option><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></label>
                 <label><span>Run time</span><input id="backup-time" type="time" value="02:00" required></label>
                 <label><span>Weekly day</span><select id="backup-weekday"><option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option></select></label>
                 <label><span>Monthly day</span><input id="backup-day" type="number" min="1" max="28" value="1"></label>
-                <label class="switch-field"><input id="backup-external-enabled" type="checkbox"><span>Copy to external share</span></label>
-                <label><span>Share type</span><select id="backup-external-type"><option value="nfs">NFS</option><option value="smb">Samba / SMB</option></select></label>
-                <label class="wide"><span>Mounted path inside container</span><input id="backup-external-path" placeholder="/notifinho/external-backups"></label>
+                <label class="wide"><span>Backup destination</span><select id="backup-target"><option value="">Local state only</option></select></label>
+                <label class="switch-field"><input id="backup-managed-mounts" type="checkbox"><span>Allow Notifinho to mount remote destinations</span></label>
                 <div class="wide"><button class="button primary" type="submit">Save backup settings</button><small id="backup-last-run">No scheduled run recorded.</small></div>
               </form>
             </article>
@@ -263,9 +282,8 @@
         <section id="view-account" class="view" data-page="account" hidden>
           <div class="section-toolbar"><div><h2>Account security</h2><p>Manage your profile picture, password, and current session.</p></div></div>
           <div class="account-grid">
-            <article class="panel identity-card"><span id="account-avatar" class="avatar large">N</span><div><h3 id="account-name">Account</h3><p id="account-role">User</p><small id="account-session">Session active</small><form id="avatar-form" class="avatar-form"><label class="button secondary small">Choose picture<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><button class="button secondary small" type="submit">Save picture</button><button class="text-button" type="button" data-action="remove-avatar">Remove</button></form></div></article>
+            <article class="panel identity-card"><span id="account-avatar" class="avatar large">N</span><div><h3 id="account-name">Account</h3><p id="account-role">User</p><small id="account-session">Session active</small><form id="avatar-form" class="avatar-form"><label class="button secondary small">Choose picture<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><div id="avatar-editor" class="avatar-editor" hidden><canvas id="avatar-canvas" width="256" height="256" aria-label="Circular profile picture crop preview"></canvas><label><span>Zoom</span><input id="avatar-zoom" type="range" min="1" max="3" step="0.01" value="1"></label><small>Drag the picture to position it inside the circle.</small></div><button class="button secondary small" type="submit">Save picture</button><button class="text-button" type="button" data-action="remove-avatar">Remove</button></form></div></article>
             <article class="panel"><div class="panel-heading"><div><h3>Change password</h3><p>This signs out every active session, including this one.</p></div></div><form id="password-form" class="stack compact"><label><span>Current password</span><input name="current_password" type="password" autocomplete="current-password" required></label><label><span>New password</span><input name="new_password" type="password" autocomplete="new-password" minlength="12" required></label><label><span>Confirm new password</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required></label><button class="button primary" type="submit">Update password</button></form></article>
-            <article class="panel danger-panel"><div><h3>End session</h3><p>Revoke this browser session and return to the sign-in screen.</p></div><button id="logout-button" class="button danger" type="button">Sign out</button></article>
           </div>
         </section>
       </main>
@@ -333,6 +351,39 @@
       <p class="field-help">Test delivery contacts the configured destination. Preview never sends data.</p>
       <p id="preview-error" class="form-error" role="alert" hidden></p>
       <pre id="preview-result" class="code-result" tabindex="0" hidden></pre>
+    </form>
+  </dialog>
+
+  <dialog id="backup-target-dialog" class="modal">
+    <form id="backup-target-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Backup storage</p><h2 id="backup-target-dialog-title">Add backup destination</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <input id="backup-target-id" type="hidden">
+      <div class="form-grid">
+        <label class="wide"><span>Name</span><input id="backup-target-name" required maxlength="120" placeholder="NAS backups"></label>
+        <label><span>Type</span><select id="backup-target-type"><option value="local">Local</option><option value="nfs">NFS</option><option value="smb">SMB</option></select></label>
+        <label class="switch-field"><input id="backup-target-enabled" type="checkbox" checked><span>Enabled</span></label>
+        <label class="backup-remote-field"><span>Host</span><input id="backup-target-host" placeholder="192.168.0.163"></label>
+        <label class="backup-nfs-field wide"><span>NFS export path</span><input id="backup-target-remote-path" placeholder="/mnt/pool/notifinho"></label>
+        <label class="backup-smb-field"><span>SMB share</span><input id="backup-target-share" placeholder="Backups"></label>
+        <label class="backup-smb-field"><span>Path inside share</span><input id="backup-target-smb-path" placeholder="Notifinho"></label>
+        <label class="backup-local-field wide"><span>Local or bind-mounted path</span><input id="backup-target-local-path" placeholder="/notifinho/external-backups"></label>
+        <label class="backup-smb-field"><span>Username</span><input id="backup-target-username" autocomplete="off"></label>
+        <label class="backup-smb-field"><span>Domain</span><input id="backup-target-domain" autocomplete="off"></label>
+        <label class="backup-smb-field wide"><span>Password</span><input id="backup-target-password" type="password" autocomplete="new-password"><small>Write-only. Leave blank while editing to keep the current password.</small></label>
+        <label class="backup-remote-field wide"><span>Mount options</span><input id="backup-target-options" placeholder="vers=4"><small>Optional comma-separated options. Notifinho always adds rw,nosuid,nodev,noexec.</small></label>
+      </div>
+      <p id="backup-target-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button primary" value="default">Save destination</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="restart-dialog" class="modal small-modal">
+    <form id="restart-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Service control</p><h2>Restart Notifinho</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <p>Notifinho will be briefly unavailable. The container restart policy must be enabled.</p>
+      <label><span>Reason for restart</span><textarea id="restart-reason" rows="3" minlength="3" maxlength="500" required placeholder="Apply updated input configuration"></textarea></label>
+      <p id="restart-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button danger" value="default">Restart</button></div>
     </form>
   </dialog>
 

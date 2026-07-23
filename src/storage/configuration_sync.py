@@ -499,6 +499,8 @@ class UnifiedConfigurationService:
             "time": str(values.get("time") or "02:00"),
             "weekday": int(values.get("weekday", 0)),
             "day": int(values.get("day", 1)),
+            "target_id": str(values.get("target_id") or ""),
+            "managed_mounts": values.get("managed_mounts", False) is True,
             "external_enabled": values.get("external_enabled", False) is True,
             "external_type": str(values.get("external_type") or "nfs"),
             "external_path": str(values.get("external_path") or ""),
@@ -512,6 +514,12 @@ class UnifiedConfigurationService:
         external_type = str(values.get("external_type") or "").strip().casefold()
         external_path = str(values.get("external_path") or "").strip()
         external_enabled = self._boolean(values.get("external_enabled"), "external_enabled")
+        target_id = str(values.get("target_id") or "").strip()
+        managed_mounts = self._boolean(
+            values.get("managed_mounts", False), "managed_mounts"
+        )
+        if target_id and not re.fullmatch(r"[0-9a-f]{32}", target_id):
+            raise ValueError("backup target identifier is invalid")
         if schedule not in {"disabled", "daily", "weekly", "monthly"}:
             raise ValueError("backup schedule is invalid")
         if not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", clock_time):
@@ -533,6 +541,8 @@ class UnifiedConfigurationService:
             "time": clock_time,
             "weekday": weekday,
             "day": day,
+            "target_id": target_id,
+            "managed_mounts": managed_mounts,
             "external_enabled": external_enabled,
             "external_type": external_type,
             "external_path": external_path,

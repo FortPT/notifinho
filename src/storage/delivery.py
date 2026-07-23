@@ -182,9 +182,11 @@ class DeliveryHistoryStore:
             else:
                 rows = connection.execute(
                     """
-                    SELECT * FROM delivery_attempts
-                    WHERE owner_user_id = ?
-                    ORDER BY created_at DESC, id LIMIT ?
+                    SELECT attempts.* FROM delivery_attempts AS attempts
+                    LEFT JOIN destinations
+                      ON destinations.id = attempts.destination_id
+                    WHERE attempts.owner_user_id = ? OR destinations.shared = 1
+                    ORDER BY attempts.created_at DESC, attempts.id LIMIT ?
                     """,
                     (actor.user_id, bounded),
                 ).fetchall()
@@ -196,7 +198,7 @@ class DeliveryHistoryStore:
         where = "created_at >= ?"
         parameters: list[object] = [int(since)]
         if not actor.is_admin:
-            where += " AND owner_user_id = ?"
+            where += " AND (owner_user_id = ? OR destination_id IN (SELECT id FROM destinations WHERE shared = 1))"
             parameters.append(actor.user_id)
         with self.database.connect() as connection:
             row = connection.execute(

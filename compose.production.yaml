@@ -2,7 +2,7 @@ name: notifinho
 
 services:
   notifinho:
-    image: "${NOTIFINHO_IMAGE:-fortpt/notifinho:2.2.1}"
+    image: "${NOTIFINHO_IMAGE:-fortpt/notifinho:2.3.0}"
     container_name: notifinho
     restart: unless-stopped
     init: true
@@ -29,8 +29,9 @@ services:
       - "${NOTIFINHO_LOG_DIR:-./logs}:/notifinho/logs"
       - "${NOTIFINHO_SECRETS_DIR:-./secrets}:/run/secrets:ro"
       - "${NOTIFINHO_STATE_DIR:-./state}:/notifinho/state"
-      # Mount an NFS/SMB share on the host at this path. Notifinho never mounts
-      # network filesystems or receives host credentials inside the container.
+      # This remains the safest backup mode: mount NFS/SMB on the host and bind
+      # it here. The opt-in compose.managed-backups.yaml override is available
+      # when Notifinho must manage remote mounts itself.
       - "${NOTIFINHO_EXTERNAL_BACKUP_DIR:-./external-backups}:/notifinho/external-backups"
 
     read_only: true

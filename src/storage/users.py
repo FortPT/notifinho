@@ -27,6 +27,7 @@ class User:
     failed_login_count: int
     locked_until: int | None
     last_login_at: int | None
+    first_login_at: int | None
     created_at: int
     updated_at: int
     avatar_data: str | None = None
@@ -98,7 +99,13 @@ class UserStore:
     def bootstrap_admin(self, username: str, password: str) -> User:
         if self.count():
             raise ValueError("account bootstrap is allowed only when no users exist")
-        return self.create(username, password, role="admin")
+        user = self.create(username, password, role="admin")
+        with self.database.transaction() as connection:
+            connection.execute(
+                "UPDATE users SET first_login_at = ? WHERE id = ?",
+                (int(self.clock()), user.id),
+            )
+        return self.get(user.id)
 
     def count(self) -> int:
         """Return the account count without exposing any credential record."""
@@ -111,7 +118,7 @@ class UserStore:
             row = connection.execute(
                 """
                 SELECT id, username, role, enabled, failed_login_count,
-                       locked_until, last_login_at, created_at, updated_at,
+                       locked_until, last_login_at, first_login_at, created_at, updated_at,
                        avatar_data
                 FROM users WHERE id = ?
                 """,
@@ -132,7 +139,7 @@ class UserStore:
             row = connection.execute(
                 """
                 SELECT id, username, role, enabled, failed_login_count,
-                       locked_until, last_login_at, created_at, updated_at,
+                       locked_until, last_login_at, first_login_at, created_at, updated_at,
                        avatar_data
                 FROM users WHERE username_normalized = ?
                 """,
@@ -147,7 +154,7 @@ class UserStore:
             rows = connection.execute(
                 """
                 SELECT id, username, role, enabled, failed_login_count,
-                       locked_until, last_login_at, created_at, updated_at,
+                       locked_until, last_login_at, first_login_at, created_at, updated_at,
                        avatar_data
                 FROM users ORDER BY username_normalized
                 """
@@ -210,10 +217,11 @@ class UserStore:
                 """
                 UPDATE users
                 SET failed_login_count = 0, locked_until = NULL,
-                    last_login_at = ?, updated_at = ?
+                    last_login_at = ?, first_login_at = COALESCE(first_login_at, ?),
+                    updated_at = ?
                 WHERE id = ?
                 """,
-                (now, now, row["id"]),
+                (now, now, now, row["id"]),
             )
         return self.get(str(row["id"]))
 
@@ -321,6 +329,11 @@ class UserStore:
             ),
             last_login_at=(
                 int(row["last_login_at"]) if row["last_login_at"] is not None else None
+            ),
+            first_login_at=(
+                int(row["first_login_at"])
+                if "first_login_at" in row.keys() and row["first_login_at"] is not None
+                else None
             ),
             created_at=int(row["created_at"]),
             updated_at=int(row["updated_at"]),

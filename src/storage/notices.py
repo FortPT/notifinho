@@ -26,6 +26,7 @@ class Notice:
     kind: str
     persistent: bool
     created_at: int
+    updated_at: int
 
 
 class NoticeStore:
@@ -69,16 +70,72 @@ class NoticeStore:
                 """
                 INSERT INTO notices(
                     id, created_by_user_id, name, message, status, kind,
-                    persistent, created_at
-                ) VALUES (?, ?, ?, ?, ?, 'announcement', 0, ?)
+                    persistent, created_at,
+                    updated_at
+                ) VALUES (?, ?, ?, ?, ?, 'announcement', 0, ?, ?)
                 """,
-                (notice_id, actor.user_id, display, body, normalized_status, now),
+                (notice_id, actor.user_id, display, body, normalized_status, now, now),
             )
         return self.get(notice_id)
+
+    def update(
+        self,
+        actor: Actor,
+        notice_id: str,
+        *,
+        name: str,
+        message: str,
+        status: str,
+    ) -> Notice:
+        self._require_admin(actor)
+        current = self.get(notice_id)
+        if current.kind != "announcement":
+            raise PermissionError("system notices are updated by their health source")
+        normalized_status = str(status or "").strip().casefold()
+        if normalized_status not in NOTICE_STATUSES:
+            raise ValueError("notice status is invalid")
+        now = int(self.clock())
+        with self.database.transaction() as connection:
+            connection.execute(
+                """
+                UPDATE notices
+                SET name = ?, message = ?, status = ?, updated_at = ?
+                WHERE id = ? AND resolved_at IS NULL
+                """,
+                (
+                    self._text(name, 120, "notice name"),
+                    self._text(message, 2000, "notice message"),
+                    normalized_status,
+                    now,
+                    current.id,
+                ),
+            )
+        return self.get(current.id)
+
+    def resolve(self, actor: Actor, notice_id: str) -> None:
+        self._require_admin(actor)
+        current = self.get(notice_id)
+        if current.kind != "announcement":
+            raise PermissionError("system notices resolve automatically")
+        now = int(self.clock())
+        with self.database.transaction() as connection:
+            connection.execute(
+                "UPDATE notices SET resolved_at = ?, updated_at = ? WHERE id = ?",
+                (now, now, current.id),
+            )
 
     def list_visible(self, actor: Actor) -> list[Notice]:
         self.ensure_defaults()
         with self.database.connect() as connection:
+            row = connection.execute(
+                "SELECT first_login_at FROM users WHERE id = ?",
+                (actor.user_id,),
+            ).fetchone()
+            first_login_at = (
+                int(row["first_login_at"])
+                if row is not None and row["first_login_at"] is not None
+                else None
+            )
             rows = connection.execute(
                 """
                 SELECT notices.* FROM notices
@@ -87,6 +144,11 @@ class NoticeStore:
                  AND notice_dismissals.user_id = ?
                 WHERE notices.resolved_at IS NULL
                   AND (notices.persistent = 1 OR notice_dismissals.notice_id IS NULL)
+                  AND (
+                    notices.system_key IN ('welcome-operations', 'mounted-configuration')
+                    OR (notices.kind != 'announcement')
+                    OR (? IS NOT NULL AND notices.created_at >= ?)
+                  )
                 ORDER BY
                   CASE notices.status
                     WHEN 'severe' THEN 0
@@ -96,7 +158,7 @@ class NoticeStore:
                   notices.created_at DESC,
                   notices.id
                 """,
-                (actor.user_id,),
+                (actor.user_id, first_login_at, first_login_at),
             ).fetchall()
         return [self._notice(row) for row in rows]
 
@@ -141,14 +203,15 @@ class NoticeStore:
                         """
                         INSERT INTO notices(
                             id, name, message, status, kind, system_key,
-                            persistent, created_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            persistent, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         ON CONFLICT(system_key) DO UPDATE SET
                             name = excluded.name,
                             message = excluded.message,
                             status = excluded.status,
                             kind = excluded.kind,
                             persistent = excluded.persistent,
+                            updated_at = excluded.updated_at,
                             resolved_at = NULL
                         """,
                         (
@@ -160,6 +223,7 @@ class NoticeStore:
                             system_key,
                             1 if persistent else 0,
                             now,
+                            now,
                         ),
                     )
                 else:
@@ -168,7 +232,8 @@ class NoticeStore:
                         UPDATE notices
                         SET name = ?, message = ?, status = ?, kind = ?,
                             persistent = ?, resolved_at = NULL,
-                            created_at = CASE WHEN resolved_at IS NULL THEN created_at ELSE ? END
+                            created_at = CASE WHEN resolved_at IS NULL THEN created_at ELSE ? END,
+                            updated_at = ?
                         WHERE system_key = ?
                         """,
                         (
@@ -178,13 +243,14 @@ class NoticeStore:
                             kind,
                             1 if persistent else 0,
                             now,
+                            now,
                             system_key,
                         ),
                     )
             elif row is not None and row["resolved_at"] is None:
                 connection.execute(
-                    "UPDATE notices SET resolved_at = ? WHERE system_key = ?",
-                    (now, system_key),
+                    "UPDATE notices SET resolved_at = ?, updated_at = ? WHERE system_key = ?",
+                    (now, now, system_key),
                 )
 
     def get(self, notice_id: str) -> Notice:
@@ -207,6 +273,7 @@ class NoticeStore:
             kind=str(row["kind"]),
             persistent=bool(row["persistent"]),
             created_at=int(row["created_at"]),
+            updated_at=int(row["updated_at"] or row["created_at"]),
         )
 
     @staticmethod

@@ -109,10 +109,10 @@ def test_source_category_update_persists_in_authoritative_yaml(tmp_path):
         "applications",
     )
 
-    assert categories == {"grafana": "applications"}
+    assert categories == {"grafana": "generic"}
     saved = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert saved["webui"]["source_categories"] == {
-        "grafana": "applications",
+        "grafana": "generic",
     }
 
 

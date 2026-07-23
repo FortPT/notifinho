@@ -103,6 +103,9 @@ webui:
   language: "en-GB"
   # Optional WebUI-only presentation tags, editable from Sources.
   source_categories: {}
+  # Inactive Sources entries removed through the WebUI. Historical delivery
+  # records remain available and an enabled route makes a source visible again.
+  removed_sources: []
 
 # Backend API transport for the WebUI and optional v1-compatible API. Management
 # endpoints still require a browser session or explicitly configured token.

@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 2.3.2 - 2026-07-23
+
+### Fixed
+
+- Prefer the browser-session cookie matching the configured HTTP/HTTPS mode
+  when legacy Secure and current standard cookies coexist.
+- Treat enabled wildcard routes as activating every discovered source.
+- Send destination-card tests as generic Notifinho events instead of Home
+  Assistant events, preserving the selected destination and channel.
+- Complete the managed-mount Compose override with `DAC_OVERRIDE`, `FOWNER`,
+  and `SYS_ADMIN` so root can read existing configuration, write logs, secure
+  platform state, and mount NFS/SMB shares after capabilities are dropped.
+- Disable NLM for managed NFS backup mounts so NFSv3 does not require
+  `rpc.statd` runtime files on the read-only container filesystem.
+
+### Added
+
+- Serve the packaged official vendor icons in Overview and Sources, with the
+  Notifinho icon used for wildcard, custom, and otherwise generic sources.
+- Add Virtualization, Monitoring, Storage, Networking, Hardware, Automation,
+  Containers, Security, and Generic source categories.
+- Add confirmation-protected removal for inactive sources while retaining
+  delivery history and rejecting removal through enabled exact or wildcard
+  routes.
+
+### Changed
+
+- Move the administrator Restart action from Settings to the top-right WebUI
+  header while retaining the mandatory reason and audit trail.
+- Preserve legacy source-category values during upgrade by mapping them to the
+  new purpose-specific categories.
+- Platform schema remains 6 and v2.3.1 configuration/state are directly
+  compatible.
+
 ## 2.3.1 - 2026-07-23
 
 ### Fixed

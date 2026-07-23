@@ -5,7 +5,7 @@ audit foundations through the `/api/v2` JSON API. It also provides the
 user/application event-ingestion path used by platform routes. Phase 5 adds a
 same-origin browser client for this contract; see the [WebUI guide](webui.md).
 
-v2.3.1 exposes credential-free mounted YAML metadata, administrator-only
+v2.3.2 exposes credential-free mounted YAML metadata, administrator-only
 atomic mutations, notice lifecycle controls, backup destinations, and audited
 restart. The browser never receives destination, application-token, or remote
 share credential material.

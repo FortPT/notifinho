@@ -469,6 +469,13 @@ h3 {
   text-align: center;
 }
 
+.topbar-actions {
+  align-items: center;
+  display: flex;
+  position: absolute;
+  right: clamp(1rem, 4vw, 2.7rem);
+}
+
 .status-dot {
   align-items: center;
   color: var(--muted);
@@ -705,47 +712,68 @@ h3 {
   justify-content: flex-start;
 }
 
-.source-category-icon {
-  align-items: center;
-  background: rgba(72, 214, 186, 0.12);
-  border: 1px solid rgba(72, 214, 186, 0.2);
-  border-radius: 10px;
-  color: var(--accent);
-  display: inline-flex;
+.source-product-icon {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 9px;
+  display: block;
   flex: 0 0 auto;
   height: 34px;
-  justify-content: center;
+  object-fit: contain;
+  padding: 4px;
   width: 34px;
 }
 
-.category-servers .source-category-icon {
-  background: rgba(113, 168, 255, 0.14);
+.source-identity {
+  align-items: center;
+  display: flex;
+  gap: 0.7rem;
+}
+
+.source-identity strong,
+.source-identity small {
+  display: block;
+}
+
+.source-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.category-virtualization {
   border-color: rgba(113, 168, 255, 0.34);
-  color: var(--blue);
 }
 
-.category-services .source-category-icon {
-  background: rgba(245, 191, 100, 0.14);
+.category-monitoring {
   border-color: rgba(245, 191, 100, 0.34);
-  color: var(--warning);
 }
 
-.category-applications .source-category-icon {
-  background: rgba(190, 132, 255, 0.14);
-  border-color: rgba(190, 132, 255, 0.34);
-  color: #c89aff;
-}
-
-.category-storage .source-category-icon {
-  background: rgba(72, 214, 186, 0.14);
+.category-storage {
   border-color: rgba(72, 214, 186, 0.34);
-  color: var(--accent);
 }
 
-.category-controllers .source-category-icon {
-  background: rgba(255, 124, 136, 0.14);
+.category-networking {
+  border-color: rgba(82, 202, 255, 0.34);
+}
+
+.category-hardware {
+  border-color: rgba(190, 132, 255, 0.34);
+}
+
+.category-automation {
+  border-color: rgba(99, 221, 178, 0.34);
+}
+
+.category-containers {
+  border-color: rgba(70, 156, 255, 0.34);
+}
+
+.category-security {
   border-color: rgba(255, 124, 136, 0.34);
-  color: var(--danger);
+}
+
+.category-generic {
+  border-color: var(--line-strong);
 }
 
 .destination-node {
@@ -2027,6 +2055,7 @@ dialog::backdrop {
 
   .topbar-actions {
     margin-left: auto;
+    position: static;
   }
 
   .hero-panel,

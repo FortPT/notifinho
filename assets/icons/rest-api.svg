@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="REST API">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#12b8a6"/>
+      <stop offset="1" stop-color="#2477d4"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#g)"/>
+  <path d="M67 78 34 128l33 50M189 78l33 50-33 50" fill="none" stroke="#fff" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m151 61-46 134" fill="none" stroke="#fff" stroke-width="15" stroke-linecap="round" opacity=".9"/>
+  <rect x="70" y="105" width="116" height="46" rx="14" fill="#06192e" opacity=".83"/>
+  <text x="128" y="137" fill="#fff" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="700" text-anchor="middle">REST</text>
+</svg>

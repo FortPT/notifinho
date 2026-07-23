@@ -87,6 +87,15 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.3.5 source identity and removal corrective upgrade
+
+v2.3.5 keeps platform schema 6. After redeployment, force-refresh the browser,
+verify `xo` and `redfish` source icons, confirm the enlarged Overview icons, and
+remove one inactive source through the Sources page.
+
+Complete the
+[v2.3.5 acceptance checklist](v2.3.5-acceptance-checklist.md) before production.
+
 ## v2.3.4 final WebUI corrective upgrade
 
 v2.3.4 keeps platform schema 6 and does not migrate `config.yaml` or SQLite

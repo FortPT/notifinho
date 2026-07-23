@@ -85,6 +85,11 @@ class WebUIService:
             "/ui/icons/ntfy.svg": (
                 "assets/icons/ntfy.svg", "image/svg+xml", "public, max-age=86400"
             ),
+            "/ui/source-icons/rest-api.svg": (
+                "assets/icons/rest-api.svg",
+                "image/svg+xml",
+                "public, max-age=86400",
+            ),
         }
         for filename in (
             "xen-orchestra.png",

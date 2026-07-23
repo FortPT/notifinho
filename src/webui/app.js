@@ -33,6 +33,11 @@ const OUTPUT_ICONS = {
 };
 const SOURCE_ICONS = {
   xen_orchestra: "/ui/source-icons/xen-orchestra.png",
+  xo: "/ui/source-icons/xen-orchestra.png",
+  xenorchestra: "/ui/source-icons/xen-orchestra.png",
+  redfish: "/ui/source-icons/rest-api.svg",
+  restful: "/ui/source-icons/rest-api.svg",
+  rest_api: "/ui/source-icons/rest-api.svg",
   grafana: "/ui/source-icons/grafana.png",
   portainer: "/ui/source-icons/portainer.png",
   proxmox: "/ui/source-icons/proxmox.png",
@@ -57,7 +62,8 @@ const PRIORITIES = [
   ["lowest", "Lowest"],
 ];
 const SOURCE_TRANSPORTS = {
-  xen_orchestra: "SMTP", zabbix: "SMTP", qnap: "SMTP", truenas: "SMTP",
+  xen_orchestra: "SMTP", xo: "SMTP", xenorchestra: "SMTP", zabbix: "SMTP", qnap: "SMTP", truenas: "SMTP",
+  redfish: "REST API", restful: "REST API", rest_api: "REST API",
   grafana: "HTTP", proxmox: "HTTP API", portainer: "HTTP API",
   home_assistant: "Home Assistant API",
   unifi_network: "UniFi API", unifi_protect: "UniFi API", unifi_drive: "UniFi API",
@@ -722,7 +728,7 @@ function capitalize(value) {
 }
 
 function friendlyName(value) {
-  const special = { home_assistant: "Home Assistant", hpe_ilo: "HPE iLO", dell_idrac: "Dell iDRAC", xen_orchestra: "Xen Orchestra", unifi_network: "UniFi Network", unifi_protect: "UniFi Protect", unifi_drive: "UniFi Drive" };
+  const special = { home_assistant: "Home Assistant", hpe_ilo: "HPE iLO", dell_idrac: "Dell iDRAC", xen_orchestra: "Xen Orchestra", xo: "Xen Orchestra", xenorchestra: "Xen Orchestra", redfish: "Redfish", restful: "RESTful API", rest_api: "REST API", unifi_network: "UniFi Network", unifi_protect: "UniFi Protect", unifi_drive: "UniFi Drive" };
   const key = String(value || "").casefold ? String(value || "").casefold() : String(value || "").toLowerCase();
   return special[key] || String(value || "Unknown").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
@@ -742,6 +748,7 @@ function sourceIcon(source) {
       alt: "",
       loading: "lazy",
     },
+    dataset: { sourceKey: key },
   });
 }
 
@@ -769,11 +776,11 @@ function sourceCategory(source) {
   };
   const configured = aliases[state.sourceCategories[key]] || state.sourceCategories[key];
   if (SOURCE_CATEGORIES[configured]) return SOURCE_CATEGORIES[configured];
-  if (["xen_orchestra", "proxmox"].includes(key)) return SOURCE_CATEGORIES.virtualization;
+  if (["xen_orchestra", "xo", "xenorchestra", "proxmox"].includes(key)) return SOURCE_CATEGORIES.virtualization;
   if (["grafana", "zabbix"].includes(key)) return SOURCE_CATEGORIES.monitoring;
   if (["qnap", "truenas", "synology", "unifi_drive"].includes(key)) return SOURCE_CATEGORIES.storage;
   if (key === "unifi_network") return SOURCE_CATEGORIES.networking;
-  if (["supermicro", "hpe_ilo", "dell_idrac"].includes(key)) return SOURCE_CATEGORIES.hardware;
+  if (["supermicro", "hpe_ilo", "dell_idrac", "redfish"].includes(key)) return SOURCE_CATEGORIES.hardware;
   if (key === "home_assistant") return SOURCE_CATEGORIES.automation;
   if (key === "portainer") return SOURCE_CATEGORIES.containers;
   if (key === "unifi_protect") return SOURCE_CATEGORIES.security;
@@ -2221,9 +2228,8 @@ async function resourceAction(action, id) {
         "Remove",
       );
       if (!accepted) return;
-      const response = await request("/source-categories", {
+      const response = await request(`/source-categories/${encodeURIComponent(source)}`, {
         method: "DELETE",
-        body: { source },
       });
       state.sourceCategories = response.categories;
       state.removedSources = response.removed_sources || [];

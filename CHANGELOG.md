@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 2.3.5 - 2026-07-23
+
+### Fixed
+
+- Map `xo` to Xen Orchestra and map `redfish`, `restful`, and `rest_api` to a
+  packaged neutral REST API icon instead of the generic Notifinho fallback.
+- Increase the visual size of Notifinho, Dell iDRAC, UniFi Network, UniFi
+  Protect, QNAP, and Synology icons in the Overview routing flow.
+- Make inactive-source removal independent of DELETE request bodies by placing
+  the source key in the URL path.
+
 ## 2.3.4 - 2026-07-23
 
 ### Fixed

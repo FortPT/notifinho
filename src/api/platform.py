@@ -11,6 +11,7 @@ import uuid
 import time
 
 from http.cookies import SimpleCookie
+from urllib.parse import unquote
 
 from api.response import APIResponse
 from api.security import Principal, RateLimiter
@@ -179,6 +180,11 @@ class PlatformAPI:
                 return self._preferences_endpoint(method, payload, actor)
             if path == "/api/v2/source-categories":
                 return self._source_categories_endpoint(method, payload, actor)
+            if path.startswith("/api/v2/source-categories/") and method == "DELETE":
+                source = unquote(path[len("/api/v2/source-categories/"):])
+                return self._source_categories_endpoint(
+                    method, {"source": source}, actor
+                )
             if path == "/api/v2/version":
                 return self._version_endpoint(method)
             if path == "/api/v2/tokens":

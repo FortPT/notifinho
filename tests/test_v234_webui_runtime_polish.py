@@ -25,8 +25,8 @@ def test_webui_service_serves_v234_runtime_assets():
 
     stylesheet = service.response("/ui/enhancements.css")
     assert stylesheet is not None and stylesheet.status == 200
-    assert b"dell-idrac" in stylesheet.body
-    assert b"unifi-network" in stylesheet.body
+    assert b'data-source-key="dell_idrac"' in stylesheet.body
+    assert b'data-source-key="unifi_network"' in stylesheet.body
     assert b"background: transparent !important" in stylesheet.body
 
 
@@ -64,9 +64,10 @@ def test_v234_runtime_polish_keeps_reload_source_tests_clock_and_delete_payloads
     assert 'provider: "Supermicro BMC"' in script
     assert "parseCanonicalTime" in script
     assert "displayClockTime" in script
-    assert 'src*="dell-idrac"' in css
-    assert 'src*="unifi-network"' in css
-    assert 'src*="qnap"' in css
-    assert 'src*="synology"' in css
+    assert 'data-source-key="dell_idrac"' in css
+    assert 'data-source-key="unifi_network"' in css
+    assert 'data-source-key="unifi_protect"' in css
+    assert 'data-source-key="qnap"' in css
+    assert 'data-source-key="synology"' in css
     assert 'data.get("id")' in platform
     assert 'data.get("name")' in platform

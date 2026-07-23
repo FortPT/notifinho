@@ -136,8 +136,8 @@ class PlatformAPI:
         return self.configuration.get(
             "platform",
             "secure_cookies",
-            default=True,
-        ) is not False
+            default=False,
+        ) is True
 
     def handle(self, method, path, payload, headers, client) -> APIResponse:
         method = str(method or "").upper()
@@ -177,6 +177,10 @@ class PlatformAPI:
                 return self._own_avatar(method, payload, principal)
             if path == "/api/v2/preferences":
                 return self._preferences_endpoint(method, payload, actor)
+            if path == "/api/v2/source-categories":
+                return self._source_categories_endpoint(method, payload, actor)
+            if path == "/api/v2/version":
+                return self._version_endpoint(method)
             if path == "/api/v2/tokens":
                 return self._tokens_endpoint(method, payload, actor)
             if path == "/api/v2/destinations":
@@ -917,6 +921,49 @@ class PlatformAPI:
                 {"preferences": self.configuration_sync.update_preferences(actor, data)},
             )
         return self._method_not_allowed("GET, PUT")
+
+    def _source_categories_endpoint(self, method, payload, actor) -> APIResponse:
+        if self.configuration_sync is None:
+            return APIResponse(404, {"error": "resource not found"})
+        if method == "GET":
+            return APIResponse(
+                200,
+                {"categories": self.configuration_sync.source_categories()},
+            )
+        if method == "PUT":
+            self._require_admin(actor)
+            data = self._object(payload, {"source", "category"})
+            if set(data) != {"source", "category"}:
+                raise ValueError("source and category are required")
+            return APIResponse(
+                200,
+                {
+                    "categories": self.configuration_sync.update_source_category(
+                        actor,
+                        data.get("source"),
+                        data.get("category"),
+                    )
+                },
+            )
+        return self._method_not_allowed("GET, PUT")
+
+    def _version_endpoint(self, method) -> APIResponse:
+        if method != "GET":
+            return self._method_not_allowed("GET")
+        available = str(os.environ.get("NOTIFINHO_AVAILABLE_VERSION") or "").strip()
+        return APIResponse(
+            200,
+            {
+                "version": {
+                    "running": VERSION,
+                    "available": available,
+                    "update_available": bool(
+                        available
+                        and self._version_key(available) > self._version_key(VERSION)
+                    ),
+                }
+            },
+        )
 
     def _configuration_migration_preview(self, method, actor) -> APIResponse:
         self._require_admin(actor)

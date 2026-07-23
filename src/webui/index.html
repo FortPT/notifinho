@@ -83,6 +83,9 @@
         <button class="nav-item active" type="button" data-view="dashboard" aria-current="page">
           <span class="nav-icon" aria-hidden="true">⌂</span><span>Overview</span>
         </button>
+        <button class="nav-item" type="button" data-view="sources">
+          <span class="nav-icon" aria-hidden="true">◉</span><span>Sources</span>
+        </button>
         <button class="nav-item" type="button" data-view="destinations">
           <span class="nav-icon" aria-hidden="true">◎</span><span>Destinations</span>
         </button>
@@ -104,6 +107,9 @@
         <button id="settings-nav" class="nav-item" type="button" data-view="settings" hidden>
           <span class="nav-icon" aria-hidden="true">⚙</span><span>Settings</span>
         </button>
+        <button id="updates-nav" class="nav-item" type="button" data-view="updates">
+          <span class="nav-icon" aria-hidden="true">⇧</span><span>Updates</span>
+        </button>
         <button id="inputs-nav" class="nav-item" type="button" data-view="inputs" hidden>
           <span class="nav-icon" aria-hidden="true">⇥</span><span>Inputs</span>
         </button>
@@ -115,25 +121,24 @@
         </button>
       </nav>
       <div class="sidebar-footer">
-        <button class="profile-chip" type="button" data-view="account">
-          <span id="profile-avatar" class="avatar" aria-hidden="true">N</span>
-          <span><strong id="profile-name">Account</strong><small id="profile-role">User</small></span>
-        </button>
+        <div class="profile-menu">
+          <button id="profile-menu-button" class="profile-chip" type="button" data-action="toggle-profile-menu" aria-haspopup="menu" aria-expanded="false">
+            <span id="profile-avatar" class="avatar" aria-hidden="true">N</span>
+            <span><strong id="profile-name">Account</strong><small id="profile-role">User</small></span>
+            <span class="profile-chevron" aria-hidden="true">⌃</span>
+          </button>
+          <div id="profile-menu-popover" class="profile-menu-popover" role="menu" hidden>
+            <button type="button" role="menuitem" data-view="account"><span aria-hidden="true">◇</span> Security</button>
+            <button type="button" role="menuitem" data-action="logout"><span aria-hidden="true">↪</span> Sign out</button>
+          </div>
+        </div>
       </div>
     </aside>
 
     <div class="workspace">
       <header class="topbar">
         <button id="mobile-menu" class="icon-button mobile-only" type="button" aria-label="Open navigation" aria-expanded="false">☰</button>
-        <div>
-          <p class="eyebrow" id="page-kicker">Workspace</p>
-          <h1 id="page-title">Overview</h1>
-        </div>
-        <div class="topbar-actions">
-          <span id="connection-state" class="status-dot success">Connected</span>
-          <button id="refresh-button" class="icon-button" type="button" aria-label="Refresh current view">↻</button>
-          <button id="logout-button" class="button secondary small" type="button">Sign out</button>
-        </div>
+        <h1 id="page-title">Overview</h1>
       </header>
 
       <main id="main-content" class="content" tabindex="-1">
@@ -147,7 +152,7 @@
         <section id="view-dashboard" class="view" data-page="dashboard">
           <section id="notice-console" class="notice-console" hidden>
             <article id="notice-composer" class="panel notice-composer" hidden>
-              <div class="panel-heading"><div><p class="eyebrow">Administrator notice</p><h3>Notify every user</h3></div></div>
+              <div class="panel-heading centered-heading"><h2>Administrator Notice</h2></div>
               <form id="notice-form" class="notice-form">
                 <input id="notice-id" type="hidden">
                 <label><span>Notice name</span><input id="notice-name" required maxlength="120" placeholder="Maintenance window"></label>
@@ -157,62 +162,68 @@
               </form>
             </article>
             <article id="notice-panel" class="panel notice-panel" hidden>
-              <div class="panel-heading"><div><p class="eyebrow">Notices</p><h3>Current notices</h3></div></div>
+              <div class="panel-heading centered-heading"><h2>Notices</h2></div>
               <div id="notice-list" class="notice-list"></div>
             </article>
           </section>
           <div class="metric-grid" aria-label="Workspace summary">
-            <article class="metric-card"><span>Sources</span><strong id="metric-sources">—</strong><small>Active routes</small></article>
-            <article class="metric-card"><span>Destinations</span><strong id="metric-destinations">—</strong><small>Active</small></article>
-            <article class="metric-card"><span>Routes</span><strong id="metric-routes">—</strong><small>Active</small></article>
+            <article class="metric-card"><span>Active Sources</span><strong id="metric-sources">—</strong><small>Enabled and routed</small></article>
+            <article class="metric-card"><span>Active Destinations</span><strong id="metric-destinations">—</strong><small>Enabled</small></article>
+            <article class="metric-card"><span>Active Routes</span><strong id="metric-routes">—</strong><small>Enabled</small></article>
             <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small>Active credentials</small></article>
             <article class="metric-card metric-history"><span>Success</span><strong id="metric-success">—</strong><small id="metric-success-note">Selected history</small></article>
             <article class="metric-card metric-history"><span>Requests</span><strong id="metric-requests">—</strong><label class="history-filter"><span>History</span><select id="history-range"><option value="10m">10 minutes</option><option value="1h" selected>1 hour</option><option value="1d">1 day</option><option value="1m">1 month</option><option value="1y">1 year</option></select></label></article>
           </div>
           <article class="panel flow-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Routing flow</p><h3>Every configured route</h3></div></div>
+            <div class="panel-heading centered-heading"><h2>Routing Flow</h2></div>
             <div class="flow-head" aria-hidden="true"><span>Source</span><span>Route</span><span>Destination</span></div>
             <div id="dashboard-flow" class="flow-map"></div>
           </article>
           <article class="panel dashboard-deliveries-panel">
-            <div class="panel-heading"><div><p class="eyebrow">Latest activity</p><h3>Recent deliveries</h3></div><button class="text-button" type="button" data-view="deliveries">View all</button></div>
+            <div class="panel-heading"><h2>Latest Activity</h2><button class="text-button" type="button" data-view="deliveries">View all</button></div>
             <div id="dashboard-deliveries" class="activity-list"></div>
           </article>
         </section>
 
+        <section id="view-sources" class="view" data-page="sources" hidden>
+          <div class="section-toolbar"><div><h2>Sources</h2></div></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Source</th><th>Input</th><th>Tag</th><th>Status</th></tr></thead><tbody id="source-table"></tbody></table></div><div id="source-empty" class="empty-state" hidden></div></div>
+        </section>
+
         <section id="view-destinations" class="view" data-page="destinations" hidden>
-          <div class="section-toolbar"><div><h2>Destinations</h2><p>Named endpoints with their connection and presentation settings.</p></div><button id="add-destination-button" class="button primary" type="button" data-action="new-destination">Add destination</button></div>
+          <div class="section-toolbar"><div><h2>Destinations</h2></div><button id="add-destination-button" class="button primary" type="button" data-action="new-destination">Add destination</button></div>
           <div id="destination-list" class="resource-grid"></div>
         </section>
 
         <section id="view-routes" class="view" data-page="routes" hidden>
-          <div class="section-toolbar"><div><h2>Routes</h2><p>Send matching events to a configured destination.</p></div><button id="add-route-button" class="button primary" type="button" data-action="new-route">Add route</button></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
+          <div class="section-toolbar"><div><h2>Routes</h2></div><button id="add-route-button" class="button primary" type="button" data-action="new-route">Add route</button></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Input</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-tokens" class="view" data-page="tokens" hidden>
-          <div class="section-toolbar"><div><h2>Applications</h2><p>Named, source-scoped credentials for event submission. Values appear once.</p></div><button class="button primary" type="button" data-action="new-token">Issue token</button></div>
+          <div class="section-toolbar"><div><h2>Applications</h2></div><button class="button primary" type="button" data-action="new-token">Issue token</button></div>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Sources</th><th>Rate limit</th><th>Last used</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="token-table"></tbody></table></div><div id="token-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-deliveries" class="view" data-page="deliveries" hidden>
-          <div class="section-toolbar"><div><h2>Delivery history</h2><p>Safe transport outcomes for the latest 100 attempts.</p></div><label class="search-field"><span class="sr-only">Search deliveries</span><input id="delivery-search" type="search" placeholder="Search source, title, or outcome"></label></div>
+          <div class="section-toolbar"><div><h2>Delivery history</h2></div><label class="search-field"><span class="sr-only">Search deliveries</span><input id="delivery-search" type="search" placeholder="Search source, title, or outcome"></label></div>
           <div id="delivery-list" class="timeline"></div>
         </section>
 
         <section id="view-audit" class="view" data-page="audit" hidden>
-          <div class="section-toolbar"><div><h2>Audit log</h2><p>Ownership-aware account and configuration activity.</p></div><div class="toolbar-fields"><label class="search-field"><span class="sr-only">Search audit events</span><input id="audit-search" type="search" placeholder="Search action or outcome"></label><label><span>Entries</span><select id="audit-page-size"><option>25</option><option>50</option><option>100</option><option>150</option><option>250</option><option>500</option></select></label></div></div>
+          <div class="section-toolbar"><div><h2>Audit log</h2></div><label class="search-field"><span class="sr-only">Search audit events</span><input id="audit-search" type="search" placeholder="Search action or outcome"></label></div>
           <article class="panel health-panel"><div class="panel-heading"><div><p class="eyebrow">System checks</p><h3>Notifinho health</h3><p>Read-only tests of configuration, storage, credentials, routes, backups, and recent delivery failures.</p></div><button class="button secondary" type="button" data-action="run-health-checks">Run checks</button></div><div id="health-check-list" class="health-check-list"></div></article>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Time</th><th>Action</th><th>Resource</th><th>Outcome</th><th>Details</th></tr></thead><tbody id="audit-table"></tbody></table></div><div id="audit-empty" class="empty-state" hidden></div></div>
+          <div class="audit-footer"><label><span>Entries</span><select id="audit-page-size"><option>25</option><option>50</option><option>100</option><option>150</option><option>250</option><option>500</option></select></label></div>
         </section>
 
         <section id="view-users" class="view" data-page="users" hidden>
-          <div class="section-toolbar"><div><h2>Users</h2><p>Local accounts and administrative access.</p></div><button class="button primary" type="button" data-action="new-user">Add user</button></div>
+          <div class="section-toolbar"><div><h2>Users</h2></div><button class="button primary" type="button" data-action="new-user">Add user</button></div>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>User</th><th>Role</th><th>Last login</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="user-table"></tbody></table></div></div>
         </section>
 
         <section id="view-settings" class="view" data-page="settings" hidden>
-          <div class="section-toolbar"><div><h2>Settings</h2><p>Regional presentation settings used across Notifinho and its WebUI.</p></div></div>
+          <div class="section-toolbar"><div><h2>Settings</h2></div></div>
           <article class="panel settings-card">
             <div class="panel-heading"><div><p class="eyebrow">Regional settings</p><h3>Language, timezone, and clock</h3><p>Timezone also controls timestamps generated by Notifinho notification formatters.</p></div></div>
             <form id="preferences-form" class="form-grid">
@@ -225,8 +236,17 @@
           <article class="panel danger-panel restart-panel"><div><p class="eyebrow">Service control</p><h3>Restart Notifinho</h3><p>Gracefully restart the container after recording a mandatory reason. No shutdown action is provided.</p></div><button class="button danger" type="button" data-action="restart-platform">Restart</button></article>
         </section>
 
+        <section id="view-updates" class="view" data-page="updates" hidden>
+          <div class="section-toolbar"><div><h2>Updates</h2></div></div>
+          <article class="panel update-panel">
+            <div><strong>Running version</strong><span id="running-version">—</span></div>
+            <div><strong>Available version</strong><span id="available-version">Not advertised</span></div>
+            <p id="update-status">Notifinho will show an update notice when a newer version is advertised.</p>
+          </article>
+        </section>
+
         <section id="view-inputs" class="view" data-page="inputs" hidden>
-          <div class="section-toolbar"><div><h2>Inputs</h2><p>Manage event listeners and review their restart requirements.</p></div></div>
+          <div class="section-toolbar"><div><h2>Inputs</h2></div></div>
           <div class="data-tools-grid">
             <article class="panel data-tool-card configuration-card">
               <div><p class="eyebrow">Inputs</p><h3 id="configuration-card-title">Configured listeners</h3><p id="configuration-card-copy">Click a status to enable or disable an input. Listener changes apply after Notifinho restarts.</p></div>
@@ -238,7 +258,7 @@
         </section>
 
         <section id="view-data" class="view" data-page="data" hidden>
-          <div class="section-toolbar"><div><h2>Data tools</h2><p>Export or import safe platform configuration.</p></div></div>
+          <div class="section-toolbar"><div><h2>Data tools</h2></div></div>
           <div class="data-tools-grid">
             <article class="panel data-tool-card">
               <div><p class="eyebrow">Portable configuration</p><h3>Export destinations and routes</h3><p>Downloads owner-aware settings without passwords, application tokens, or destination credentials.</p></div>
@@ -253,7 +273,7 @@
         </section>
 
         <section id="view-backups" class="view" data-page="backups" hidden>
-          <div class="section-toolbar"><div><h2>Backups</h2><p>Manage Local, NFS, and SMB destinations, schedules, and protected state snapshots.</p></div><button class="button primary" type="button" data-action="new-backup-target">Add backup destination</button></div>
+          <div class="section-toolbar"><div><h2>Backups</h2></div><button class="button primary" type="button" data-action="new-backup-target">Add backup destination</button></div>
           <div class="data-tools-grid">
             <article class="panel data-tool-card backup-targets-card">
               <div class="panel-heading"><div><p class="eyebrow">Destinations</p><h3>Backup storage</h3><p>Remote targets are reachability-tested, mounted when managed mounts are enabled, and verified with a real write test.</p></div></div>
@@ -273,14 +293,14 @@
                 <label><span>Monthly day</span><input id="backup-day" type="number" min="1" max="28" value="1"></label>
                 <label class="wide"><span>Backup destination</span><select id="backup-target"><option value="">Local state only</option></select></label>
                 <label class="switch-field"><input id="backup-managed-mounts" type="checkbox"><span>Allow Notifinho to mount remote destinations</span></label>
-                <div class="wide"><button class="button primary" type="submit">Save backup settings</button><small id="backup-last-run">No scheduled run recorded.</small></div>
+                <div class="wide"><button class="button primary" type="submit">Save backup settings</button><small id="backup-time-display">Scheduled time: 02:00</small><small id="backup-last-run">No scheduled run recorded.</small></div>
               </form>
             </article>
           </div>
         </section>
 
         <section id="view-account" class="view" data-page="account" hidden>
-          <div class="section-toolbar"><div><h2>Account security</h2><p>Manage your profile picture, password, and current session.</p></div></div>
+          <div class="section-toolbar"><div><h2>Account security</h2></div></div>
           <div class="account-grid">
             <article class="panel identity-card"><span id="account-avatar" class="avatar large">N</span><div><h3 id="account-name">Account</h3><p id="account-role">User</p><small id="account-session">Session active</small><form id="avatar-form" class="avatar-form"><label class="button secondary small">Choose picture<input id="avatar-file" type="file" accept="image/png,image/jpeg,image/webp" hidden></label><div id="avatar-editor" class="avatar-editor" hidden><canvas id="avatar-canvas" width="256" height="256" aria-label="Circular profile picture crop preview"></canvas><label><span>Zoom</span><input id="avatar-zoom" type="range" min="1" max="3" step="0.01" value="1"></label><small>Drag the picture to position it inside the circle.</small></div><button class="button secondary small" type="submit">Save picture</button><button class="text-button" type="button" data-action="remove-avatar">Remove</button></form></div></article>
             <article class="panel"><div class="panel-heading"><div><h3>Change password</h3><p>This signs out every active session, including this one.</p></div></div><form id="password-form" class="stack compact"><label><span>Current password</span><input name="current_password" type="password" autocomplete="current-password" required></label><label><span>New password</span><input name="new_password" type="password" autocomplete="new-password" minlength="12" required></label><label><span>Confirm new password</span><input name="confirm_password" type="password" autocomplete="new-password" minlength="12" required></label><button class="button primary" type="submit">Update password</button></form></article>

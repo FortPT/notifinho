@@ -85,19 +85,24 @@ platform:
     target_id: ""
     # Opt-in only with compose.managed-backups.yaml; otherwise bind-mount shares.
     managed_mounts: false
-  # Keep true behind HTTPS. Set false only for isolated loopback development.
-  secure_cookies: true
+  # False permits direct HTTP login on a trusted LAN. Set true when every
+  # browser reaches Notifinho through HTTPS.
+  secure_cookies: false
 
 # Same-origin v2 browser interface. This is served only when the HTTP listener,
 # API, platform state, and this switch are all enabled. Keep secure cookies on
 # and expose the interface only through a trusted HTTPS reverse proxy.
 webui:
   enabled: true
-  # Optional public HTTPS URL. Plain-HTTP WebUI requests receive a 308 redirect.
-  # The reverse proxy must provide the certificate and HTTPS listener.
+  # Optional public HTTPS URL used when enforce_https is enabled. The reverse
+  # proxy must provide the certificate and HTTPS listener.
   public_url: ""
+  # Set true with public_url to redirect every plain-HTTP WebUI request.
+  enforce_https: false
   # Supported interface languages: en-GB and pt-PT.
   language: "en-GB"
+  # Optional WebUI-only presentation tags, editable from Sources.
+  source_categories: {}
 
 # Backend API transport for the WebUI and optional v1-compatible API. Management
 # endpoints still require a browser session or explicitly configured token.

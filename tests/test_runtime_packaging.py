@@ -48,7 +48,8 @@ def test_public_configuration_enables_secure_webui_bootstrap_defaults():
     assert configuration["http"]["enabled"] is True
     assert configuration["api"]["enabled"] is True
     assert configuration["platform"]["enabled"] is True
-    assert configuration["platform"]["secure_cookies"] is True
+    assert configuration["platform"]["secure_cookies"] is False
+    assert configuration["webui"]["enforce_https"] is False
     assert configuration["platform"]["state_dir"] == (
         "/notifinho/config/platform-state"
     )

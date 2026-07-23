@@ -3,18 +3,20 @@
 const API = "/api/v2";
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const VIEW_TITLES = {
-  dashboard: ["Workspace", "Overview"],
-  destinations: ["Outputs", "Destinations"],
-  routes: ["Routing", "Routes"],
-  tokens: ["Access", "Applications"],
-  deliveries: ["Operations", "Delivery history"],
-  audit: ["Security", "Audit log"],
-  users: ["Administration", "Users"],
-  settings: ["Administration", "Settings"],
-  inputs: ["Administration", "Inputs"],
-  backups: ["Administration", "Backups"],
-  data: ["Administration", "Data tools"],
-  account: ["Profile", "Account security"],
+  dashboard: "Overview",
+  sources: "Sources",
+  destinations: "Destinations",
+  routes: "Routes",
+  tokens: "Applications",
+  deliveries: "Delivery history",
+  audit: "Audit log",
+  users: "Users",
+  settings: "Settings",
+  updates: "Updates",
+  inputs: "Inputs",
+  backups: "Backups",
+  data: "Data tools",
+  account: "Account security",
 };
 const OUTPUT_NAMES = {
   discord: "Discord",
@@ -38,17 +40,18 @@ const PRIORITIES = [
 ];
 const SOURCE_TRANSPORTS = {
   xen_orchestra: "SMTP", zabbix: "SMTP", qnap: "SMTP", truenas: "SMTP",
-  grafana: "SMTP", proxmox: "HTTP", portainer: "HTTP", home_assistant: "HTTP",
-  unifi_network: "HTTP", unifi_protect: "HTTP", unifi_drive: "HTTP",
-  supermicro: "Redfish", hpe_ilo: "Redfish", dell_idrac: "Redfish",
-  synology: "HTTP",
+  grafana: "HTTP", proxmox: "HTTP API", portainer: "HTTP API",
+  home_assistant: "Home Assistant API",
+  unifi_network: "UniFi API", unifi_protect: "UniFi API", unifi_drive: "UniFi API",
+  supermicro: "Supermicro Redfish", hpe_ilo: "HPE iLO Redfish",
+  dell_idrac: "Dell iDRAC Redfish", alfa: "Redfish", synology: "Synology API",
 };
 const SOURCE_CATEGORIES = {
-  servers: { label: "Servers", icon: "▣" },
-  services: { label: "Services", icon: "⚙" },
-  applications: { label: "Applications", icon: "◇" },
-  storage: { label: "Storage", icon: "▤" },
-  controllers: { label: "Controllers", icon: "⌘" },
+  servers: { key: "servers", label: "Servers", icon: "▦" },
+  services: { key: "services", label: "Services", icon: "⚙" },
+  applications: { key: "applications", label: "Applications", icon: "◆" },
+  storage: { key: "storage", label: "Storage", icon: "▤" },
+  controllers: { key: "controllers", label: "Controllers", icon: "⌘" },
 };
 const PT_TRANSLATIONS = {
   "Overview": "Visão geral",
@@ -136,6 +139,8 @@ const state = {
   users: [],
   backups: [],
   backupTargets: [],
+  sourceCategories: {},
+  versionStatus: null,
   managedMounts: false,
   configuration: null,
   notices: [],
@@ -254,10 +259,8 @@ async function request(path, options = {}) {
       cache: "no-store",
     });
   } catch (_error) {
-    setConnection(false);
     throw new APIError(0, "Notifinho is not reachable.");
   }
-  setConnection(true);
   const raw = await response.text();
   let payload = null;
   if (raw) {
@@ -272,13 +275,6 @@ async function request(path, options = {}) {
     throw new APIError(response.status, payload && payload.error);
   }
   return payload;
-}
-
-function setConnection(connected) {
-  const item = byId("connection-state");
-  item.textContent = connected ? "Connected" : "Offline";
-  item.classList.toggle("success", connected);
-  item.classList.toggle("error", !connected);
 }
 
 function showError(id, error) {
@@ -492,6 +488,7 @@ async function initialize() {
 
 async function loadWorkspace() {
   const tasks = {
+    sourceCategories: ["Source tags", request("/source-categories"), (value) => { state.sourceCategories = value.categories; }],
     destinations: ["Destinations", request("/destinations"), (value) => { state.destinations = value.destinations; }],
     routes: ["Routes", request("/routes"), (value) => { state.routes = value.routes; }],
     tokens: ["Applications", request("/tokens"), (value) => { state.tokens = value.tokens; }],
@@ -501,6 +498,7 @@ async function loadWorkspace() {
     notices: ["Notices", request("/notices"), (value) => { state.notices = value.notices; }],
     metrics: ["Overview metrics", request(`/metrics/${state.historyRange}`), (value) => { state.metrics = value.metrics; }],
     health: ["Health checks", request("/health-checks"), (value) => { state.healthChecks = value.checks; }],
+    version: ["Version status", request("/version"), (value) => { state.versionStatus = value.version; }],
   };
   if (isAdmin()) {
     tasks.users = ["Users", request("/users"), (value) => { state.users = value.users; }];
@@ -547,23 +545,11 @@ async function loadWorkspace() {
   navigate(VIEW_TITLES[requested] && (!["users", "settings", "inputs", "backups", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
 }
 
-async function refreshWorkspace() {
-  const button = byId("refresh-button");
-  button.disabled = true;
-  try {
-    await loadWorkspace();
-    toast("Workspace refreshed.");
-  } catch (error) {
-    toast(error.message || "Refresh failed.", "error");
-  } finally {
-    button.disabled = false;
-  }
-}
-
 function renderAll() {
   renderWorkspaceErrors();
   renderNotices();
   renderDashboard();
+  renderSources();
   renderDestinations();
   renderRoutes();
   renderTokens();
@@ -575,6 +561,7 @@ function renderAll() {
   renderConfiguration();
   renderHealthChecks();
   renderBackupSettings();
+  renderUpdates();
   renderPreferences();
   applyLanguage();
 }
@@ -615,9 +602,8 @@ function navigate(view) {
     if (active) button.setAttribute("aria-current", "page");
     else button.removeAttribute("aria-current");
   }
-  const [kicker, title] = VIEW_TITLES[view];
-  byId("page-kicker").textContent = kicker;
-  byId("page-title").textContent = title;
+  byId("page-title").textContent = VIEW_TITLES[view];
+  closeProfileMenu();
   window.history.replaceState(null, "", `#${view}`);
   byId("app-shell").classList.remove("nav-open");
   byId("mobile-menu").setAttribute("aria-expanded", "false");
@@ -666,16 +652,18 @@ function renderNotices() {
   list.replaceChildren();
   for (const item of state.notices) {
     const status = item.status === "severe" ? "danger" : item.status === "warning" ? "warning" : "information";
-    const close = actionButton("×", "dismiss-notice", item.id, "icon-button notice-close");
-    close.setAttribute("aria-label", item.persistent ? "This notice clears automatically" : `Close ${item.name}`);
-    close.disabled = item.persistent;
-    close.title = item.persistent ? "This error or update clears automatically when resolved" : "Close notice";
-    const actions = element("div", { className: "notice-actions" }, [close]);
+    const actions = element("div", { className: "notice-actions" });
+    if (item.persistent) {
+      const target = item.kind === "update" ? "updates" : "audit";
+      actions.append(actionButton("Resolve", "open-notice-target", target, item.kind === "update" ? "primary" : "danger"));
+    } else {
+      const close = actionButton("×", "dismiss-notice", item.id, "icon-button notice-close");
+      close.setAttribute("aria-label", `Close ${item.name}`);
+      close.title = "Close notice";
+      actions.append(close);
+    }
     if (isAdmin() && item.kind === "announcement") {
-      actions.prepend(
-        actionButton("Edit", "edit-notice", item.id),
-        actionButton("Resolve", "resolve-notice", item.id, "danger"),
-      );
+      actions.prepend(actionButton("Edit", "edit-notice", item.id));
     }
     list.append(element("div", { className: `notice-item ${status}` }, [
       element("div", {}, [
@@ -718,14 +706,25 @@ function outputIcon(type) {
 
 function sourceInputType(source) {
   const observed = state.deliveries.find((item) => item.source === source && item.input_type);
-  return observed ? observed.input_type : (SOURCE_TRANSPORTS[source] || "HTTP");
+  const key = String(source || "").toLowerCase();
+  if (observed && observed.input_type) {
+    const normalized = String(observed.input_type).toUpperCase();
+    if (key === "home_assistant" && normalized === "HTTP") return "Home Assistant API";
+    if (["supermicro", "hpe_ilo", "dell_idrac"].includes(key) && normalized === "REDFISH") {
+      return SOURCE_TRANSPORTS[key];
+    }
+    return observed.input_type;
+  }
+  return SOURCE_TRANSPORTS[key] || "HTTP";
 }
 
 function sourceCategory(source) {
   const key = String(source || "").toLowerCase();
+  const configured = state.sourceCategories[key];
+  if (SOURCE_CATEGORIES[configured]) return SOURCE_CATEGORIES[configured];
   if (["qnap", "truenas", "synology"].includes(key)) return SOURCE_CATEGORIES.storage;
   if (["unifi_network", "unifi_protect", "unifi_drive", "home_assistant"].includes(key)) return SOURCE_CATEGORIES.controllers;
-  if (["xen_orchestra", "proxmox", "supermicro", "hpe_ilo", "dell_idrac"].includes(key)) return SOURCE_CATEGORIES.servers;
+  if (["xen_orchestra", "proxmox", "supermicro", "hpe_ilo", "dell_idrac", "alfa"].includes(key)) return SOURCE_CATEGORIES.servers;
   if (["grafana", "zabbix", "portainer"].includes(key)) return SOURCE_CATEGORIES.services;
   return SOURCE_CATEGORIES.applications;
 }
@@ -737,14 +736,81 @@ function renderFlow() {
     const destination = state.destinations.find((item) => item.id === route.destination_id);
     const problem = route.enabled && (!destination || !destination.enabled || (!destination.secret_configured && ["discord", "teams", "slack", "webhook"].includes(destination.output_type)));
     const status = !route.enabled ? "disabled" : problem ? "problem" : "active";
-    const category = route.source === "*" ? { label: "All categories", icon: "✣" } : sourceCategory(route.source);
+    const category = route.source === "*" ? { key: "applications", label: "All categories", icon: "✣" } : sourceCategory(route.source);
+    const arrow = status === "problem" ? "×" : "➜";
     container.append(element("div", { className: `flow-row ${status}` }, [
-      element("div", { className: "flow-node source-node" }, [element("span", { className: "source-category-icon", text: category.icon, title: category.label }), element("div", {}, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: `${category.label} · ${route.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(route.source)}` })])]),
-      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: "➜" }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow delayed", text: "➜" })]),
+      element("div", { className: `flow-node source-node category-${category.key}` }, [element("span", { className: "source-category-icon", text: category.icon, title: category.label }), element("div", {}, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: route.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(route.source) })])]),
+      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: arrow }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow delayed", text: arrow })]),
       element("div", { className: "flow-node destination-node" }, [outputIcon(destination && destination.output_type), element("div", {}, [element("strong", { text: destination ? (OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)) : "Missing destination" }), element("small", { text: destination ? (destination.settings.channel_name || destination.name) : "Configuration error" })])]),
     ]));
   }
   if (!container.children.length) empty(container, "No routing flow", "Create a destination and route to display it here.");
+}
+
+function discoveredSources() {
+  const sources = new Set(Object.keys(state.sourceCategories));
+  for (const route of state.routes) {
+    if (route.source && route.source !== "*") sources.add(route.source);
+  }
+  for (const delivery of state.deliveries) {
+    if (delivery.source) sources.add(delivery.source);
+  }
+  for (const token of state.tokens) {
+    for (const source of token.source_scopes || []) {
+      if (source && source !== "*") sources.add(source);
+    }
+  }
+  return [...sources].sort((left, right) => friendlyName(left).localeCompare(friendlyName(right)));
+}
+
+function renderSources() {
+  const body = byId("source-table");
+  const sources = discoveredSources();
+  body.replaceChildren();
+  byId("source-empty").hidden = sources.length > 0;
+  if (!sources.length) {
+    byId("source-empty").replaceChildren(element("strong", { text: "No sources" }), element("span", { text: "A source appears after it is configured or observed." }));
+    return;
+  }
+  for (const source of sources) {
+    const category = sourceCategory(source);
+    const select = element("select", {
+      dataset: { sourceCategory: source },
+      disabled: !isAdmin(),
+      attributes: { "aria-label": `Tag for ${friendlyName(source)}` },
+    });
+    for (const item of Object.values(SOURCE_CATEGORIES)) {
+      select.append(element("option", { value: item.key, text: item.label }));
+    }
+    select.value = category.key;
+    const active = state.routes.some((route) => route.source === source && route.enabled);
+    body.append(element("tr", {}, [
+      element("td", {}, [element("strong", { text: friendlyName(source) }), element("small", { text: source })]),
+      element("td", { text: sourceInputType(source) }),
+      element("td", {}, select),
+      element("td", {}, badge(active ? "Active" : "Inactive", active ? "success" : "warning")),
+    ]));
+  }
+}
+
+async function saveSourceCategory(event) {
+  const select = event.target.closest("[data-source-category]");
+  if (!select || !isAdmin()) return;
+  const source = select.dataset.sourceCategory;
+  select.disabled = true;
+  try {
+    const response = await request("/source-categories", {
+      method: "PUT",
+      body: { source, category: select.value },
+    });
+    state.sourceCategories = response.categories;
+    renderSources();
+    renderFlow();
+    toast(`${friendlyName(source)} moved to ${SOURCE_CATEGORIES[select.value].label}.`);
+  } catch (error) {
+    renderSources();
+    toast(error.message || "Source tag could not be saved.", "error");
+  }
 }
 
 function renderDestinations() {
@@ -827,6 +893,7 @@ function renderRoutes() {
     body.append(element("tr", {}, [
       element("td", {}, name),
       element("td", { text: item.source === "*" ? "All Sources" : friendlyName(item.source) }),
+      element("td", { text: item.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(item.source) }),
       element("td", { text: destinationTypeName(item.destination_id) }),
       element("td", {}, element("small", { text: filterSummary(item.filters) })),
       element("td", { text: capitalize(item.priority_name || "normal") }),
@@ -886,14 +953,15 @@ function renderDeliveries() {
     const delivered = ["delivered", "success"].includes(item.outcome);
     const semantic = String(item.event_status || item.severity || item.outcome || "").toLowerCase();
     const semanticFailure = ["error", "failure", "failed", "critical", "severe"].includes(semantic);
-    const style = semanticFailure ? "danger" : delivered ? "success" : item.retryable ? "warning" : "danger";
+    const semanticInformation = ["information", "info", "informational"].includes(semantic);
+    const style = semanticFailure ? "danger" : semanticInformation ? "information" : delivered ? "success" : item.retryable ? "warning" : "danger";
     const error = item.safe_error || item.error_code || (delivered ? "Delivery completed" : "No transport error reported");
     const heading = item.device_name
       ? `${item.device_name} • ${item.event_name || item.title || "Event"}`
       : `${friendlyName(item.source)} • ${item.event_name || item.title || "Untitled event"}`;
     const statusText = capitalize(item.event_status || item.severity || item.outcome);
     container.append(element("article", { className: `timeline-item ${style}` }, [
-      element("span", { className: "event-indicator", text: semanticFailure ? "!" : delivered ? "✓" : "!" }),
+      element("span", { className: "event-indicator", text: semanticFailure ? "!" : semanticInformation ? "i" : delivered ? "✓" : "!" }),
       element("div", {}, [
         element("strong", { text: heading }),
         element("small", { className: "delivery-context", text: `${friendlyName(item.source)} • ${semanticFailure ? "🚨" : "✓"} ${statusText}${item.device_name ? ` • 📍 ${item.device_name}` : ""}` }),
@@ -1077,9 +1145,24 @@ function renderBackupSettings() {
   }
   target.value = settings.target_id || "";
   byId("backup-managed-mounts").checked = settings.managed_mounts === true;
+  const [hourText, minuteText] = String(settings.time || "02:00").split(":");
+  const hour = Number(hourText);
+  const scheduled = state.preferences.time_format === "12"
+    ? `${hour % 12 || 12}:${minuteText} ${hour < 12 ? "AM" : "PM"}`
+    : `${hourText}:${minuteText}`;
+  byId("backup-time-display").textContent = `Scheduled time: ${scheduled}`;
   byId("backup-last-run").textContent = state.backupLastRun
     ? `Last scheduled run: ${capitalize(state.backupLastRun.outcome || "pending")} · ${formatTime(state.backupLastRun.completed_at || state.backupLastRun.started_at)}`
     : "No scheduled run recorded.";
+}
+
+function renderUpdates() {
+  const version = state.versionStatus || {};
+  byId("running-version").textContent = version.running || "—";
+  byId("available-version").textContent = version.available || "Not advertised";
+  byId("update-status").textContent = version.update_available
+    ? `Version ${version.available} is available. Review the release notes and deploy the versioned image.`
+    : "Notifinho is up to date with the advertised version.";
 }
 
 function renderPreferences() {
@@ -1112,6 +1195,7 @@ async function savePreferences(event) {
 
 async function saveNotice(event) {
   event.preventDefault();
+  const form = event.currentTarget;
   try {
     const id = byId("notice-id").value;
     const response = await request(id ? `/notices/${id}` : "/notices", {
@@ -1126,7 +1210,7 @@ async function saveNotice(event) {
     const current = state.notices.findIndex((item) => item.id === notice.id);
     if (current >= 0) state.notices[current] = notice;
     else state.notices.unshift(notice);
-    event.currentTarget.reset();
+    form.reset();
     byId("notice-id").value = "";
     byId("notice-submit").textContent = "Send notice";
     renderNotices();
@@ -1216,6 +1300,24 @@ async function saveBackupTarget(event) {
   const id = byId("backup-target-id").value;
   const type = byId("backup-target-type").value;
   try {
+    if (type !== "local" && !state.managedMounts) {
+      const current = state.backupSettings || {
+        schedule: "disabled",
+        time: "02:00",
+        weekday: 0,
+        day: 1,
+        target_id: "",
+        external_enabled: false,
+        external_type: "nfs",
+        external_path: "",
+      };
+      const settings = await request("/backup-settings", {
+        method: "PUT",
+        body: { ...current, managed_mounts: true },
+      });
+      state.backupSettings = settings.settings;
+      state.managedMounts = true;
+    }
     await request(id ? `/backup-targets/${id}` : "/backup-targets", {
       method: id ? "PATCH" : "POST",
       body: {
@@ -1234,7 +1336,9 @@ async function saveBackupTarget(event) {
     });
     byId("backup-target-dialog").close();
     await loadWorkspace();
-    toast(id ? "Backup destination updated." : "Backup destination added.");
+    toast(type === "local"
+      ? (id ? "Backup destination updated." : "Backup destination added.")
+      : "Remote backup destination saved with automatic managed mounting enabled.");
   } catch (error) {
     showError("backup-target-error", error);
   }
@@ -1282,6 +1386,9 @@ async function saveAvatar(event) {
     applyAvatar("account-avatar", state.user);
     byId("avatar-file").value = "";
     byId("avatar-editor").hidden = true;
+    if (state.avatarEditor.image && typeof state.avatarEditor.image.close === "function") {
+      state.avatarEditor.image.close();
+    }
     state.avatarEditor.image = null;
     toast("Profile picture updated.");
   } catch (error) {
@@ -1292,25 +1399,55 @@ async function saveAvatar(event) {
 async function loadAvatarEditor() {
   const file = byId("avatar-file").files && byId("avatar-file").files[0];
   if (!file) return;
-  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+  const supportedType = ["image/png", "image/jpeg", "image/webp"].includes(file.type);
+  const supportedExtension = !file.type && /\.(?:png|jpe?g|webp)$/i.test(file.name);
+  if ((!supportedType && !supportedExtension) || file.size > 10 * 1024 * 1024) {
     toast("Choose a PNG, JPEG, or WebP image up to 10 MiB.", "error");
     byId("avatar-file").value = "";
     return;
   }
-  const url = URL.createObjectURL(file);
-  const image = new Image();
-  await new Promise((resolve, reject) => {
-    image.onload = resolve;
-    image.onerror = () => reject(new Error("The picture could not be decoded."));
-    image.src = url;
-  });
-  URL.revokeObjectURL(url);
+  let image;
+  if (state.avatarEditor.image && typeof state.avatarEditor.image.close === "function") {
+    state.avatarEditor.image.close();
+  }
+  if ("createImageBitmap" in window) {
+    try {
+      image = await createImageBitmap(file, { imageOrientation: "from-image" });
+    } catch (_error) {
+      image = null;
+    }
+  }
+  if (!image) {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(new Error("The picture could not be read."));
+      reader.readAsDataURL(file);
+    });
+    image = new Image();
+    image.decoding = "async";
+    image.src = dataUrl;
+    try {
+      await image.decode();
+    } catch (_error) {
+      await new Promise((resolve, reject) => {
+        if (image.complete && image.naturalWidth) {
+          resolve();
+          return;
+        }
+        image.onload = resolve;
+        image.onerror = () => reject(new Error("The picture could not be decoded as PNG, JPEG, or WebP."));
+      });
+    }
+  }
   state.avatarEditor.image = image;
   state.avatarEditor.scale = 1;
   byId("avatar-zoom").value = "1";
-  const base = Math.max(256 / image.naturalWidth, 256 / image.naturalHeight);
-  state.avatarEditor.x = (256 - image.naturalWidth * base) / 2;
-  state.avatarEditor.y = (256 - image.naturalHeight * base) / 2;
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const base = Math.max(256 / width, 256 / height);
+  state.avatarEditor.x = (256 - width * base) / 2;
+  state.avatarEditor.y = (256 - height * base) / 2;
   byId("avatar-editor").hidden = false;
   drawAvatarEditor();
 }
@@ -1320,14 +1457,16 @@ function drawAvatarEditor() {
   if (!image) return;
   const canvas = byId("avatar-canvas");
   const context = canvas.getContext("2d");
-  const base = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const base = Math.max(canvas.width / width, canvas.height / height);
   const scale = base * state.avatarEditor.scale;
   context.clearRect(0, 0, canvas.width, canvas.height);
   context.save();
   context.beginPath();
   context.arc(canvas.width / 2, canvas.height / 2, canvas.width / 2, 0, Math.PI * 2);
   context.clip();
-  context.drawImage(image, state.avatarEditor.x, state.avatarEditor.y, image.naturalWidth * scale, image.naturalHeight * scale);
+  context.drawImage(image, state.avatarEditor.x, state.avatarEditor.y, width * scale, height * scale);
   context.restore();
 }
 
@@ -1336,7 +1475,9 @@ function zoomAvatarEditor() {
   if (!image) return;
   const previous = state.avatarEditor.scale;
   const next = Number(byId("avatar-zoom").value);
-  const base = Math.max(256 / image.naturalWidth, 256 / image.naturalHeight);
+  const width = image.naturalWidth || image.width;
+  const height = image.naturalHeight || image.height;
+  const base = Math.max(256 / width, 256 / height);
   const centerX = (128 - state.avatarEditor.x) / (base * previous);
   const centerY = (128 - state.avatarEditor.y) / (base * previous);
   state.avatarEditor.scale = next;
@@ -1449,7 +1590,8 @@ async function applyImport() {
     state.pendingImport = null;
     byId("import-dialog").close();
     byId("portable-file").value = "";
-    byId("migration-file").value = "";
+    const migrationFile = byId("migration-file");
+    if (migrationFile) migrationFile.value = "";
     await loadWorkspace();
     toast(`${pending.kind === "local_yaml" ? "Activated" : "Imported"} ${result.destinations_created} destinations and ${result.routes_created} routes.`);
   } catch (error) {
@@ -1542,7 +1684,7 @@ function formField(definition, value) {
 
 function destinationDefinition(type) {
   const adminPrivate = isAdmin() ? [{ key: "allow_private_network", label: "Allow private-network target", kind: "checkbox", default: false }] : [];
-  const presentation = { key: "channel_name", label: "Channel / destination label", help: "Shown in Routing Flow (for example #infrastructure)." };
+  const presentation = { key: "channel_name", label: "Channel / destination" };
   const definitions = {
     discord: {
       help: "Discord components-v2 formatting with source-aware fallback.",
@@ -1937,11 +2079,11 @@ async function resourceAction(action, id) {
     } else if (action === "edit-notice") {
       beginNoticeEdit(id);
       return;
-    } else if (action === "resolve-notice") {
-      await request(`/notices/${id}`, { method: "DELETE" });
-      state.notices = state.notices.filter((item) => item.id !== id);
-      renderNotices();
-      toast("Notice resolved.");
+    } else if (action === "open-notice-target") {
+      navigate(id === "updates" ? "updates" : "audit");
+      return;
+    } else if (action === "logout") {
+      await logout();
       return;
     } else if (action === "run-health-checks") {
       const response = await request("/health-checks");
@@ -2098,6 +2240,21 @@ async function logout() {
   expireSession();
 }
 
+function toggleProfileMenu() {
+  const menu = byId("profile-menu-popover");
+  const open = menu.hidden;
+  menu.hidden = !open;
+  byId("profile-menu-button").setAttribute("aria-expanded", String(open));
+  if (open) menu.querySelector("button").focus();
+}
+
+function closeProfileMenu() {
+  const menu = byId("profile-menu-popover");
+  if (!menu) return;
+  menu.hidden = true;
+  byId("profile-menu-button").setAttribute("aria-expanded", "false");
+}
+
 async function copySecret() {
   try {
     await navigator.clipboard.writeText(byId("secret-value").textContent);
@@ -2109,7 +2266,10 @@ async function copySecret() {
 
 async function handleClick(event) {
   const target = event.target.closest("button");
-  if (!target) return;
+  if (!target) {
+    if (!event.target.closest(".profile-menu")) closeProfileMenu();
+    return;
+  }
   if (target.dataset.view) {
     navigate(target.dataset.view);
     return;
@@ -2120,7 +2280,8 @@ async function handleClick(event) {
   }
   const action = target.dataset.action;
   const id = target.dataset.id || "";
-  if (action === "new-destination") openDestination();
+  if (action === "toggle-profile-menu") toggleProfileMenu();
+  else if (action === "new-destination") openDestination();
   else if (action === "edit-destination") openDestination(id);
   else if (action === "preview-destination") openPreview(id);
   else if (action === "new-route") openRoute();
@@ -2162,9 +2323,8 @@ function bindEvents() {
   byId("avatar-canvas").addEventListener("pointerup", () => { state.avatarEditor.dragging = false; });
   byId("avatar-canvas").addEventListener("pointercancel", () => { state.avatarEditor.dragging = false; });
   byId("history-range").addEventListener("change", changeHistoryRange);
-  byId("logout-button").addEventListener("click", logout);
   byId("copy-secret").addEventListener("click", copySecret);
-  byId("refresh-button").addEventListener("click", refreshWorkspace);
+  byId("source-table").addEventListener("change", saveSourceCategory);
   byId("delivery-search").addEventListener("input", renderDeliveries);
   byId("audit-search").addEventListener("input", renderAudit);
   byId("audit-page-size").addEventListener("change", () => {
@@ -2194,6 +2354,12 @@ function bindEvents() {
     byId("mobile-menu").setAttribute("aria-expanded", String(open));
   });
   document.addEventListener("click", handleClick);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !byId("profile-menu-popover").hidden) {
+      closeProfileMenu();
+      byId("profile-menu-button").focus();
+    }
+  });
   window.addEventListener("hashchange", () => {
     const view = window.location.hash.slice(1);
     if (state.user && VIEW_TITLES[view]) navigate(view);

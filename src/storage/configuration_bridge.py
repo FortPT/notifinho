@@ -225,11 +225,11 @@ class ConfigurationBridgeService:
     @classmethod
     def _inputs(cls, data: dict) -> list[dict]:
         labels = {
-            "smtp": "SMTP listener",
-            "http": "HTTP webhook listener",
-            "redfish": "Redfish event service",
-            "home_assistant": "Home Assistant",
-            "unifi": "UniFi",
+            "smtp": "SMTP Listener",
+            "http": "HTTP API / Webhooks",
+            "redfish": "Redfish Event Service",
+            "home_assistant": "Home Assistant API",
+            "unifi": "UniFi API / Webhooks",
         }
         inputs = []
         for name, label in labels.items():

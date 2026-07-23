@@ -94,7 +94,7 @@ platform:
   state_dir: "/notifinho/state"
   backup_retention: 20
   configuration_model: "unified_yaml_v1"
-  secure_cookies: true
+  secure_cookies: false
 ```
 
 Platform state initializes or migrates at application startup. When no users
@@ -146,7 +146,7 @@ directory into encrypted owner-only storage. Do not copy a live SQLite database
 with ordinary filesystem tools. Server-side snapshots are not a substitute for
 off-host backups.
 
-v2.3.0 uses schema 6. A v2.2.1 image rejects that newer database, so rollback
+v2.3.0 and v2.3.1 use schema 6. A v2.2.1 image rejects that newer database, so rollback
 requires stopping the container and restoring the complete pre-upgrade state
 and configuration backups before pinning `2.2.1`. Never delete or hand-edit
 the database to imitate a downgrade.

@@ -228,7 +228,12 @@ def test_shared_destination_history_and_metrics_are_visible_to_users(
 
 def test_https_redirect_and_v230_webui_contract():
     service = WebUIService(
-        Configuration({"webui": {"public_url": "https://notifinho.example.test"}}),
+        Configuration({
+            "webui": {
+                "public_url": "https://notifinho.example.test",
+                "enforce_https": True,
+            }
+        }),
         root=ROOT,
     )
     assert service.redirect_location("/", {}) == "https://notifinho.example.test/"

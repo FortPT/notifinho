@@ -112,6 +112,9 @@ def validate_config(data) -> list[str]:
             errors.append("webui.enabled must be a boolean")
         if "language" in webui and webui.get("language") not in {"en-GB", "pt-PT"}:
             errors.append("webui.language must be en-GB or pt-PT")
+        public_url = str(webui.get("public_url") or "").strip()
+        if public_url and not re.fullmatch(r"https://[^/\s]+(?:/[^\s]*)?", public_url):
+            errors.append("webui.public_url must be an HTTPS URL")
     if isinstance(platform, dict):
         if "enabled" in platform and not isinstance(platform.get("enabled"), bool):
             errors.append("platform.enabled must be a boolean")
@@ -161,6 +164,11 @@ def validate_config(data) -> list[str]:
                     errors.append("platform.backups.weekday must be between 0 and 6")
                 if not _integer_range(backups.get("day", 1), 1, 28):
                     errors.append("platform.backups.day must be between 1 and 28")
+                target_id = str(backups.get("target_id") or "")
+                if target_id and not re.fullmatch(r"[0-9a-f]{32}", target_id):
+                    errors.append("platform.backups.target_id is invalid")
+                if not isinstance(backups.get("managed_mounts", False), bool):
+                    errors.append("platform.backups.managed_mounts must be a boolean")
                 external_enabled = backups.get("external_enabled", False)
                 if not isinstance(external_enabled, bool):
                     errors.append("platform.backups.external_enabled must be a boolean")

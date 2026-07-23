@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.2.1-blue" alt="Stable release v2.2.1">
+  <img src="https://img.shields.io/badge/stable-v2.3.0-blue" alt="Stable release v2.3.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.2.1** |
+| **Current Stable Release** | **v2.3.0** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,9 +57,9 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.2.1 release notes](docs/releases/v2.2.1.md) for the route-toggle
-hotfix and the [v2.2.0 release notes](docs/releases/v2.2.0.md) for upgrade, rollback,
-security, and release-acceptance guidance.
+See the [v2.3.0 release notes](docs/releases/v2.3.0.md) for upgrade, rollback,
+security, and release-acceptance guidance. The complete operator walkthrough
+is in the [v2.3.0 acceptance checklist](docs/v2.3.0-acceptance-checklist.md).
 
 Notifinho v2 adds a self-hosted notification platform with local
 accounts, user-owned destinations and routes, scoped application tokens,
@@ -86,6 +86,14 @@ v2.2.0 adds a dismissible notice centre, lifecycle-bound error and update
 notices, time-range delivery metrics, a complete routing-flow view, semantic
 route ordering, application usage controls, profile pictures, operational
 health checks, and scheduled state backups to a host-mounted NFS or SMB share.
+
+v2.3.0 makes those operational workflows immediate and easier to read. It adds
+first-login notice enrollment, source categories and real input transports,
+animated route flow, channel-aware destination cards, semantic Delivery
+History, live Audit Log updates, avatar cropping, an audited restart control,
+and separate Inputs and Backups pages. Backup destinations can now be named
+Local, NFS, or SMB targets with connectivity/write tests and manual or
+scheduled execution; host-mounted shares remain the safest default.
 
 ---
 
@@ -1720,6 +1728,27 @@ upgrade, and rollback guidance.
 Telegram and additional destination adapters remain candidates for the v2.x
 series after the core v2.0 transports and self-service security model are
 stable.
+
+---
+
+## ✅ v2.3.0 — WebUI operations and managed backup destinations
+
+v2.3.0 completes the requested day-to-day WebUI polish and makes each action
+refresh its own component without an F5. The login and header are simpler,
+Overview uses categorized sources and real HTTP/SMTP transports, routing flow
+is animated with a reduced-motion fallback, destinations expose channel-aware
+one-click tests, and Delivery History presents semantic event details and
+severity. Users gain the requested read-only operational views; administrators
+gain notice lifecycle controls, live Audit pagination, an avatar cropper, and
+an audited restart action.
+
+Inputs and Backups are now separate. Backup jobs select named Local, NFS, or
+SMB destinations, can test connectivity and write access, and can run manually
+or on schedule. Host-mounted remote shares remain the recommended hardened
+deployment. An explicit managed-mount override is documented for operators who
+accept the additional container privilege and credential boundary. See the
+[v2.3.0 release notes](docs/releases/v2.3.0.md) and
+[acceptance checklist](docs/v2.3.0-acceptance-checklist.md).
 
 ---
 

@@ -5,9 +5,10 @@ audit foundations through the `/api/v2` JSON API. It also provides the
 user/application event-ingestion path used by platform routes. Phase 5 adds a
 same-origin browser client for this contract; see the [WebUI guide](webui.md).
 
-v2.2.0 exposes credential-free mounted YAML metadata and administrator-only
-atomic mutations. The browser never receives destination or application-token
-credential material.
+v2.3.0 exposes credential-free mounted YAML metadata, administrator-only
+atomic mutations, notice lifecycle controls, backup destinations, and audited
+restart. The browser never receives destination, application-token, or remote
+share credential material.
 
 ## Default and activation boundary
 
@@ -85,9 +86,15 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | PUT/DELETE | `/api/v2/account/avatar` | session + CSRF | set or remove the current profile picture |
 | GET/POST | `/api/v2/notices` | session / administrator + CSRF | list or publish operational notices |
 | POST | `/api/v2/notices/{id}/dismiss` | session + CSRF | dismiss an ordinary notice for this account |
+| PATCH/DELETE | `/api/v2/notices/{id}` | administrator + CSRF | edit or resolve an administrator notice |
 | GET | `/api/v2/metrics/{range}` | session | return Overview metrics for 10m, 1h, 1d, 1m, or 1y |
 | GET | `/api/v2/health-checks` | session | run safe operational checks |
 | GET/PUT | `/api/v2/backup-settings` | administrator + CSRF for PUT | inspect or update backup schedule and target |
+| GET/POST | `/api/v2/backup-targets` | administrator + CSRF for POST | list or create Local/NFS/SMB backup targets |
+| GET/PATCH/DELETE | `/api/v2/backup-targets/{id}` | administrator + CSRF for mutation | inspect, update, or remove a target |
+| POST | `/api/v2/backup-targets/{id}/test` | administrator + CSRF | test connectivity and write access |
+| POST | `/api/v2/backups/run` | administrator + CSRF | run a backup against the selected target |
+| POST | `/api/v2/reboot` | administrator + CSRF | record a reason and request process restart |
 | GET | `/api/v2/tokens` | session | list current-user token metadata |
 | POST | `/api/v2/tokens` | session + CSRF | create and return a token once |
 | POST | `/api/v2/tokens/{id}/rotate` | owner/admin + CSRF | rotate and return a token once |
@@ -106,8 +113,8 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | PATCH | `/api/v2/routes/{id}` | owner/admin + CSRF | update a route atomically |
 | DELETE | `/api/v2/routes/{id}` | owner/admin + CSRF | delete a route |
 | POST | `/api/v2/events` | scoped token or session + CSRF | route an event |
-| GET | `/api/v2/deliveries` | session | list up to 100 visible attempts |
-| GET | `/api/v2/audit-events` | session | list up to 100 visible audit events |
+| GET | `/api/v2/deliveries` | session | list visible owned or shared attempts |
+| GET | `/api/v2/audit-events` | session | list up to 500 visible audit events |
 | GET | `/api/v2/portability/export` | administrator session | export credential-free platform JSON |
 | POST | `/api/v2/portability/preview` | administrator + CSRF | preview platform JSON import |
 | POST | `/api/v2/portability/import` | administrator + CSRF | apply fingerprinted JSON import |

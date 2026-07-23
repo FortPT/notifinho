@@ -11,7 +11,9 @@ const VIEW_TITLES = {
   audit: ["Security", "Audit log"],
   users: ["Administration", "Users"],
   settings: ["Administration", "Settings"],
-  data: ["Administration", "Inputs & backups"],
+  inputs: ["Administration", "Inputs"],
+  backups: ["Administration", "Backups"],
+  data: ["Administration", "Data tools"],
   account: ["Profile", "Account security"],
 };
 const OUTPUT_NAMES = {
@@ -34,6 +36,20 @@ const PRIORITIES = [
   ["low", "Low"],
   ["lowest", "Lowest"],
 ];
+const SOURCE_TRANSPORTS = {
+  xen_orchestra: "SMTP", zabbix: "SMTP", qnap: "SMTP", truenas: "SMTP",
+  grafana: "SMTP", proxmox: "HTTP", portainer: "HTTP", home_assistant: "HTTP",
+  unifi_network: "HTTP", unifi_protect: "HTTP", unifi_drive: "HTTP",
+  supermicro: "Redfish", hpe_ilo: "Redfish", dell_idrac: "Redfish",
+  synology: "HTTP",
+};
+const SOURCE_CATEGORIES = {
+  servers: { label: "Servers", icon: "▣" },
+  services: { label: "Services", icon: "⚙" },
+  applications: { label: "Applications", icon: "◇" },
+  storage: { label: "Storage", icon: "▤" },
+  controllers: { label: "Controllers", icon: "⌘" },
+};
 const PT_TRANSLATIONS = {
   "Overview": "Visão geral",
   "Destinations": "Destinos",
@@ -119,6 +135,8 @@ const state = {
   audit: [],
   users: [],
   backups: [],
+  backupTargets: [],
+  managedMounts: false,
   configuration: null,
   notices: [],
   metrics: null,
@@ -127,6 +145,8 @@ const state = {
   backupLastRun: null,
   workspaceErrors: [],
   historyRange: "1h",
+  auditPageSize: 25,
+  avatarEditor: { image: null, scale: 1, x: 0, y: 0, dragging: false, pointerX: 0, pointerY: 0 },
   preferences: { timezone: "Europe/Lisbon", language: "en-GB", time_format: "24" },
   pendingImport: null,
   sessionExpiresAt: null,
@@ -360,6 +380,8 @@ function showApp(session) {
   byId("app-shell").hidden = false;
   byId("users-nav").hidden = !isAdmin();
   byId("settings-nav").hidden = !isAdmin();
+  byId("inputs-nav").hidden = !isAdmin();
+  byId("backups-nav").hidden = !isAdmin();
   byId("data-nav").hidden = !isAdmin();
   byId("add-destination-button").hidden = !isAdmin();
   byId("add-route-button").hidden = !isAdmin();
@@ -483,6 +505,10 @@ async function loadWorkspace() {
   if (isAdmin()) {
     tasks.users = ["Users", request("/users"), (value) => { state.users = value.users; }];
     tasks.backups = ["Backups", request("/backups"), (value) => { state.backups = value.backups; }];
+    tasks.backupTargets = ["Backup destinations", request("/backup-targets"), (value) => {
+      state.backupTargets = value.targets;
+      state.managedMounts = value.managed_mounts;
+    }];
     tasks.configuration = ["Configuration inventory", request("/configuration/inventory"), (value) => { state.configuration = value.configuration; }];
     tasks.backupSettings = ["Backup settings", request("/backup-settings"), (value) => {
       state.backupSettings = value.settings;
@@ -510,13 +536,15 @@ async function loadWorkspace() {
   if (!isAdmin()) {
     state.users = [];
     state.backups = [];
+    state.backupTargets = [];
+    state.managedMounts = false;
     state.configuration = null;
     state.backupSettings = null;
     state.backupLastRun = null;
   }
   renderAll();
   const requested = window.location.hash.slice(1);
-  navigate(VIEW_TITLES[requested] && (!["users", "settings", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
+  navigate(VIEW_TITLES[requested] && (!["users", "settings", "inputs", "backups", "data"].includes(requested) || isAdmin()) ? requested : state.currentView);
 }
 
 async function refreshWorkspace() {
@@ -543,6 +571,7 @@ function renderAll() {
   renderAudit();
   renderUsers();
   renderBackups();
+  renderBackupTargets();
   renderConfiguration();
   renderHealthChecks();
   renderBackupSettings();
@@ -575,7 +604,7 @@ function applyLanguage() {
 }
 
 function navigate(view) {
-  if (!VIEW_TITLES[view] || (["users", "settings", "data"].includes(view) && !isAdmin())) view = "dashboard";
+  if (!VIEW_TITLES[view] || (["users", "settings", "inputs", "backups", "data"].includes(view) && !isAdmin())) view = "dashboard";
   state.currentView = view;
   for (const section of document.querySelectorAll(".view")) {
     section.hidden = section.dataset.page !== view;
@@ -641,15 +670,33 @@ function renderNotices() {
     close.setAttribute("aria-label", item.persistent ? "This notice clears automatically" : `Close ${item.name}`);
     close.disabled = item.persistent;
     close.title = item.persistent ? "This error or update clears automatically when resolved" : "Close notice";
+    const actions = element("div", { className: "notice-actions" }, [close]);
+    if (isAdmin() && item.kind === "announcement") {
+      actions.prepend(
+        actionButton("Edit", "edit-notice", item.id),
+        actionButton("Resolve", "resolve-notice", item.id, "danger"),
+      );
+    }
     list.append(element("div", { className: `notice-item ${status}` }, [
       element("div", {}, [
         element("div", { className: "notice-title" }, [element("strong", { text: item.name }), badge(capitalize(item.status), status)]),
         element("p", { text: item.message }),
         element("small", { text: formatTime(item.created_at) }),
       ]),
-      close,
+      actions,
     ]));
   }
+}
+
+function beginNoticeEdit(id) {
+  const item = state.notices.find((candidate) => candidate.id === id);
+  if (!item || item.kind !== "announcement" || !isAdmin()) return;
+  byId("notice-id").value = item.id;
+  byId("notice-name").value = item.name;
+  byId("notice-message").value = item.message;
+  byId("notice-status").value = item.status;
+  byId("notice-submit").textContent = "Update notice";
+  byId("notice-name").focus();
 }
 
 function capitalize(value) {
@@ -671,7 +718,16 @@ function outputIcon(type) {
 
 function sourceInputType(source) {
   const observed = state.deliveries.find((item) => item.source === source && item.input_type);
-  return observed ? observed.input_type : "HTTP";
+  return observed ? observed.input_type : (SOURCE_TRANSPORTS[source] || "HTTP");
+}
+
+function sourceCategory(source) {
+  const key = String(source || "").toLowerCase();
+  if (["qnap", "truenas", "synology"].includes(key)) return SOURCE_CATEGORIES.storage;
+  if (["unifi_network", "unifi_protect", "unifi_drive", "home_assistant"].includes(key)) return SOURCE_CATEGORIES.controllers;
+  if (["xen_orchestra", "proxmox", "supermicro", "hpe_ilo", "dell_idrac"].includes(key)) return SOURCE_CATEGORIES.servers;
+  if (["grafana", "zabbix", "portainer"].includes(key)) return SOURCE_CATEGORIES.services;
+  return SOURCE_CATEGORIES.applications;
 }
 
 function renderFlow() {
@@ -681,9 +737,10 @@ function renderFlow() {
     const destination = state.destinations.find((item) => item.id === route.destination_id);
     const problem = route.enabled && (!destination || !destination.enabled || (!destination.secret_configured && ["discord", "teams", "slack", "webhook"].includes(destination.output_type)));
     const status = !route.enabled ? "disabled" : problem ? "problem" : "active";
+    const category = route.source === "*" ? { label: "All categories", icon: "✣" } : sourceCategory(route.source);
     container.append(element("div", { className: `flow-row ${status}` }, [
-      element("div", { className: "flow-node source-node" }, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: route.source === "*" ? "HTTP / SMTP" : sourceInputType(route.source) })]),
-      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: "→" }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow", text: "→" })]),
+      element("div", { className: "flow-node source-node" }, [element("span", { className: "source-category-icon", text: category.icon, title: category.label }), element("div", {}, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: `${category.label} · ${route.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(route.source)}` })])]),
+      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: "➜" }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow delayed", text: "➜" })]),
       element("div", { className: "flow-node destination-node" }, [outputIcon(destination && destination.output_type), element("div", {}, [element("strong", { text: destination ? (OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)) : "Missing destination" }), element("small", { text: destination ? (destination.settings.channel_name || destination.name) : "Configuration error" })])]),
     ]));
   }
@@ -704,6 +761,7 @@ function renderDestinations() {
     ]);
     if (editable) {
       actions.append(
+        actionButton("Send test", "test-destination-card", item.id, "primary"),
         actionButton("Edit", "edit-destination", item.id),
         actionButton(item.enabled ? "Disable" : "Enable", "toggle-destination", item.id),
         actionButton("Delete", "delete-destination", item.id, "danger"),
@@ -718,7 +776,7 @@ function renderDestinations() {
       element("div", { className: "resource-heading" }, [
         element("div", { className: "resource-identity" }, [
           element("span", { className: "resource-icon" }, outputIcon(item.output_type)),
-          element("div", {}, [element("strong", { text: item.name }), element("small", { text: OUTPUT_NAMES[item.output_type] || friendlyName(item.output_type) })]),
+          element("div", {}, [element("strong", { text: item.name }), element("small", { text: `${OUTPUT_NAMES[item.output_type] || friendlyName(item.output_type)} · ${item.settings.channel_name || "Channel not labelled"}` })]),
         ]),
       ]),
       meta,
@@ -756,8 +814,6 @@ function renderRoutes() {
     return;
   }
   for (const item of state.routes) {
-    const order = element("div", { className: "row-actions order-actions" });
-    if (isAdmin()) order.append(actionButton("↑", "move-route-up", item.id), actionButton("↓", "move-route-down", item.id));
     const name = isAdmin()
       ? element("button", { className: "route-name-button", text: item.name, type: "button", dataset: { action: "edit-route", id: item.id } })
       : element("strong", { text: item.name });
@@ -775,7 +831,6 @@ function renderRoutes() {
       element("td", {}, element("small", { text: filterSummary(item.filters) })),
       element("td", { text: capitalize(item.priority_name || "normal") }),
       element("td", {}, status),
-      element("td", {}, order),
       element("td", {}, isAdmin() ? actionButton("Delete", "delete-route", item.id, "danger") : null),
     ]));
   }
@@ -820,7 +875,7 @@ function renderTokens() {
 
 function renderDeliveries() {
   const query = byId("delivery-search").value.trim().toLowerCase();
-  const items = state.deliveries.filter((item) => JSON.stringify([item.source, item.title, item.outcome, item.safe_error, item.error_code]).toLowerCase().includes(query));
+  const items = state.deliveries.filter((item) => JSON.stringify([item.source, item.device_name, item.event_name, item.title, item.outcome, item.safe_error, item.error_code]).toLowerCase().includes(query));
   const container = byId("delivery-list");
   container.replaceChildren();
   if (!items.length) {
@@ -829,18 +884,21 @@ function renderDeliveries() {
   }
   for (const item of items) {
     const delivered = ["delivered", "success"].includes(item.outcome);
-    const style = delivered ? "success" : item.retryable ? "warning" : "danger";
+    const semantic = String(item.event_status || item.severity || item.outcome || "").toLowerCase();
+    const semanticFailure = ["error", "failure", "failed", "critical", "severe"].includes(semantic);
+    const style = semanticFailure ? "danger" : delivered ? "success" : item.retryable ? "warning" : "danger";
     const error = item.safe_error || item.error_code || (delivered ? "Delivery completed" : "No transport error reported");
     const heading = item.device_name
-      ? `${item.device_name} · ${item.event_name || item.title || "Event"}`
-      : item.event_name || item.title || "Untitled event";
-    container.append(element("article", { className: "timeline-item" }, [
-      element("span", { className: "event-indicator", text: delivered ? "✓" : "!" }),
+      ? `${item.device_name} • ${item.event_name || item.title || "Event"}`
+      : `${friendlyName(item.source)} • ${item.event_name || item.title || "Untitled event"}`;
+    const statusText = capitalize(item.event_status || item.severity || item.outcome);
+    container.append(element("article", { className: `timeline-item ${style}` }, [
+      element("span", { className: "event-indicator", text: semanticFailure ? "!" : delivered ? "✓" : "!" }),
       element("div", {}, [
         element("strong", { text: heading }),
-        element("small", { text: `${friendlyName(item.source)} · ${item.input_type || "HTTP"}` }),
-        element("p", { text: item.event_description || error }),
-        element("div", { className: "resource-meta" }, [badge(capitalize(item.severity), style), badge(capitalize(item.event_status || item.outcome), style), badge(`Attempt ${item.attempt_number}`), badge(item.input_type || "HTTP"), item.response_status ? badge(`HTTP ${item.response_status}`) : null]),
+        element("small", { className: "delivery-context", text: `${friendlyName(item.source)} • ${semanticFailure ? "🚨" : "✓"} ${statusText}${item.device_name ? ` • 📍 ${item.device_name}` : ""}` }),
+        element("p", { className: "event-description", text: item.event_description || error }),
+        element("div", { className: "resource-meta" }, [badge(delivered ? "Delivered" : capitalize(item.outcome), delivered ? "success" : "danger"), badge(capitalize(item.severity), style), badge(statusText, style), badge(`Attempt ${item.attempt_number}`), badge(`Input ${item.input_type || sourceInputType(item.source)}`), item.response_status ? badge(`Destination HTTP ${item.response_status}`) : null]),
       ]),
       element("div", { className: "timeline-meta" }, [element("span", { text: formatTime(item.completed_at || item.created_at) }), item.retryable ? element("small", { text: "Retryable" }) : null]),
     ]));
@@ -849,7 +907,7 @@ function renderDeliveries() {
 
 function renderAudit() {
   const query = byId("audit-search").value.trim().toLowerCase();
-  const items = state.audit.filter((item) => JSON.stringify([item.action, item.resource_type, item.outcome, item.details]).toLowerCase().includes(query));
+  const items = state.audit.filter((item) => JSON.stringify([item.action, item.resource_type, item.outcome, item.details]).toLowerCase().includes(query)).slice(0, state.auditPageSize);
   const body = byId("audit-table");
   body.replaceChildren();
   byId("audit-empty").hidden = items.length > 0;
@@ -924,6 +982,36 @@ function renderBackups() {
   }
 }
 
+function renderBackupTargets() {
+  const body = byId("backup-target-table");
+  if (!body) return;
+  body.replaceChildren();
+  for (const item of state.backupTargets) {
+    const outcome = item.last_test_outcome;
+    const status = !item.enabled ? "Disabled" : outcome === "success" ? "Writable" : outcome === "failed" ? "Test failed" : "Not tested";
+    const style = !item.enabled ? "warning" : outcome === "success" ? "success" : outcome === "failed" ? "danger" : "warning";
+    const location = item.type === "local"
+      ? item.local_path
+      : item.type === "nfs" ? item.remote_path : `${item.share_name}${item.remote_path ? `/${item.remote_path}` : ""}`;
+    const actions = element("div", { className: "row-actions" }, [
+      actionButton("Test", "test-backup-target", item.id),
+      actionButton("Edit", "edit-backup-target", item.id),
+      actionButton("Delete", "delete-backup-target", item.id, "danger"),
+    ]);
+    body.append(element("tr", {}, [
+      element("td", {}, badge(item.type.toUpperCase())),
+      element("td", {}, [element("strong", { text: item.name }), item.last_error ? element("small", { text: item.last_error }) : null]),
+      element("td", { text: item.host || "—" }),
+      element("td", {}, element("code", { text: location })),
+      element("td", {}, badge(status, style)),
+      element("td", {}, actions),
+    ]));
+  }
+  if (!state.backupTargets.length) {
+    body.append(element("tr", {}, element("td", { text: "No backup destinations configured", attributes: { colspan: "6" } })));
+  }
+}
+
 function renderConfiguration() {
   if (!isAdmin() || !state.configuration) {
     return;
@@ -982,9 +1070,13 @@ function renderBackupSettings() {
   byId("backup-time").value = settings.time;
   byId("backup-weekday").value = String(settings.weekday);
   byId("backup-day").value = String(settings.day);
-  byId("backup-external-enabled").checked = settings.external_enabled;
-  byId("backup-external-type").value = settings.external_type;
-  byId("backup-external-path").value = settings.external_path;
+  const target = byId("backup-target");
+  target.replaceChildren(element("option", { value: "", text: "Local state only" }));
+  for (const item of state.backupTargets) {
+    target.append(element("option", { value: item.id, text: `${item.name} (${item.type.toUpperCase()})` }));
+  }
+  target.value = settings.target_id || "";
+  byId("backup-managed-mounts").checked = settings.managed_mounts === true;
   byId("backup-last-run").textContent = state.backupLastRun
     ? `Last scheduled run: ${capitalize(state.backupLastRun.outcome || "pending")} · ${formatTime(state.backupLastRun.completed_at || state.backupLastRun.started_at)}`
     : "No scheduled run recorded.";
@@ -1021,17 +1113,24 @@ async function savePreferences(event) {
 async function saveNotice(event) {
   event.preventDefault();
   try {
-    await request("/notices", {
-      method: "POST",
+    const id = byId("notice-id").value;
+    const response = await request(id ? `/notices/${id}` : "/notices", {
+      method: id ? "PATCH" : "POST",
       body: {
         name: byId("notice-name").value.trim(),
         message: byId("notice-message").value.trim(),
         status: byId("notice-status").value,
       },
     });
+    const notice = response.notice;
+    const current = state.notices.findIndex((item) => item.id === notice.id);
+    if (current >= 0) state.notices[current] = notice;
+    else state.notices.unshift(notice);
     event.currentTarget.reset();
-    await loadWorkspace();
-    toast("Notice sent to users.");
+    byId("notice-id").value = "";
+    byId("notice-submit").textContent = "Send notice";
+    renderNotices();
+    toast(id ? "Notice updated." : "Notice sent to users.");
   } catch (error) {
     toast(error.message || "Notice could not be sent.", "error");
   }
@@ -1058,9 +1157,11 @@ async function saveBackupSettings(event) {
         time: byId("backup-time").value,
         weekday: Number(byId("backup-weekday").value),
         day: Number(byId("backup-day").value),
-        external_enabled: byId("backup-external-enabled").checked,
-        external_type: byId("backup-external-type").value,
-        external_path: byId("backup-external-path").value.trim(),
+        target_id: byId("backup-target").value,
+        managed_mounts: byId("backup-managed-mounts").checked,
+        external_enabled: false,
+        external_type: "nfs",
+        external_path: "",
       },
     });
     state.backupSettings = response.settings;
@@ -1071,33 +1172,186 @@ async function saveBackupSettings(event) {
   }
 }
 
+function updateBackupTargetFields() {
+  const type = byId("backup-target-type").value;
+  for (const item of document.querySelectorAll(".backup-remote-field")) item.hidden = type === "local";
+  for (const item of document.querySelectorAll(".backup-nfs-field")) item.hidden = type !== "nfs";
+  for (const item of document.querySelectorAll(".backup-smb-field")) item.hidden = type !== "smb";
+  for (const item of document.querySelectorAll(".backup-local-field")) item.hidden = type !== "local";
+  byId("backup-target-host").required = type !== "local";
+  byId("backup-target-remote-path").required = type === "nfs";
+  byId("backup-target-share").required = type === "smb";
+  byId("backup-target-local-path").required = type === "local";
+}
+
+function openBackupTarget(id = "") {
+  const item = state.backupTargets.find((candidate) => candidate.id === id);
+  byId("backup-target-form").reset();
+  clearError("backup-target-error");
+  byId("backup-target-id").value = item ? item.id : "";
+  byId("backup-target-name").value = item ? item.name : "";
+  byId("backup-target-type").value = item ? item.type : "local";
+  byId("backup-target-enabled").checked = item ? item.enabled : true;
+  byId("backup-target-host").value = item ? item.host : "";
+  byId("backup-target-remote-path").value = item && item.type === "nfs" ? item.remote_path : "";
+  byId("backup-target-share").value = item ? item.share_name : "";
+  byId("backup-target-smb-path").value = item && item.type === "smb" ? item.remote_path : "";
+  byId("backup-target-local-path").value = item && item.type === "local" ? item.local_path : "";
+  byId("backup-target-username").value = item ? item.username : "";
+  byId("backup-target-domain").value = item ? item.domain : "";
+  byId("backup-target-options").value = item ? item.mount_options : "";
+  byId("backup-target-password").value = "";
+  byId("backup-target-dialog-title").textContent = item ? `Edit ${item.name}` : "Add backup destination";
+  updateBackupTargetFields();
+  byId("backup-target-dialog").showModal();
+}
+
+async function saveBackupTarget(event) {
+  event.preventDefault();
+  if (event.submitter && event.submitter.value === "cancel") {
+    byId("backup-target-dialog").close();
+    return;
+  }
+  clearError("backup-target-error");
+  const id = byId("backup-target-id").value;
+  const type = byId("backup-target-type").value;
+  try {
+    await request(id ? `/backup-targets/${id}` : "/backup-targets", {
+      method: id ? "PATCH" : "POST",
+      body: {
+        name: byId("backup-target-name").value.trim(),
+        type,
+        host: byId("backup-target-host").value.trim(),
+        remote_path: type === "nfs" ? byId("backup-target-remote-path").value.trim() : byId("backup-target-smb-path").value.trim(),
+        share_name: byId("backup-target-share").value.trim(),
+        local_path: byId("backup-target-local-path").value.trim(),
+        username: byId("backup-target-username").value.trim(),
+        domain: byId("backup-target-domain").value.trim(),
+        password: byId("backup-target-password").value,
+        mount_options: byId("backup-target-options").value.trim(),
+        enabled: byId("backup-target-enabled").checked,
+      },
+    });
+    byId("backup-target-dialog").close();
+    await loadWorkspace();
+    toast(id ? "Backup destination updated." : "Backup destination added.");
+  } catch (error) {
+    showError("backup-target-error", error);
+  }
+}
+
+async function runBackupNow() {
+  const response = await request("/backups/run", {
+    method: "POST",
+    body: { target_id: byId("backup-target").value },
+  });
+  await loadWorkspace();
+  toast(response.run.outcome === "success" ? "Backup completed." : "Backup failed.", response.run.outcome === "success" ? "success" : "error");
+}
+
+async function restartPlatform(event) {
+  event.preventDefault();
+  if (event.submitter && event.submitter.value === "cancel") {
+    byId("restart-dialog").close();
+    return;
+  }
+  clearError("restart-error");
+  try {
+    await request("/reboot", {
+      method: "POST",
+      body: { reason: byId("restart-reason").value.trim() },
+    });
+    byId("restart-dialog").close();
+    toast("Restart accepted. Notifinho will be briefly unavailable.", "success");
+  } catch (error) {
+    showError("restart-error", error);
+  }
+}
+
 async function saveAvatar(event) {
   event.preventDefault();
-  const file = byId("avatar-file").files && byId("avatar-file").files[0];
-  if (!file) {
+  if (!state.avatarEditor.image) {
     toast("Choose a picture first.", "error");
     return;
   }
-  if (file.size > 256 * 1024) {
-    toast("Profile pictures must not exceed 256 KiB.", "error");
-    return;
-  }
   try {
-    const imageData = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error("The picture could not be read."));
-      reader.readAsDataURL(file);
-    });
+    const imageData = byId("avatar-canvas").toDataURL("image/png");
     const response = await request("/account/avatar", { method: "PUT", body: { image_data: imageData } });
     state.user = response.user;
     applyAvatar("profile-avatar", state.user);
     applyAvatar("account-avatar", state.user);
     byId("avatar-file").value = "";
+    byId("avatar-editor").hidden = true;
+    state.avatarEditor.image = null;
     toast("Profile picture updated.");
   } catch (error) {
     toast(error.message || "Profile picture could not be saved.", "error");
   }
+}
+
+async function loadAvatarEditor() {
+  const file = byId("avatar-file").files && byId("avatar-file").files[0];
+  if (!file) return;
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+    toast("Choose a PNG, JPEG, or WebP image up to 10 MiB.", "error");
+    byId("avatar-file").value = "";
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const image = new Image();
+  await new Promise((resolve, reject) => {
+    image.onload = resolve;
+    image.onerror = () => reject(new Error("The picture could not be decoded."));
+    image.src = url;
+  });
+  URL.revokeObjectURL(url);
+  state.avatarEditor.image = image;
+  state.avatarEditor.scale = 1;
+  byId("avatar-zoom").value = "1";
+  const base = Math.max(256 / image.naturalWidth, 256 / image.naturalHeight);
+  state.avatarEditor.x = (256 - image.naturalWidth * base) / 2;
+  state.avatarEditor.y = (256 - image.naturalHeight * base) / 2;
+  byId("avatar-editor").hidden = false;
+  drawAvatarEditor();
+}
+
+function drawAvatarEditor() {
+  const image = state.avatarEditor.image;
+  if (!image) return;
+  const canvas = byId("avatar-canvas");
+  const context = canvas.getContext("2d");
+  const base = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+  const scale = base * state.avatarEditor.scale;
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.save();
+  context.beginPath();
+  context.arc(canvas.width / 2, canvas.height / 2, canvas.width / 2, 0, Math.PI * 2);
+  context.clip();
+  context.drawImage(image, state.avatarEditor.x, state.avatarEditor.y, image.naturalWidth * scale, image.naturalHeight * scale);
+  context.restore();
+}
+
+function zoomAvatarEditor() {
+  const image = state.avatarEditor.image;
+  if (!image) return;
+  const previous = state.avatarEditor.scale;
+  const next = Number(byId("avatar-zoom").value);
+  const base = Math.max(256 / image.naturalWidth, 256 / image.naturalHeight);
+  const centerX = (128 - state.avatarEditor.x) / (base * previous);
+  const centerY = (128 - state.avatarEditor.y) / (base * previous);
+  state.avatarEditor.scale = next;
+  state.avatarEditor.x = 128 - centerX * base * next;
+  state.avatarEditor.y = 128 - centerY * base * next;
+  drawAvatarEditor();
+}
+
+function moveAvatarEditor(event) {
+  if (!state.avatarEditor.dragging) return;
+  state.avatarEditor.x += event.clientX - state.avatarEditor.pointerX;
+  state.avatarEditor.y += event.clientY - state.avatarEditor.pointerY;
+  state.avatarEditor.pointerX = event.clientX;
+  state.avatarEditor.pointerY = event.clientY;
+  drawAvatarEditor();
 }
 
 function downloadDocument(documentValue) {
@@ -1618,6 +1872,18 @@ function sampleEvent() {
   };
 }
 
+function cardSampleEvent() {
+  return {
+    schema: "notifinho.event.v1",
+    source: "home_assistant",
+    title: "Notifinho test delivery",
+    message: "This is a safe test event sent from the destination card.",
+    severity: "information",
+    status: "active",
+    metadata: { host: "notifinho-webui" },
+  };
+}
+
 async function runPreview(event) {
   event.preventDefault();
   const action = event.submitter && event.submitter.value;
@@ -1628,10 +1894,6 @@ async function runPreview(event) {
   if (!action) return;
   clearError("preview-error");
   const destinationId = byId("preview-destination-id").value;
-  if (action === "test") {
-    const accepted = await confirmAction("Send a real test delivery?", "This contacts the configured destination using the safe sample event.", "Send test");
-    if (!accepted) return;
-  }
   try {
     const response = await request(`/destinations/${destinationId}/${action}`, { method: "POST", body: { event: sampleEvent() } });
     const result = byId("preview-result");
@@ -1643,8 +1905,6 @@ async function runPreview(event) {
       const delivery = response.result || {};
       const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.error_code || "No status returned";
       toast(delivery.success ? `Test delivery sent successfully (${detail}).` : `Test delivery failed (${detail}).`, delivery.success ? "success" : "error");
-    } else {
-      toast("Preview generated.");
     }
   } catch (error) {
     showError("preview-error", error);
@@ -1674,10 +1934,22 @@ async function resourceAction(action, id) {
       state.notices = state.notices.filter((item) => item.id !== id);
       renderNotices();
       return;
+    } else if (action === "edit-notice") {
+      beginNoticeEdit(id);
+      return;
+    } else if (action === "resolve-notice") {
+      await request(`/notices/${id}`, { method: "DELETE" });
+      state.notices = state.notices.filter((item) => item.id !== id);
+      renderNotices();
+      toast("Notice resolved.");
+      return;
     } else if (action === "run-health-checks") {
       const response = await request("/health-checks");
       state.healthChecks = response.checks;
+      const audit = await request("/audit-events");
+      state.audit = audit.audit_events;
       renderHealthChecks();
+      renderAudit();
       toast("Health checks completed.");
       return;
     } else if (action === "remove-avatar") {
@@ -1711,6 +1983,28 @@ async function resourceAction(action, id) {
     } else if (action === "create-backup") {
       await createBackup();
       return;
+    } else if (action === "run-backup-now") {
+      await runBackupNow();
+      return;
+    } else if (action === "test-backup-target") {
+      const response = await request(`/backup-targets/${id}/test`, { method: "POST", body: {} });
+      const index = state.backupTargets.findIndex((item) => item.id === id);
+      if (index >= 0) state.backupTargets[index] = response.target;
+      renderBackupTargets();
+      toast(response.target.last_test_outcome === "success" ? "Backup destination is writable." : response.target.last_error || "Backup destination test failed.", response.target.last_test_outcome === "success" ? "success" : "error");
+      return;
+    } else if (action === "delete-backup-target") {
+      const accepted = await confirmAction("Delete backup destination?", "The destination record and stored credential are removed. Existing backup files are not deleted.", "Delete");
+      if (!accepted) return;
+      await request(`/backup-targets/${id}`, { method: "DELETE" });
+      await loadWorkspace();
+      toast("Backup destination removed.");
+      return;
+    } else if (action === "restart-platform") {
+      byId("restart-form").reset();
+      clearError("restart-error");
+      byId("restart-dialog").showModal();
+      return;
     } else if (action === "restore-backup") {
       await restoreBackup(id);
       return;
@@ -1718,6 +2012,15 @@ async function resourceAction(action, id) {
       const item = state.destinations.find((candidate) => candidate.id === id);
       await request(`/destinations/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
       toast(`Destination ${item.enabled ? "disabled" : "enabled"}.`);
+    } else if (action === "test-destination-card") {
+      const response = await request(`/destinations/${id}/test`, {
+        method: "POST",
+        body: { event: cardSampleEvent() },
+      });
+      const delivery = response.result || {};
+      const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.error_code || "No status returned";
+      toast(delivery.success ? `Test delivery sent successfully (${detail}).` : `Test delivery failed (${detail}).`, delivery.success ? "success" : "error");
+      return;
     } else if (action === "delete-destination") {
       const accepted = await confirmAction("Delete destination?", "Deletion is permanent and is rejected while a route still uses this destination.", "Delete");
       if (!accepted) return;
@@ -1727,13 +2030,6 @@ async function resourceAction(action, id) {
       const item = state.routes.find((candidate) => candidate.id === id);
       await request(`/routes/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
       toast(`Route ${item.enabled ? "disabled" : "enabled"}.`);
-    } else if (action === "move-route-up" || action === "move-route-down") {
-      const item = state.routes.find((candidate) => candidate.id === id);
-      const current = PRIORITIES.findIndex(([value]) => value === item.priority_name);
-      const next = Math.max(0, Math.min(PRIORITIES.length - 1, current + (action === "move-route-up" ? -1 : 1)));
-      if (current === next) return;
-      await request(`/routes/${id}`, { method: "PATCH", body: { priority: PRIORITIES[next][0] } });
-      toast(`Route priority changed to ${PRIORITIES[next][1]}.`);
     } else if (action === "delete-route") {
       const accepted = await confirmAction("Delete route?", "Events will stop using this route immediately.", "Delete");
       if (!accepted) return;
@@ -1832,6 +2128,8 @@ async function handleClick(event) {
   else if (action === "new-token") openToken();
   else if (action === "new-user") openUser();
   else if (action === "reset-user") openUser(id);
+  else if (action === "new-backup-target") openBackupTarget();
+  else if (action === "edit-backup-target") openBackupTarget(id);
   else if (action) await resourceAction(action, id);
 }
 
@@ -1848,13 +2146,31 @@ function bindEvents() {
   byId("preferences-form").addEventListener("submit", savePreferences);
   byId("notice-form").addEventListener("submit", saveNotice);
   byId("backup-settings-form").addEventListener("submit", saveBackupSettings);
+  byId("backup-target-form").addEventListener("submit", saveBackupTarget);
+  byId("backup-target-type").addEventListener("change", updateBackupTargetFields);
+  byId("restart-form").addEventListener("submit", restartPlatform);
   byId("avatar-form").addEventListener("submit", saveAvatar);
+  byId("avatar-file").addEventListener("change", () => loadAvatarEditor().catch((error) => toast(error.message, "error")));
+  byId("avatar-zoom").addEventListener("input", zoomAvatarEditor);
+  byId("avatar-canvas").addEventListener("pointerdown", (event) => {
+    state.avatarEditor.dragging = true;
+    state.avatarEditor.pointerX = event.clientX;
+    state.avatarEditor.pointerY = event.clientY;
+    byId("avatar-canvas").setPointerCapture(event.pointerId);
+  });
+  byId("avatar-canvas").addEventListener("pointermove", moveAvatarEditor);
+  byId("avatar-canvas").addEventListener("pointerup", () => { state.avatarEditor.dragging = false; });
+  byId("avatar-canvas").addEventListener("pointercancel", () => { state.avatarEditor.dragging = false; });
   byId("history-range").addEventListener("change", changeHistoryRange);
   byId("logout-button").addEventListener("click", logout);
   byId("copy-secret").addEventListener("click", copySecret);
   byId("refresh-button").addEventListener("click", refreshWorkspace);
   byId("delivery-search").addEventListener("input", renderDeliveries);
   byId("audit-search").addEventListener("input", renderAudit);
+  byId("audit-page-size").addEventListener("change", () => {
+    state.auditPageSize = Number(byId("audit-page-size").value);
+    renderAudit();
+  });
   byId("confirm-cancel").addEventListener("click", () => resolveConfirm(false));
   byId("confirm-accept").addEventListener("click", () => resolveConfirm(true));
   byId("confirm-dialog").addEventListener("cancel", (event) => {

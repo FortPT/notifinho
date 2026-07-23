@@ -87,6 +87,46 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.3.0 WebUI and backup-destination upgrade
+
+Stop the existing container and copy the complete configuration and state
+mounts before changing the image. v2.3.0 creates a schema-5 SQLite snapshot
+before schema 6. A v2.2.1 image cannot open schema-6 platform state.
+
+The safest NFS/SMB arrangement remains a host-mounted share bound into the
+container. Create a Local target in the WebUI whose path is inside that bounded
+mount; Notifinho retains its non-root identity, read-only root filesystem, and
+dropped capabilities.
+
+Application-managed NFS/SMB mounts are opt-in. They require the mount helpers
+packaged in the image, `platform.backups.managed_mounts: true`, and the
+privileged override:
+
+```bash
+docker compose \
+  -f compose.production.yaml \
+  -f compose.managed-backups.yaml \
+  config
+
+docker compose \
+  -f compose.production.yaml \
+  -f compose.managed-backups.yaml \
+  up -d
+```
+
+The override runs the service as root with `SYS_ADMIN`. Use it only on a
+dedicated trusted host. Prefer a read/write share restricted to the Notifinho
+host and backup path. SMB secrets are encrypted in private state and remain
+write-only, but moving mount authority into the container increases impact if
+the application is compromised.
+
+For HTTP entry, set `webui.public_url` to the external HTTPS URL. The reverse
+proxy supplies TLS; Notifinho redirects only browser WebUI requests and does
+not manufacture an HTTPS endpoint.
+
+After deployment, complete the
+[v2.3.0 acceptance checklist](v2.3.0-acceptance-checklist.md).
+
 ## v2.2.0 operational upgrade
 
 Before changing the image, stop the existing container and copy the complete
@@ -160,3 +200,7 @@ notes before rolling back across a configuration or data-schema change.
 v2.2.0 upgrades platform state to schema 5. A v2.1.0 image rejects schema 5.
 For rollback, stop Notifinho, restore the complete pre-upgrade configuration
 and state directories, pin `fortpt/notifinho:2.1.0`, and then start the stack.
+
+v2.3.0 upgrades platform state to schema 6. Rollback to v2.2.1 requires the
+complete pre-v2.3.0 state and configuration copy; never hand-edit the schema
+marker.

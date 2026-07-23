@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+## 2.3.0 - 2026-07-23
+
+### Added
+
+- Added named Local, NFS, and SMB backup destinations with masked credentials,
+  connectivity and write tests, per-target scheduling, manual execution, and
+  an explicitly privileged Compose override for managed remote mounts.
+- Added administrator notice editing and resolution, first-login notice
+  enrollment, categorized source presentation, animated routing direction,
+  a reasoned and audited restart action, and a movable/zoomable avatar crop.
+- Added read-only user access to Overview resources and shared Delivery
+  History, plus Audit Log page sizes of 25, 50, 100, 150, 250, and 500.
+- Added an optional canonical HTTPS URL so requests arriving over HTTP can be
+  redirected before login while secure cookies remain enabled.
+
+### Changed
+
+- Simplified and centered the login page, enlarged its brand, moved Sign out to
+  the header, separated Inputs from Backups, and placed the history range next
+  to the Success and Requests metrics.
+- Destination cards now show channel labels and provide immediate test
+  delivery; preview tests use the edited payload, output types are immutable,
+  and preview generation no longer produces a redundant success notice.
+- Removed route-order controls in favor of semantic priority and improved the
+  flow view with source categories, real input transports, and reduced-motion
+  aware animation.
+- Reworked Delivery History titles, spacing, event details, input transport,
+  and severity styling so error and failure events remain red even when their
+  delivery succeeds.
+
+### Fixed
+
+- Notice publishing, editing, resolving, health checks, Audit Log updates, and
+  other affected workspace actions now refresh their component immediately
+  without requiring a browser reload.
+- New accounts see only the two operational defaults before first login and
+  receive subsequent administrator announcements only after joining.
+
+### Security
+
+- Remote-share passwords remain write-only encrypted secrets and are never
+  returned by the API. Host-mounted shares remain the recommended production
+  model; managed NFS/SMB mounting requires the explicit privileged override.
+- Restart is administrator-only, CSRF-protected, requires a recorded reason,
+  and produces an audit event before the process receives its termination
+  signal.
+
 ## 2.2.1 - 2026-07-22
 
 ### Fixed

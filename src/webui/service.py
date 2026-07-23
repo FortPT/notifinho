@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 SECURITY_HEADERS = (
@@ -98,3 +99,20 @@ class WebUIService:
         except OSError:
             return WebUIResponse(404)
         return WebUIResponse(200, body, content_type, cache_control)
+
+    def redirect_location(self, path: str, headers) -> str | None:
+        """Return the configured HTTPS public URL for plain-HTTP UI requests."""
+
+        public_url = str(
+            self.configuration.get("webui", "public_url", default="") or ""
+        ).strip().rstrip("/")
+        if not public_url:
+            return None
+        parsed = urlsplit(public_url)
+        if parsed.scheme.casefold() != "https" or not parsed.netloc:
+            return None
+        forwarded = str(headers.get("X-Forwarded-Proto", "") or "").casefold()
+        if forwarded == "https":
+            return None
+        suffix = "/" if path in {"", "/"} else path
+        return f"{public_url}{suffix}"

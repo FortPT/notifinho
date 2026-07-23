@@ -5,11 +5,13 @@ from __future__ import annotations
 import sqlite3
 import threading
 import time
+import uuid
 
 from datetime import datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from storage.backups import StateBackupStore
+from storage.backup_targets import BackupTargetStore
 from storage.ownership import Actor
 
 
@@ -20,6 +22,7 @@ class BackupScheduler:
         self.clock = clock
         self.interval = max(5, int(interval))
         self.store = StateBackupStore(database)
+        self.targets = BackupTargetStore(database, configuration)
         self._stop = threading.Event()
         self._thread = None
 
@@ -88,7 +91,12 @@ class BackupScheduler:
         try:
             backup = self.store.create(actor)
             external_path = None
-            if values.get("external_enabled") is True:
+            target_id = str(values.get("target_id") or "")
+            if target_id:
+                target = self.targets.get(actor, target_id)
+                destination = self.targets.ensure_ready(actor, target)
+                external_path = str(self.store.mirror(actor, backup.id, str(destination)))
+            elif values.get("external_enabled") is True:
                 external_path = str(
                     self.store.mirror(actor, backup.id, str(values.get("external_path") or ""))
                 )
@@ -102,6 +110,43 @@ class BackupScheduler:
         except Exception:
             self._finish(period, "failed", None, None)
             return {"period": period, "outcome": "failed"}
+
+    def run_now(self, actor: Actor, target_id: str | None = None) -> dict:
+        """Run one non-overlapping manual backup against the selected target."""
+
+        period = f"manual:{uuid.uuid4().hex}"
+        started_at = int(self.clock())
+        with self.database.transaction() as connection:
+            running = connection.execute(
+                """
+                SELECT 1 FROM backup_schedule_runs
+                WHERE completed_at IS NULL LIMIT 1
+                """
+            ).fetchone()
+            if running is not None:
+                raise ValueError("another backup is already running")
+            connection.execute(
+                "INSERT INTO backup_schedule_runs(period_key, started_at) VALUES (?, ?)",
+                (period, started_at),
+            )
+        try:
+            backup = self.store.create(actor)
+            external_path = None
+            selected = str(target_id or "")
+            if selected:
+                target = self.targets.get(actor, selected)
+                destination = self.targets.ensure_ready(actor, target)
+                external_path = str(self.store.mirror(actor, backup.id, str(destination)))
+            self._finish(period, "success", backup.id, external_path)
+            return {
+                "period": period,
+                "outcome": "success",
+                "backup_id": backup.id,
+                "external_path": external_path,
+            }
+        except Exception as error:
+            self._finish(period, "failed", None, None)
+            raise RuntimeError("manual backup failed") from error
 
     def last_run(self) -> dict | None:
         with self.database.connect() as connection:

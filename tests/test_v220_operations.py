@@ -49,6 +49,11 @@ def operations(tmp_path):
 
 def test_notices_are_dismissed_per_user_and_system_notices_resolve(operations):
     database, _users, admin, user = operations
+    with database.transaction() as connection:
+        connection.execute(
+            "UPDATE users SET first_login_at = ? WHERE id IN (?, ?)",
+            (1_699_999_999, user.id, admin.id),
+        )
     store = NoticeStore(database, clock=lambda: 1_700_000_000)
     announcement = store.create(admin.actor, "Maintenance", "Starts at 22:00", "warning")
 

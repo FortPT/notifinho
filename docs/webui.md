@@ -27,6 +27,7 @@ platform:
 
 webui:
   enabled: true
+  public_url: "https://notifinho.example.com"
   language: "en-GB"
 
 presentation:
@@ -39,6 +40,11 @@ open the HTTPS URL for port 8080. The first-run screen lets you choose the
 administrator username and password. No default account exists, and no shell
 command is required. The interface is served at `/`; packaged assets live
 below `/ui/`.
+
+`webui.public_url` is optional. When it contains the canonical HTTPS URL, a
+plain-HTTP WebUI request receives a 308 redirect before login. Notifinho does
+not provision a certificate or HTTPS listener; the configured reverse proxy
+must terminate TLS at that URL. Forwarded HTTPS requests are served normally.
 
 Keep `platform.secure_cookies: true` outside isolated loopback development.
 The login session is unusable over plain HTTP with secure cookies enabled by
@@ -56,17 +62,20 @@ directly to the Internet.
   preview, and explicit test delivery;
 - output-specific settings and write-only credential forms for Discord,
   Microsoft Teams, Slack, generic webhooks, MQTT, and ntfy;
-- user-owned route creation, filtering, editing, ordering, enable/disable, and
+- user-owned route creation, filtering, semantic-priority editing,
+  enable/disable, and
   deletion;
 - one-time application-token creation and rotation plus enable/disable and
   deletion for both issued and YAML-managed applications;
-- searchable device/event/input delivery history, audit events, and operational
-  health checks;
-- administrator account creation, enable/disable, and password reset plus
-  account-owned profile pictures;
-- administrator-only safe JSON export/import, mounted YAML synchronization,
-  private state backup, scheduled host-mounted NFS/SMB copies, and confirmed
-  restore;
+- searchable semantic device/event/input delivery history, audit events with
+  selectable 25–500-row page sizes, and operational health checks;
+- administrator account creation, enable/disable, and password reset plus a
+  movable, zoomable circular crop for account-owned profile pictures;
+- separate administrator Inputs and Backups views, named Local/NFS/SMB backup
+  targets, private state backup, scheduled or manual copies, safe JSON
+  export/import, mounted YAML synchronization, and confirmed restore;
+- administrator-only, reasoned, audited process restart (the container
+  supervisor performs the actual restart; no shutdown action exists);
 - English/Portuguese, IANA timezone, and 12/24-hour global presentation
   settings; and
 - account-aware navigation that hides administrator controls from users.
@@ -109,11 +118,20 @@ The API remains the authority for CSRF, roles, ownership, sharing, rate limits,
 secret storage, validation, and audit. Hiding an action in the browser is only
 a usability behavior and is not treated as authorization.
 
+## Notice enrollment
+
+Every account sees the two built-in operational notices. Administrator
+announcements are enrolled by time: an account starts receiving new
+announcements after its first successful login, so a newly created user does
+not inherit the complete historical announcement backlog. Persistent system
+error and update notices remain lifecycle-bound and are not dismissible.
+
 ## Test delivery caution
 
-Preview is local and never contacts the destination. Test delivery is an
-explicitly confirmed external action and uses the configured owner-only
-credential. Run tests only against a destination you are authorized to use.
+Preview is local and never contacts the destination. Card-level and preview
+test delivery are intentional one-click external actions and use the
+configured owner-only credential. Run tests only against a destination you are
+authorized to use.
 Delivery results contain bounded status and safe error fields, never remote
 response bodies or credentials.
 

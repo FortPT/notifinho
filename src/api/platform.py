@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
+import threading
 import uuid
 import time
 
@@ -34,6 +36,7 @@ from storage.users import UserStore
 from storage.notices import NoticeStore
 from storage.health import HealthCheckService
 from storage.backup_scheduler import BackupScheduler
+from storage.backup_targets import BackupTargetStore
 from version import VERSION
 
 
@@ -52,6 +55,7 @@ class PlatformAPI:
         *,
         registry=None,
         config_service=None,
+        reboot_callback=None,
     ):
         self.database = database
         self.dispatcher = dispatcher
@@ -116,6 +120,12 @@ class PlatformAPI:
         )
         self.health = HealthCheckService(database, self.configuration_sync)
         self.backup_scheduler = BackupScheduler(database, configuration)
+        self.backup_targets = BackupTargetStore(
+            database,
+            configuration,
+            secrets=self.secrets,
+        )
+        self.reboot_callback = reboot_callback or self._terminate_process
         self.token_limiter = RateLimiter()
         self.login_limiter = RateLimiter()
         self.bootstrap_limiter = RateLimiter()
@@ -183,6 +193,12 @@ class PlatformAPI:
                 return self._health_endpoint(method, actor)
             if path == "/api/v2/backup-settings":
                 return self._backup_settings_endpoint(method, payload, actor)
+            if path == "/api/v2/backup-targets":
+                return self._backup_targets_endpoint(method, payload, actor)
+            if path == "/api/v2/backups/run":
+                return self._backup_run_endpoint(method, payload, actor)
+            if path == "/api/v2/reboot":
+                return self._reboot_endpoint(method, payload, actor)
             if path == "/api/v2/portability/export":
                 return self._portability_export(method, actor)
             if path == "/api/v2/portability/preview":
@@ -593,7 +609,7 @@ class PlatformAPI:
             destination_where = "WHERE enabled = 1"
             parameters = ()
             if not actor.is_admin:
-                route_where += " AND routes.owner_user_id = ?"
+                route_where += " AND (routes.owner_user_id = ? OR routes.destination_id IN (SELECT id FROM destinations WHERE shared = 1))"
                 destination_where += " AND (owner_user_id = ? OR shared = 1)"
                 parameters = (actor.user_id,)
             route_row = connection.execute(
@@ -632,7 +648,7 @@ class PlatformAPI:
     def _audit_endpoint(self, method, actor) -> APIResponse:
         if method != "GET":
             return self._method_not_allowed("GET")
-        events = self.audit.list_visible(actor, limit=100)
+        events = self.audit.list_visible(actor, limit=500)
         return APIResponse(200, {"audit_events": [self._audit(item) for item in events]})
 
     def _notices_endpoint(self, method, payload, actor) -> APIResponse:
@@ -737,11 +753,74 @@ class PlatformAPI:
                 {
                     "schedule", "time", "weekday", "day",
                     "external_enabled", "external_type", "external_path",
+                    "target_id", "managed_mounts",
                 },
             )
+            target_id = str(data.get("target_id") or "")
+            if target_id:
+                self.backup_targets.get(actor, target_id)
             settings = self.configuration_sync.update_backup_settings(actor, data)
             return APIResponse(200, {"settings": settings})
         return self._method_not_allowed("GET, PUT")
+
+    def _backup_targets_endpoint(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method == "GET":
+            return APIResponse(
+                200,
+                {
+                    "targets": [item.public() for item in self.backup_targets.list(actor)],
+                    "managed_mounts": self.backup_targets.managed_mounts,
+                },
+            )
+        if method == "POST":
+            data = self._object(
+                payload,
+                {
+                    "name", "type", "host", "remote_path", "share_name",
+                    "local_path", "username", "domain", "password",
+                    "mount_options", "enabled",
+                },
+            )
+            target = self.backup_targets.create(actor, data)
+            self.audit.write(
+                actor, "backup.target.create", "backup_target", target.id,
+                "success", {"name": target.name, "type": target.target_type},
+            )
+            return APIResponse(201, {"target": target.public()})
+        return self._method_not_allowed("GET, POST")
+
+    def _backup_run_endpoint(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"target_id"})
+        target_id = str(data.get("target_id") or "")
+        if target_id:
+            self.backup_targets.get(actor, target_id)
+        result = self.backup_scheduler.run_now(actor, target_id or None)
+        self.audit.write(
+            actor, "backup.run", "backup", result.get("backup_id"),
+            result["outcome"], {"target_id": target_id or "local-state"},
+        )
+        return APIResponse(201, {"run": result})
+
+    def _reboot_endpoint(self, method, payload, actor) -> APIResponse:
+        self._require_admin(actor)
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(payload, {"reason"})
+        reason = sanitize_text(data.get("reason") or "").strip()
+        if not 3 <= len(reason) <= 500:
+            raise ValueError("restart reason must contain 3 to 500 characters")
+        self.audit.write(
+            actor, "platform.restart", "platform", None, "accepted",
+            {"reason": reason},
+        )
+        timer = threading.Timer(0.35, self.reboot_callback)
+        timer.daemon = True
+        timer.start()
+        return APIResponse(202, {"status": "restarting"})
 
     def _portability_export(self, method, actor) -> APIResponse:
         self._require_admin(actor)
@@ -914,6 +993,74 @@ class PlatformAPI:
             self.notices.dismiss(actor, notice_match.group(1))
             self.audit.write(actor, "notice.dismiss", "notice", notice_match.group(1), "success")
             return APIResponse(204)
+
+        notice_resource = re.fullmatch(r"/api/v2/notices/([0-9a-f]{32})", path)
+        if notice_resource:
+            notice_id = notice_resource.group(1)
+            if method == "PATCH":
+                data = self._object(payload, {"name", "message", "status"})
+                notice = self.notices.update(
+                    actor,
+                    notice_id,
+                    name=data.get("name"),
+                    message=data.get("message"),
+                    status=data.get("status"),
+                )
+                self.audit.write(
+                    actor, "notice.update", "notice", notice.id, "success"
+                )
+                return APIResponse(200, {"notice": self._notice(notice)})
+            if method == "DELETE":
+                self.notices.resolve(actor, notice_id)
+                self.audit.write(
+                    actor, "notice.resolve", "notice", notice_id, "success"
+                )
+                return APIResponse(204)
+            return self._method_not_allowed("PATCH, DELETE")
+
+        target_match = re.fullmatch(
+            r"/api/v2/backup-targets/([0-9a-f]{32})(?:/(test))?", path
+        )
+        if target_match:
+            self._require_admin(actor)
+            target_id, action = target_match.groups()
+            if action == "test":
+                if method != "POST":
+                    return self._method_not_allowed("POST")
+                target = self.backup_targets.test(actor, target_id)
+                self.audit.write(
+                    actor, "backup.target.test", "backup_target", target.id,
+                    target.last_test_outcome or "failed",
+                    {"name": target.name, "type": target.target_type},
+                )
+                return APIResponse(200, {"target": target.public()})
+            if method == "GET":
+                return APIResponse(
+                    200, {"target": self.backup_targets.get(actor, target_id).public()}
+                )
+            if method == "PATCH":
+                data = self._object(
+                    payload,
+                    {
+                        "name", "type", "host", "remote_path", "share_name",
+                        "local_path", "username", "domain", "password",
+                        "mount_options", "enabled",
+                    },
+                )
+                target = self.backup_targets.update(actor, target_id, data)
+                self.audit.write(
+                    actor, "backup.target.update", "backup_target", target.id,
+                    "success", {"name": target.name, "type": target.target_type},
+                )
+                return APIResponse(200, {"target": target.public()})
+            if method == "DELETE":
+                self.backup_targets.delete(actor, target_id)
+                self.audit.write(
+                    actor, "backup.target.delete", "backup_target", target_id,
+                    "success",
+                )
+                return APIResponse(204)
+            return self._method_not_allowed("GET, PATCH, DELETE")
 
         input_match = re.fullmatch(
             r"/api/v2/configuration/inputs/(smtp|http|redfish|home_assistant|unifi)",
@@ -1397,6 +1544,7 @@ class PlatformAPI:
             "enabled": item.enabled,
             "locked_until": item.locked_until,
             "last_login_at": item.last_login_at,
+            "first_login_at": item.first_login_at,
             "created_at": item.created_at,
             "updated_at": item.updated_at,
             "avatar_data": item.avatar_data,
@@ -1510,7 +1658,12 @@ class PlatformAPI:
             "kind": item.kind,
             "persistent": item.persistent,
             "created_at": item.created_at,
+            "updated_at": item.updated_at,
         }
+
+    @staticmethod
+    def _terminate_process():
+        os.kill(os.getpid(), signal.SIGTERM)
 
     @staticmethod
     def _version_key(value):

@@ -22,7 +22,7 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.2.1**.
+The current stable release is **v2.3.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
@@ -104,11 +104,13 @@ up, and written atomically to the same file. SQLite remains a private mirror
 for history, preview/test delivery, and retries; it is not a competing fallback
 configuration.
 
-The v2.2.0 WebUI adds notices, time-range Overview metrics, complete route-flow
-status, application usage controls, profile pictures, health checks, and
-scheduled state backups. To use NFS or SMB, mount the share on the Docker host,
-bind it to `/notifinho/external-backups`, and select that container path under
-Inputs & backups. Notifinho does not mount shares or store share credentials.
+The v2.3.0 WebUI adds immediate notice and audit updates, source categories and
+real input transports, animated route flow, channel-aware destination tests,
+semantic Delivery History, avatar cropping, and separate Inputs and Backups
+views. Backups support named Local, NFS, and SMB targets, connection/write
+tests, manual runs, and schedules. Host-mounted shares remain recommended; the
+repository documents an explicit privileged override for deployments that
+require application-managed remote mounts.
 
 ```yaml
 http:

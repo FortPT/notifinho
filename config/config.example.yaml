@@ -81,6 +81,10 @@ platform:
     external_enabled: false
     external_type: nfs  # nfs or smb
     external_path: "/notifinho/external-backups"
+    # v2.3 named destination selected by the WebUI. Empty keeps local state only.
+    target_id: ""
+    # Opt-in only with compose.managed-backups.yaml; otherwise bind-mount shares.
+    managed_mounts: false
   # Keep true behind HTTPS. Set false only for isolated loopback development.
   secure_cookies: true
 
@@ -89,6 +93,9 @@ platform:
 # and expose the interface only through a trusted HTTPS reverse proxy.
 webui:
   enabled: true
+  # Optional public HTTPS URL. Plain-HTTP WebUI requests receive a 308 redirect.
+  # The reverse proxy must provide the certificate and HTTPS listener.
+  public_url: ""
   # Supported interface languages: en-GB and pt-PT.
   language: "en-GB"
 

@@ -260,6 +260,45 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        6,
+        "v2.3 WebUI operations and managed backup targets",
+        (
+            "ALTER TABLE users ADD COLUMN first_login_at INTEGER",
+            """
+            UPDATE users
+            SET first_login_at = COALESCE(last_login_at, created_at)
+            WHERE last_login_at IS NOT NULL
+            """,
+            "ALTER TABLE notices ADD COLUMN updated_at INTEGER",
+            "UPDATE notices SET updated_at = created_at WHERE updated_at IS NULL",
+            """
+            CREATE TABLE backup_targets (
+                id TEXT PRIMARY KEY,
+                owner_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
+                name TEXT NOT NULL,
+                name_normalized TEXT NOT NULL UNIQUE,
+                target_type TEXT NOT NULL CHECK (target_type IN ('local', 'nfs', 'smb')),
+                host TEXT NOT NULL DEFAULT '',
+                remote_path TEXT NOT NULL DEFAULT '',
+                share_name TEXT NOT NULL DEFAULT '',
+                local_path TEXT NOT NULL,
+                username TEXT NOT NULL DEFAULT '',
+                domain TEXT NOT NULL DEFAULT '',
+                secret_id TEXT REFERENCES secret_records(id) ON DELETE RESTRICT,
+                mount_options TEXT NOT NULL DEFAULT '',
+                enabled INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+                mounted_at INTEGER,
+                last_test_at INTEGER,
+                last_test_outcome TEXT,
+                last_error TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            """,
+            "CREATE INDEX backup_targets_type_name ON backup_targets(target_type, name_normalized)",
+        ),
+    ),
 )
 
 

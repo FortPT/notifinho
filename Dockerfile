@@ -10,7 +10,10 @@ WORKDIR /notifinho
 
 COPY requirements.txt /notifinho/requirements.txt
 
-RUN pip install \
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y cifs-utils nfs-common \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install \
     --disable-pip-version-check \
     --no-cache-dir \
     -r /notifinho/requirements.txt

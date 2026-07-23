@@ -234,6 +234,14 @@ class HTTPHandler(BaseHTTPRequestHandler):
         self._unsupported_method()
 
     def _webui_request(self, path: str, *, head: bool = False) -> bool:
+        redirect = self.server.webui.redirect_location(path, self.headers)
+        if redirect:
+            self.send_response(308)
+            self.send_header("Location", redirect)
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return True
         response = self.server.webui.response(path)
         if response is None:
             return False

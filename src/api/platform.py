@@ -953,10 +953,12 @@ class PlatformAPI:
             )
         if method == "DELETE":
             self._require_admin(actor)
-            data = self._object(payload, {"source"})
-            if set(data) != {"source"}:
+            data = self._object(payload, {"source", "id", "name"})
+            source = str(
+                data.get("source") or data.get("id") or data.get("name") or ""
+            ).strip().casefold()
+            if not source:
                 raise ValueError("source is required")
-            source = str(data.get("source") or "").strip().casefold()
             if any(
                 route.enabled and route.source == source
                 for route in self.configuration_sync.list_routes(actor)

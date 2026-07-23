@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 2.3.4 - 2026-07-23
+
+### Fixed
+
+- Keep the active WebUI page across F5 and browser reloads more reliably by
+  reapplying the requested hash-backed view after the authenticated workspace is
+  rendered.
+- Accept inactive-source removal requests using `source`, `id`, or `name`, so
+  the current Sources view no longer returns `request is invalid!`.
+- Finalize transparent source icon sizing for Notifinho, Dell iDRAC, UniFi
+  Network, UniFi Protect, QNAP, and Synology.
+- Retain source-aware destination-card tests, bounded GitHub update checks, and
+  selected 12/24-hour backup time entry while publishing the final release as
+  `2.3.4`.
+
+### Changed
+
+- Keep platform schema 6 and the v2.3.3 unified configuration/state model
+  directly compatible.
+
 ## 2.3.3 - 2026-07-23
 
 ### Fixed

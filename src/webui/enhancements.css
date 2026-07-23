@@ -1,4 +1,4 @@
-/* Notifinho WebUI runtime polish. Loaded after styles.css by WebUIService. */
+/* Notifinho WebUI final polish. Loaded after styles.css by WebUIService. */
 #restart-header-button {
   display: none !important;
 }
@@ -8,20 +8,39 @@
   border: 0 !important;
   border-radius: 0 !important;
   filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.28));
-  height: 44px !important;
+  height: 48px !important;
   image-rendering: auto;
   object-fit: contain;
   padding: 0 !important;
-  width: 44px !important;
+  width: 48px !important;
 }
 
 .source-identity .source-product-icon {
-  height: 40px !important;
-  width: 40px !important;
+  height: 44px !important;
+  width: 44px !important;
+}
+
+.source-product-icon[src*="notifinho"] {
+  height: 52px !important;
+  width: 52px !important;
+}
+
+.source-product-icon[src*="dell-idrac"],
+.source-product-icon[src*="unifi-network"],
+.source-product-icon[src*="unifi_protect"],
+.source-product-icon[src*="unifi-protect"],
+.source-product-icon[src*="qnap"] {
+  height: 64px !important;
+  width: 64px !important;
+}
+
+.source-product-icon[src*="synology"] {
+  height: 56px !important;
+  width: 56px !important;
 }
 
 .source-node {
-  min-height: 64px;
+  min-height: 72px;
 }
 
 .platform-menu {
@@ -102,8 +121,23 @@
 
 @media (max-width: 700px) {
   .source-product-icon {
-    height: 38px !important;
-    width: 38px !important;
+    height: 40px !important;
+    width: 40px !important;
+  }
+
+  .source-product-icon[src*="notifinho"] {
+    height: 44px !important;
+    width: 44px !important;
+  }
+
+  .source-product-icon[src*="dell-idrac"],
+  .source-product-icon[src*="unifi-network"],
+  .source-product-icon[src*="unifi_protect"],
+  .source-product-icon[src*="unifi-protect"],
+  .source-product-icon[src*="qnap"],
+  .source-product-icon[src*="synology"] {
+    height: 48px !important;
+    width: 48px !important;
   }
 
   .platform-menu-popover {

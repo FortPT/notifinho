@@ -87,6 +87,19 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.3.4 final WebUI corrective upgrade
+
+v2.3.4 keeps platform schema 6 and does not migrate `config.yaml` or SQLite
+state. Stop the container and copy the complete configuration, state, log, and
+secrets mounts before changing the image from `2.3.3` to `2.3.4`.
+
+After deployment, force-refresh the browser once, verify F5 on several pages,
+run Check for updates, send one source-aware destination test, remove one safe
+inactive source, and validate both 12-hour and 24-hour scheduled backup entry.
+
+Complete the
+[v2.3.4 acceptance checklist](v2.3.4-acceptance-checklist.md) before production.
+
 ## v2.3.3 WebUI corrective upgrade
 
 v2.3.3 keeps platform schema 6 and does not migrate `config.yaml` or SQLite

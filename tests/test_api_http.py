@@ -119,7 +119,7 @@ def test_health_and_generic_event_transport(monkeypatch, tmp_path):
         accepted = request(port, "POST", "/api/events", event(), running.secret)
 
     assert health[0] == 200
-    assert health[1]["version"] == "2.3.5"
+    assert health[1]["version"] == "2.3.6"
     assert missing[0] == 401
     assert accepted == (202, {"accepted": True, "delivered": True})
     assert [item.source for item in running.router.items] == ["home_lab"]

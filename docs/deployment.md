@@ -87,6 +87,16 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.3.6 scoped icon and Redfish corrective upgrade
+
+v2.3.6 keeps platform schema 6. After redeployment, force-refresh the browser,
+verify that normal source icons returned to their previous size, confirm that
+only the requested products remain enlarged, and verify the official Redfish
+identity.
+
+Complete the
+[v2.3.6 acceptance checklist](v2.3.6-acceptance-checklist.md) before production.
+
 ## v2.3.5 source identity and removal corrective upgrade
 
 v2.3.5 keeps platform schema 6. After redeployment, force-refresh the browser,

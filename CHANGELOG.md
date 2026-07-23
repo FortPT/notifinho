@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 2.3.6 - 2026-07-24
+
+### Fixed
+
+- Restore every non-target Overview source icon to the pre-v2.3.5 size.
+- Keep enlargement limited to Notifinho, Dell iDRAC, UniFi Network, UniFi
+  Protect, QNAP, and Synology.
+- Use the official DMTF Redfish logo for the `redfish` source while retaining the
+  neutral REST icon for `restful` and `rest_api` aliases.
+
 ## 2.3.5 - 2026-07-23
 
 ### Fixed

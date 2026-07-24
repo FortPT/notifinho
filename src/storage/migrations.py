@@ -320,6 +320,22 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             """,
         ),
     ),
+    (
+        8,
+        "v2.5 database-authoritative resources and settings",
+        (
+            """
+            CREATE TABLE settings_records (
+                namespace TEXT NOT NULL,
+                setting_key TEXT NOT NULL,
+                value_json TEXT NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY(namespace, setting_key)
+            )
+            """,
+            "CREATE INDEX settings_records_namespace ON settings_records(namespace, setting_key)",
+        ),
+    ),
 )
 
 

@@ -93,7 +93,7 @@ platform:
   enabled: true
   state_dir: "/notifinho/state"
   backup_retention: 20
-  configuration_model: "unified_yaml_v1"
+  configuration_model: "platform_database_v1"
   secure_cookies: false
 ```
 
@@ -102,10 +102,10 @@ exist, every startup rotates a random 256-bit setup token, writes only its
 SHA-256 digest to SQLite, and prints the plaintext token once to container
 output. Open the WebUI over HTTPS, enter that token, and choose the first
 administrator username and password. The token expires after 30 minutes and is
-consumed immediately after successful setup. The WebUI reads and writes the
-mounted YAML through validated, atomic server-side operations. External edits
-are synchronized automatically; invalid YAML leaves the last known-good
-runtime active and is reported for operator repair.
+consumed immediately after successful setup. The WebUI reads and writes database-authoritative resources through isolated
+transactions. `config.yaml` retains only process bootstrap and listener
+settings. Invalid resource rows are reported independently while valid
+resources and unrelated pages remain available.
 
 ## Trusted recovery CLI
 
@@ -158,3 +158,12 @@ v2.4.0 adds `routes.input_type` and the `integration_categories` table. The
 integration catalogue itself is built into the application image; SQLite stores
 only administrator category overrides. A v2.3.7 image cannot open schema-7
 state, so application rollback requires restoring the matching schema-6 backup.
+
+
+## Schema 8 database-authoritative resources
+
+v2.5.0 adds `settings_records` and makes SQLite authoritative for destinations,
+routes, API applications, regional preferences, backup scheduling, integration
+behavior, and aliases. The first start imports the v2.4 YAML resources and
+normalizes `config.yaml`. A v2.4.0 image cannot open schema-8 state, so rollback
+requires the matched pre-upgrade config, state, and secrets backup.

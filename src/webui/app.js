@@ -160,7 +160,9 @@ const state = {
   csrf: "",
   currentView: "dashboard",
   destinations: [],
+  destinationErrors: [],
   routes: [],
+  routeErrors: [],
   tokens: [],
   deliveries: [],
   audit: [],
@@ -170,6 +172,8 @@ const state = {
   sourceCategories: {},
   removedSources: [],
   integrations: [],
+  integrationSettings: {},
+  integrationSettingsErrors: [],
   routeSourceOptions: [],
   versionStatus: null,
   managedMounts: false,
@@ -533,8 +537,18 @@ async function loadWorkspace() {
       state.integrations = value.integrations || [];
       state.routeSourceOptions = value.route_options || [];
     }],
-    destinations: ["Destinations", request("/destinations"), (value) => { state.destinations = value.destinations; }],
-    routes: ["Routes", request("/routes"), (value) => { state.routes = value.routes; }],
+    integrationSettings: ["Integration settings", request("/integration-settings"), (value) => {
+      state.integrationSettings = value.settings || {};
+      state.integrationSettingsErrors = value.errors || [];
+    }],
+    destinations: ["Destinations", request("/destinations"), (value) => {
+      state.destinations = value.destinations || [];
+      state.destinationErrors = value.errors || [];
+    }],
+    routes: ["Routes", request("/routes"), (value) => {
+      state.routes = value.routes || [];
+      state.routeErrors = value.errors || [];
+    }],
     tokens: ["Applications", request("/tokens"), (value) => { state.tokens = value.tokens; }],
     deliveries: ["Delivery history", request("/deliveries"), (value) => { state.deliveries = value.deliveries; }],
     audit: ["Audit log", request("/audit-events"), (value) => { state.audit = value.audit_events; }],
@@ -607,6 +621,7 @@ function renderAll() {
   renderBackupSettings();
   renderUpdates();
   renderPreferences();
+  renderIntegrationSettings();
   applyLanguage();
 }
 
@@ -614,12 +629,17 @@ function renderWorkspaceErrors() {
   const alert = byId("workspace-alert");
   const list = byId("workspace-alert-list");
   list.replaceChildren();
-  for (const failure of state.workspaceErrors) {
+  const failures = [
+    ...state.workspaceErrors,
+    ...state.destinationErrors.map((item) => ({ component: "Destinations", message: item.message })),
+    ...state.routeErrors.map((item) => ({ component: "Routes", message: item.message })),
+  ];
+  for (const failure of failures) {
     list.append(element("li", {
       text: `${failure.component}: ${failure.message}`,
     }));
   }
-  alert.hidden = state.workspaceErrors.length === 0;
+  alert.hidden = failures.length === 0;
 }
 
 function applyLanguage() {
@@ -827,6 +847,201 @@ function renderFlow() {
 
 function discoveredSources() {
   return state.integrations.map((item) => item.id);
+}
+
+const INTEGRATION_SETTING_LABELS = {
+  xo: "Xen Orchestra",
+  zabbix: "Zabbix",
+  dell_idrac: "Dell iDRAC",
+  unifi_protect: "UniFi Protect",
+  home_assistant: "Home Assistant",
+  redfish: "Redfish transport",
+};
+
+const INTEGRATION_SETTING_HELP = {
+  xo: "Choose which backup outcomes are delivered and whether job/run identifiers are shown.",
+  zabbix: "Control whether Zabbix problem identifiers are included in notifications.",
+  dell_idrac: "Suppress successful IPMI session login/logout audits from trusted management clients. Failed authentication is never suppressed.",
+  unifi_protect: "Map camera or console MAC addresses to readable names. Use one ‘MAC = Alias’ entry per line.",
+  home_assistant: "Map Home Assistant endpoints and components to readable device names.",
+  redfish: "Set the shared duplicate-event window for Dell iDRAC, HPE iLO, Supermicro, and generic Redfish.",
+};
+
+function renderIntegrationSettings() {
+  const container = byId("integration-settings-list");
+  if (!container) return;
+  container.replaceChildren();
+  for (const source of Object.keys(INTEGRATION_SETTING_LABELS)) {
+    const failure = state.integrationSettingsErrors.find((item) => item.resource === source);
+    const summary = integrationSettingSummary(source, state.integrationSettings[source] || {});
+    container.append(element("article", { className: "resource-card compact-resource-card" }, [
+      element("div", { className: "resource-card-heading" }, [
+        element("div", {}, [
+          element("strong", { text: INTEGRATION_SETTING_LABELS[source] }),
+          element("small", { text: failure ? failure.message : summary }),
+        ]),
+        failure ? badge("Needs repair", "danger") : badge("Database", "success"),
+      ]),
+      element("div", { className: "resource-actions" }, [
+        actionButton("Edit", "edit-integration-settings", source),
+      ]),
+    ]));
+  }
+}
+
+function integrationSettingSummary(source, settings) {
+  if (source === "xo") {
+    const outcomes = ["success", "skipped", "failure"].filter((key) => settings[key]);
+    return `${outcomes.length ? outcomes.join(", ") : "No outcomes"}; IDs ${settings.show_ids ? "shown" : "hidden"}`;
+  }
+  if (source === "zabbix") return `Problem IDs ${settings.show_ids ? "shown" : "hidden"}`;
+  if (source === "dell_idrac") return `${(settings.suppress_ipmi_session_audit_from || []).length} trusted client(s)`;
+  if (source === "unifi_protect") return `${Object.keys(settings.device_aliases || {}).length} device alias(es)`;
+  if (source === "home_assistant") {
+    const aliases = settings.aliases || {};
+    return `${Object.keys(aliases.endpoints || {}).length} endpoint and ${Object.keys(aliases.components || {}).length} component alias(es)`;
+  }
+  return `${Number(settings.deduplication_window_seconds || 0)} second deduplication window`;
+}
+
+function settingCheckbox(id, label, checked) {
+  const input = element("input", { type: "checkbox" });
+  input.id = id;
+  input.checked = Boolean(checked);
+  return element("label", { className: "switch-field" }, [input, element("span", { text: label })]);
+}
+
+function settingTextarea(id, label, value, placeholder, rows = 7) {
+  const input = element("textarea", { attributes: { rows, placeholder } });
+  input.id = id;
+  input.value = value;
+  return element("label", { className: "wide" }, [element("span", { text: label }), input]);
+}
+
+function formatMac(value) {
+  return String(value || "").replace(/[^0-9a-f]/gi, "").toUpperCase().match(/.{1,2}/g)?.join(":") || String(value || "");
+}
+
+function openIntegrationSettings(source) {
+  const settings = state.integrationSettings[source];
+  if (!settings) {
+    toast("Integration settings are unavailable.", "error");
+    return;
+  }
+  byId("integration-settings-source").value = source;
+  byId("integration-settings-title").textContent = INTEGRATION_SETTING_LABELS[source] || friendlyName(source);
+  byId("integration-settings-help").textContent = INTEGRATION_SETTING_HELP[source] || "";
+  clearError("integration-settings-error");
+  const fields = byId("integration-settings-fields");
+  fields.replaceChildren();
+  if (source === "xo") {
+    fields.append(
+      settingCheckbox("integration-xo-success", "Deliver successful backups", settings.success),
+      settingCheckbox("integration-xo-skipped", "Deliver skipped backups", settings.skipped),
+      settingCheckbox("integration-xo-failure", "Deliver failed backups", settings.failure),
+      settingCheckbox("integration-xo-show-ids", "Show job and run IDs", settings.show_ids),
+    );
+  } else if (source === "zabbix") {
+    fields.append(settingCheckbox("integration-zabbix-show-ids", "Show Zabbix problem IDs", settings.show_ids));
+  } else if (source === "dell_idrac") {
+    fields.append(settingTextarea(
+      "integration-dell-trusted-ips",
+      "Trusted client IP addresses",
+      (settings.suppress_ipmi_session_audit_from || []).join("\n"),
+      "192.168.0.164\n192.168.0.251",
+    ));
+  } else if (source === "unifi_protect") {
+    const lines = Object.entries(settings.device_aliases || {}).map(([key, value]) => `${formatMac(key)} = ${value}`);
+    fields.append(settingTextarea(
+      "integration-unifi-aliases",
+      "Device aliases",
+      lines.join("\n"),
+      "AC:8B:A9:0D:D8:AD = CAM-01 | Hall Out",
+      10,
+    ));
+  } else if (source === "home_assistant") {
+    const aliases = settings.aliases || {};
+    const endpoints = Object.entries(aliases.endpoints || {}).map(([key, value]) => `${key} = ${value.device || ""}`);
+    const components = Object.entries(aliases.components || {}).map(([key, value]) => `${key} = ${value.device || ""}${value.endpoint ? ` => ${value.endpoint}` : ""}`);
+    fields.append(
+      settingTextarea("integration-ha-endpoints", "Endpoint aliases", endpoints.join("\n"), "192.168.103.35 = HUB-01 | Hall Floor 1"),
+      settingTextarea("integration-ha-components", "Component aliases", components.join("\n"), "homeassistant.components.ipp.coordinator = PRT-01 | Floor 1 => 192.168.101.157", 9),
+    );
+  } else if (source === "redfish") {
+    const input = element("input", { type: "number", value: settings.deduplication_window_seconds, attributes: { min: 0, max: 86400, step: 1, required: "" } });
+    input.id = "integration-redfish-window";
+    fields.append(element("label", {}, [element("span", { text: "Deduplication window (seconds)" }), input]));
+  }
+  byId("integration-settings-dialog").showModal();
+}
+
+function parseMappingLines(value, label, component = false) {
+  const result = {};
+  for (const rawLine of String(value || "").split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const position = line.indexOf("=");
+    if (position < 1) throw new Error(`${label} entries must use “key = value”.`);
+    const key = line.slice(0, position).trim();
+    const rawValue = line.slice(position + 1).trim();
+    if (!key || !rawValue) throw new Error(`${label} entries require both a key and value.`);
+    if (component) {
+      const separator = rawValue.lastIndexOf("=>");
+      const device = (separator >= 0 ? rawValue.slice(0, separator) : rawValue).trim();
+      const endpoint = separator >= 0 ? rawValue.slice(separator + 2).trim() : "";
+      if (!device) throw new Error(`${label} entries require a device name.`);
+      if (separator >= 0 && !endpoint) throw new Error(`${label} entries require an endpoint after “=>”.`);
+      result[key] = { device };
+      if (endpoint) result[key].endpoint = endpoint;
+    } else {
+      result[key] = rawValue;
+    }
+  }
+  return result;
+}
+
+async function saveIntegrationSettings(event) {
+  event.preventDefault();
+  const source = byId("integration-settings-source").value;
+  let body;
+  try {
+    if (source === "xo") {
+      body = {
+        success: byId("integration-xo-success").checked,
+        skipped: byId("integration-xo-skipped").checked,
+        failure: byId("integration-xo-failure").checked,
+        show_ids: byId("integration-xo-show-ids").checked,
+      };
+    } else if (source === "zabbix") {
+      body = { show_ids: byId("integration-zabbix-show-ids").checked };
+    } else if (source === "dell_idrac") {
+      body = {
+        suppress_ipmi_session_audit_from: byId("integration-dell-trusted-ips").value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean),
+      };
+    } else if (source === "unifi_protect") {
+      body = { device_aliases: parseMappingLines(byId("integration-unifi-aliases").value, "Device alias") };
+    } else if (source === "home_assistant") {
+      const endpoints = parseMappingLines(byId("integration-ha-endpoints").value, "Endpoint alias");
+      body = {
+        aliases: {
+          endpoints: Object.fromEntries(Object.entries(endpoints).map(([key, device]) => [key, { device }])),
+          components: parseMappingLines(byId("integration-ha-components").value, "Component alias", true),
+        },
+      };
+    } else if (source === "redfish") {
+      body = { deduplication_window_seconds: Number(byId("integration-redfish-window").value) };
+    } else {
+      throw new Error("Integration settings are not supported.");
+    }
+    const response = await request(`/integration-settings/${encodeURIComponent(source)}`, { method: "PUT", body });
+    state.integrationSettings[source] = response.settings;
+    state.integrationSettingsErrors = state.integrationSettingsErrors.filter((item) => item.resource !== source);
+    byId("integration-settings-dialog").close();
+    renderIntegrationSettings();
+    toast(`${INTEGRATION_SETTING_LABELS[source]} settings saved.`);
+  } catch (error) {
+    showError("integration-settings-error", error);
+  }
 }
 
 function renderSources() {
@@ -2390,6 +2605,7 @@ async function handleClick(event) {
   const action = target.dataset.action;
   const id = target.dataset.id || "";
   if (action === "toggle-profile-menu") toggleProfileMenu();
+  else if (action === "edit-integration-settings") openIntegrationSettings(id);
   else if (action === "new-destination") openDestination();
   else if (action === "edit-destination") openDestination(id);
   else if (action === "preview-destination") openPreview(id);
@@ -2414,6 +2630,7 @@ function bindEvents() {
   byId("preview-form").addEventListener("submit", runPreview);
   byId("password-form").addEventListener("submit", changePassword);
   byId("preferences-form").addEventListener("submit", savePreferences);
+  byId("integration-settings-form").addEventListener("submit", saveIntegrationSettings);
   byId("notice-form").addEventListener("submit", saveNotice);
   byId("backup-settings-form").addEventListener("submit", saveBackupSettings);
   byId("backup-target-form").addEventListener("submit", saveBackupTarget);

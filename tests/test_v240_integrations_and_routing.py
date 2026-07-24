@@ -14,6 +14,8 @@ from integrations.catalog import canonical_source, infer_input_type, integration
 from models import Notification
 from storage.configuration_sync import UnifiedConfigurationService
 from storage.database import Database
+from storage.destinations import DestinationStore
+from storage.secrets import SecretStore
 from storage.ownership import Actor
 from storage.routes import Route, RouteStore
 from storage.users import UserStore
@@ -53,7 +55,7 @@ def service(tmp_path, document):
     path.chmod(0o600)
     configuration = Configuration(path)
     database = Database(tmp_path / "state" / "notifinho.db")
-    assert database.migrate() == 7
+    assert database.migrate() == 8
     admin = UserStore(database, password_hasher=fast_hash).bootstrap_admin(
         "administrator", PASSWORD
     )
@@ -113,102 +115,92 @@ def test_schema_rejects_duplicate_destination_display_names_before_sync(tmp_path
     )
 
 
-def test_duplicate_creation_does_not_modify_config(tmp_path):
-    path, _database, actor, sync = service(tmp_path, base_document(tmp_path))
+def test_duplicate_database_creation_does_not_modify_core_config(tmp_path):
+    path, database, actor, sync = service(tmp_path, base_document(tmp_path))
     assert sync.synchronize().ready
     before = path.read_bytes()
-    with pytest.raises(ConflictError, match='A destination named "operations"'):
-        sync.create_destination(
+    destinations = DestinationStore(database)
+    with pytest.raises(ValueError, match="destination name is already configured"):
+        destinations.create(
             actor,
-            {
-                "name": "operations",
-                "output_type": "teams",
-                "settings": {},
-                "secret": {"url": TEAMS},
-                "enabled": True,
-            },
+            actor.user_id,
+            " operations ",
+            "teams",
+            settings={},
+            shared=True,
         )
     assert path.read_bytes() == before
-    assert len(sync.list_destinations(actor)) == 1
+    assert len(destinations.list_visible(actor)) == 1
 
 
-def test_enabled_destination_enables_parent_output_group(tmp_path):
+def test_migration_preserves_effective_disabled_destination(tmp_path):
     document = base_document(tmp_path)
     document["outputs"]["teams"]["enabled"] = False
-    document["outputs"]["teams"]["operations"]["enabled"] = False
-    path, _database, actor, sync = service(tmp_path, document)
+    document["outputs"]["teams"]["operations"]["enabled"] = True
+    path, database, actor, sync = service(tmp_path, document)
     assert sync.synchronize().ready
-    created = sync.create_destination(
-        actor,
-        {
-            "name": "Hardware",
-            "output_type": "teams",
-            "settings": {},
-            "secret": {"url": TEAMS},
-            "enabled": True,
-        },
-    )
     saved = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert saved["outputs"]["teams"]["enabled"] is True
-    assert created.enabled is True
-
-
-def test_enabling_existing_destination_enables_parent_group(tmp_path):
-    document = base_document(tmp_path)
-    document["outputs"]["teams"]["enabled"] = False
-    document["outputs"]["teams"]["operations"]["enabled"] = False
-    path, _database, actor, sync = service(tmp_path, document)
-    assert sync.synchronize().ready
-    destination = sync.list_destinations(actor)[0]
+    assert "outputs" not in saved
+    destination = DestinationStore(database).list_visible(actor)[0]
     assert destination.enabled is False
 
-    enabled = sync.update_destination(actor, destination.id, {"enabled": True})
-    saved = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert saved["outputs"]["teams"]["enabled"] is True
-    assert saved["outputs"]["teams"]["operations"]["enabled"] is True
+
+def test_database_destination_can_be_enabled_without_yaml_write(tmp_path):
+    document = base_document(tmp_path)
+    document["outputs"]["teams"]["enabled"] = False
+    document["outputs"]["teams"]["operations"]["enabled"] = False
+    path, database, actor, sync = service(tmp_path, document)
+    assert sync.synchronize().ready
+    before = path.read_bytes()
+    destinations = DestinationStore(database)
+    destination = destinations.list_visible(actor)[0]
+    enabled = destinations.set_enabled(actor, destination.id, True)
     assert enabled.enabled is True
+    assert path.read_bytes() == before
 
 
 def test_destination_type_change_preserves_id_and_route_intent(tmp_path):
-    path, _database, actor, sync = service(tmp_path, base_document(tmp_path))
+    path, database, actor, sync = service(tmp_path, base_document(tmp_path))
     assert sync.synchronize().ready
-    destination = sync.list_destinations(actor)[0]
-    route = sync.create_route(
+    before = path.read_bytes()
+    destinations = DestinationStore(database)
+    routes = RouteStore(database)
+    destination = destinations.list_visible(actor)[0]
+    route = routes.create(
         actor,
-        {
-            "name": "Zabbix SMTP",
-            "source": "zabbix",
-            "input_type": "smtp",
-            "destination_id": destination.id,
-            "filters": {"severities": ["critical"]},
-            "priority": "normal",
-            "enabled": True,
-        },
+        actor.user_id,
+        "Zabbix SMTP",
+        "zabbix",
+        destination.id,
+        input_type="smtp",
+        filters={"severities": ["critical"]},
+        priority="normal",
+        enabled=True,
     )
-    changed = sync.update_destination(
+    secret = SecretStore(database).create(
+        actor,
+        actor.user_id,
+        "Operations Discord",
+        "discord-credentials",
+        {"url": DISCORD},
+    )
+    destinations.set_secret(actor, destination.id, secret.id)
+    changed = destinations.update(
         actor,
         destination.id,
-        {
-            "name": "Operations Discord",
-            "output_type": "discord",
-            "settings": {"components_v2": True},
-            "secret": {"url": DISCORD},
-            "enabled": True,
-            "shared": True,
-        },
+        name="Operations Discord",
+        output_type="discord",
+        settings={"components_v2": True},
+        enabled=True,
+        shared=True,
     )
     assert changed.id == destination.id
     assert changed.output_type == "discord"
-    mirrored_route = next(item for item in sync.list_routes(actor) if item.id == route.id)
+    mirrored_route = routes.get(actor, route.id)
     assert mirrored_route.destination_id == destination.id
     assert mirrored_route.source == "zabbix"
     assert mirrored_route.input_type == "smtp"
-    saved = yaml.safe_load(path.read_text(encoding="utf-8"))
-    entry = saved["routing"]["zabbix"]["outputs"][0]
-    assert entry["input"] == "smtp"
-    assert entry["output"] == "discord"
-    assert entry["target"] == "operations_discord"
-    assert "teams" not in saved["outputs"]
+    assert path.read_bytes() == before
 
 
 def test_legacy_source_metadata_and_home_lab_generic_are_removed(tmp_path):
@@ -261,21 +253,22 @@ def test_legacy_source_metadata_and_home_lab_generic_are_removed(tmp_path):
             ]
         },
     }
-    path, _database, actor, sync = service(tmp_path, document)
+    path, database, actor, sync = service(tmp_path, document)
     assert sync.synchronize().ready
     saved = yaml.safe_load(path.read_text(encoding="utf-8"))
     assert "source_categories" not in saved["webui"]
     assert "removed_sources" not in saved["webui"]
-    assert "home_lab" not in saved["routing"]
-    assert "generic" not in saved["routing"]
-    assert saved["routing"]["*"]["outputs"][0]["input"] == "http"
-    assert saved["routing"]["dell_idrac"]["outputs"][0]["input"] == "redfish"
-    assert saved["routing"]["zabbix"]["outputs"][0]["input"] == "smtp"
+    assert "routing" not in saved
+    routes = RouteStore(database).list_visible(actor)
+    assert all(item.name != "Home Lab Generic" for item in routes)
+    assert next(item for item in routes if item.name == "Generic API").source == "*"
+    assert next(item for item in routes if item.name == "Generic API").input_type == "http"
+    assert next(item for item in routes if item.name == "iDRAC hardware").input_type == "redfish"
+    assert next(item for item in routes if item.name == "Zabbix alerts").input_type == "smtp"
     assert sync.source_categories() == {
         "dell_idrac": "hardware",
         "zabbix": "monitoring",
     }
-    assert all(item.name != "Home Lab Generic" for item in sync.list_routes(actor))
 
 
 def test_route_matching_distinguishes_integration_input():

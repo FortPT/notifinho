@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.4.0-blue" alt="Stable release v2.4.0">
+  <img src="https://img.shields.io/badge/stable-v2.5.0-blue" alt="Stable release v2.5.0">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.4.0** |
+| **Current Stable Release** | **v2.5.0** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,25 +57,20 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.4.0 release notes](docs/releases/v2.4.0.md) for the integrations and input-aware routing redesign. The complete operator walkthrough is in the [v2.4.0 acceptance checklist](docs/v2.4.0-acceptance-checklist.md).
+See the [v2.5.0 release notes](docs/releases/v2.5.0.md) for the database-authoritative resource migration and normalized core configuration. The complete operator walkthrough is in the [v2.5.0 acceptance checklist](docs/v2.5.0-acceptance-checklist.md).
 
-Notifinho v2 adds a self-hosted notification platform with local
-accounts, user-owned destinations and routes, scoped application tokens,
-six output adapters, preview and test delivery, searchable history and audit,
-a responsive same-origin WebUI, credential-free portability, mounted-YAML
-inventory and live synchronization, and integrity-checked state recovery. Existing YAML
-configuration, SMTP and webhook inputs, routes, Discord and Teams targets,
-parsers, and formatters remain compatible. v2.2.0 keeps the mounted
-`config.yaml` the single source of truth: external edits appear in the WebUI,
-and administrator WebUI edits are validated, backed up, and written atomically
-to the same file. SQLite is a private delivery/history mirror rather than a
-second configuration authority. Fresh installations and legacy
-configurations that omit the v2 switches enable the WebUI automatically;
-explicit `enabled: false` settings remain authoritative. First startup emits a
-short-lived, single-use setup token so the operator can choose the first
-administrator credentials in the browser without a default password or CLI
-bootstrap. Notifinho consumes emitted SMTP or webhook notifications; it
-does not poll infrastructure APIs, IMAP, Microsoft Graph, Gmail, or other
+Notifinho v2 adds a self-hosted notification platform with local accounts,
+database-authoritative destinations, routes, application tokens, regional
+preferences, backup schedules, integration behavior and aliases. Each resource
+has its own transaction and error boundary, so one damaged destination, route,
+or settings record does not prevent unrelated WebUI pages from loading.
+`config.yaml` is now limited to process bootstrap, listener and security
+settings. Existing v2.4 YAML resources are imported once into schema 8 and then
+removed from the mounted file. First startup emits a short-lived, single-use
+setup token so the operator can choose the first administrator credentials in
+the browser without a default password or CLI bootstrap. Notifinho consumes
+emitted SMTP or webhook notifications; it does not poll infrastructure APIs,
+IMAP, Microsoft Graph, Gmail, or other
 mailboxes. SMTP transport security remains disabled by default and can be
 enabled with STARTTLS and SMTP AUTH; see the
 [SMTP security guide](docs/smtp-security.md).
@@ -740,51 +735,48 @@ docker logs -f notifinho
 
 # ⚙️ Configuration
 
-Notifinho is configured using a single YAML configuration file.
+Notifinho uses a normalized core YAML file plus private platform state.
 
 ```text
-config/config.yaml
+config/config.yaml          # listener/bootstrap/security settings
+state/notifinho.db          # WebUI-managed resources and preferences
+secrets/                    # destination credentials
 ```
 
-The configuration is intentionally simple and organized into logical sections.
-
-| Section | Description |
-|----------|-------------|
-| `application` | General application settings. |
-| `logging` | Log level and log file location. |
+| YAML section | Description |
+|--------------|-------------|
 | `smtp` | SMTP listener, STARTTLS, and authentication configuration. |
 | `http` | Native authenticated webhook listener configuration. |
-| `redfish` | Redfish duplicate-suppression behavior. |
-| `api` | Session-protected backend API and optional scoped token definitions. |
-| `platform` | Persistent local state, account, ownership, and secret boundary. |
-| `webui` | Same-origin browser interface with single-use first-run setup. |
-| `routing` | Maps notification sources to outputs. |
-| `outputs` | Notification destinations (Discord, Teams, etc.). |
-| `notifications` | Product-specific notification preferences. |
+| `api` | Enables the API transport; application tokens are managed in the WebUI. |
+| `platform` | State directory, backup retention, cookies, and resource-model marker. |
+| `webui` | Same-origin browser bootstrap, public URL, and HTTPS enforcement. |
+
+All destinations, routes, application tokens, integration behavior, aliases,
+regional preferences and scheduled-backup settings are database-managed.
 
 ---
 
 ## Example Configuration
 
+`config.yaml` contains only process bootstrap, listener, and transport-security
+settings. Destinations, routes, API applications, aliases, notification
+preferences, regional settings, and backup scheduling are managed in the
+WebUI and stored in `/notifinho/state/notifinho.db`.
+
 ```yaml
 smtp:
   host: 0.0.0.0
   port: 8025
-
-  # Optional security; disabled by default.
   tls:
     enabled: false
     certfile: "/notifinho/config/tls/cert.pem"
     keyfile: "/notifinho/config/tls/key.pem"
-
   auth:
     enabled: false
     username: "notifinho"
     password_env: "NOTIFINHO_SMTP_PASSWORD"
     password_file: ""
 
-# Native webhook input used by all HTTP source adapters and the backend API.
-# Publishing port 8080 remains an explicit deployment choice.
 http:
   enabled: true
   host: 0.0.0.0
@@ -792,435 +784,39 @@ http:
   max_body_bytes: 1048576
   shared_secret: ""
 
+api:
+  enabled: true
+
 platform:
   enabled: true
+  configuration_model: "platform_database_v1"
   state_dir: "/notifinho/state"
-  configuration_model: "unified_yaml_v1"
+  backup_retention: 20
   secure_cookies: false
 
 webui:
   enabled: true
   public_url: ""
   enforce_https: false
-  language: "en-GB"
-
-presentation:
-  timezone: "Europe/Lisbon"
-  time_format: "24"
-
-redfish:
-  deduplication_window_seconds: 300
-
-api:
-  enabled: true
-  tokens:
-    home_assistant:
-      enabled: false
-      role: application
-      sources: [home_assistant]
-      token_env: "NOTIFINHO_HOME_ASSISTANT_TOKEN"
-      rate_limit_per_minute: 120
-
-outputs:
-  discord:
-    # Set to false to disable all Discord notifications.
-    enabled: true
-
-    # Primary Discord destination.
-    default:
-      webhook: "PASTE_DISCORD_WEBHOOK_HERE"
-
-    # Dedicated Grafana alert destination.
-    grafana:
-      webhook: "PASTE_GRAFANA_DISCORD_WEBHOOK_HERE"
-
-    # Dedicated TrueNAS alert destination.
-    truenas:
-      webhook: "PASTE_TRUENAS_DISCORD_WEBHOOK_HERE"
-
-    # Shared UniFi Network, Protect, and Drive destination.
-    unifi:
-      webhook: "PASTE_UNIFI_DISCORD_WEBHOOK_HERE"
-
-    # Dedicated Portainer Alerting destination.
-    portainer:
-      webhook: "PASTE_PORTAINER_DISCORD_WEBHOOK_HERE"
-
-    # Dedicated Proxmox VE destination.
-    proxmox:
-      webhook: "PASTE_PROXMOX_DISCORD_WEBHOOK_HERE"
-
-    # Dedicated Synology DSM destination.
-    synology:
-      webhook: "PASTE_SYNOLOGY_DISCORD_WEBHOOK_HERE"
-
-    # Optional secondary Discord destination.
-    # Uncomment this block when forwarding selected hosts
-    # to another Discord server or channel.
-    #
-    # palworld:
-    #   webhook: "PASTE_SECONDARY_DISCORD_WEBHOOK_HERE"
-
-  teams:
-    # Change to true after adding a valid webhook
-    # and enabling at least one Teams route below.
-    enabled: false
-
-    # Primary Microsoft Teams destination.
-    default:
-      webhook: "PASTE_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-    # Optional separate Teams destination for Zabbix.
-    #
-    # zabbix:
-    #   webhook: "PASTE_ZABBIX_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-    # Optional dedicated Teams destination for Grafana.
-    # grafana:
-    #   webhook: "PASTE_GRAFANA_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-    # Optional dedicated Teams destination for TrueNAS.
-    # truenas:
-    #   webhook: "PASTE_TRUENAS_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-    # Optional shared Teams destination for UniFi.
-    # unifi:
-    #   webhook: "PASTE_UNIFI_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-    # Optional dedicated Teams destination for Portainer.
-    # portainer:
-    #   webhook: "PASTE_PORTAINER_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-    # Optional dedicated Teams destination for Proxmox VE.
-    # proxmox:
-    #   webhook: "PASTE_PROXMOX_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-    # Optional dedicated Teams destination for Synology DSM.
-    # synology:
-    #   webhook: "PASTE_SYNOLOGY_TEAMS_WORKFLOW_WEBHOOK_HERE"
-
-routing:
-  xo:
-    outputs:
-      # Send Xen Orchestra notifications to Discord.
-      - output: discord
-        target: default
-
-      # To also send Xen Orchestra notifications to Microsoft Teams:
-      # 1. Paste the Teams workflow webhook above.
-      # 2. Change outputs.teams.enabled to true.
-      # 3. Uncomment the following route.
-      #
-      # - output: teams
-      #   target: default
-
-  zabbix:
-    outputs:
-      # Send every Zabbix notification to the primary
-      # Discord destination.
-      - output: discord
-        target: default
-
-      # To also send every Zabbix notification to Teams:
-      # 1. Paste the Teams webhook above.
-      # 2. Change outputs.teams.enabled to true.
-      # 3. Uncomment the following route.
-      #
-      # - output: teams
-      #   target: default
-
-      # Optional conditional route.
-      #
-      # This sends notifications only when the Zabbix host
-      # exactly matches one of the names listed below.
-      #
-      # The primary destination above still receives every
-      # Zabbix notification.
-      #
-      # - output: discord
-      #   target: palworld
-      #   match:
-      #     hosts:
-      #       - "VM-07 | Palworld"
-
-      # Multiple hosts can use the same secondary destination:
-      #
-      # - output: discord
-      #   target: palworld
-      #   match:
-      #     hosts:
-      #       - "VM-07 | Palworld"
-      #       - "VM-12 | Palworld Test"
-      #       - "VM-18 | Game Server"
-
-  qnap:
-    outputs:
-      # Send QNAP QTS and QuTS hero notifications to Discord.
-      - output: discord
-        target: default
-
-      # To also send QNAP notifications to Teams:
-      # - output: teams
-      #   target: default
-
-  grafana:
-    outputs:
-      - output: discord
-        target: grafana
-
-      # - output: teams
-      #   target: grafana
-
-  truenas:
-    outputs:
-      - output: discord
-        target: truenas
-
-      # - output: teams
-      #   target: truenas
-
-  unifi_network:
-    outputs:
-      - output: discord
-        target: unifi
-
-      # - output: teams
-      #   target: unifi
-
-  unifi_protect:
-    outputs:
-      - output: discord
-        target: unifi
-
-      # - output: teams
-      #   target: unifi
-
-  unifi_drive:
-    outputs:
-      - output: discord
-        target: unifi
-
-      # - output: teams
-      #   target: unifi
-
-  generic:
-    outputs:
-      # Fallback route for emails that do not match
-      # a supported source parser.
-      - output: discord
-        target: default
-
-notifications:
-  xo:
-    # Send successful backup notifications.
-    success: false
-
-    # Send skipped backup notifications.
-    skipped: true
-
-    # Send failed backup notifications.
-    failure: true
-
-    # Include Xen Orchestra Job ID and Run ID.
-    show_ids: false
-
-  zabbix:
-    # Include the Zabbix problem ID in notifications.
-    show_ids: false
-
-  dell_idrac:
-    # Optional exact client addresses whose successful iDRAC session login or
-    # logout audit records (USR0030/USR0032) are routine and should be handled
-    # without delivery, regardless of REDFISH/IPMI transport. Failed logins
-    # and unrelated security alerts are never hidden.
-    suppress_ipmi_session_audit_from: []
 ```
 
-The complete documented configuration is available in
-[`config/config.example.yaml`](config/config.example.yaml).
-
----
+See [database-authoritative resources](docs/database-authoritative-resources.md)
+for migration, backups, CLI-safe exports, and recovery behavior.
 
 ## Routing
 
-Routing determines where notifications are sent after they have been parsed.
+Routes are created and edited in the WebUI. Each route selects an integration,
+an input transport such as SMTP, HTTP or Redfish, a destination, optional
+filters, a priority and an enabled state. The route engine reads SQLite
+directly; normal delivery does not parse `config.yaml` or synchronize YAML.
 
-Each source can deliver the same notification to one or more output targets:
+A destination that is unavailable affects only routes targeting that
+destination. A malformed route record is returned as a scoped resource error
+while valid routes remain visible and operational.
 
-```yaml
-routing:
-  zabbix:
-    outputs:
-      - output: discord
-        target: default
-
-      - output: teams
-        target: default
-```
-
-An output target is a reusable destination such as a Discord channel or Teams
-workflow. A source route references that target by name, so webhook URLs are
-defined once and are not copied into every rule. SMTP and native HTTP inputs
-use the same normalized source keys and the same router.
-
-In v2.1.0 these entries are the authoritative resources shown and edited by the
-WebUI. Valid external changes are detected automatically. WebUI changes create
-an atomic backup and rewrite this same file; there is no database fallback copy
-and no second routing authority.
-
-QNAP uses the same source-based routing model:
-
-```yaml
-routing:
-  qnap:
-    outputs:
-      - output: discord
-        target: default
-
-      # - output: teams
-      #   target: default
-```
-
-Grafana can use a dedicated webhook target so alert traffic remains separate
-from other infrastructure notifications:
-
-```yaml
-outputs:
-  discord:
-    grafana:
-      webhook: "PASTE_GRAFANA_DISCORD_WEBHOOK_HERE"
-
-routing:
-  grafana:
-    outputs:
-      - output: discord
-        target: grafana
-
-      # - output: teams
-      #   target: grafana
-```
-
-### Conditional host routing
-
-An optional `match.hosts` filter can restrict a destination to selected
-Zabbix hosts:
-
-```yaml
-outputs:
-  discord:
-    enabled: true
-
-    default:
-      webhook: "MAIN_ZABBIX_CHANNEL_WEBHOOK"
-
-    palworld:
-      webhook: "SECONDARY_PALWORLD_CHANNEL_WEBHOOK"
-
-routing:
-  zabbix:
-    outputs:
-      # Receives every Zabbix event.
-      - output: discord
-        target: default
-
-      # Receives only events for the listed host.
-      - output: discord
-        target: palworld
-        match:
-          hosts:
-            - "VM-07 | Palworld"
-```
-
-The primary destination receives all Zabbix notifications. The secondary
-destination receives only notifications from `VM-07 | Palworld`.
-
-Multiple hosts can be listed under `match.hosts`. Routes without a `match`
-section remain unconditional and continue to receive every notification.
-
-This allows selected infrastructure hosts to be forwarded to different
-Discord servers, Teams channels, or other configured destinations.
-
-Native UniFi webhook events use independent source keys and can share one
-destination or be separated:
-
-```yaml
-routing:
-  unifi_network:
-    outputs:
-      - output: discord
-        target: unifi
-
-  unifi_protect:
-    outputs:
-      - output: discord
-        target: unifi
-
-  unifi_drive:
-    outputs:
-      - output: discord
-        target: unifi
-```
-
-Portainer Alerting uses its own source key and can route to either output:
-
-```yaml
-routing:
-  portainer:
-    outputs:
-      - output: discord
-        target: portainer
-
-      # - output: teams
-      #   target: portainer
-```
-
-Portainer's webhook channel accepts a URL but cannot add Notifinho's custom
-authentication header. Use the same `http.shared_secret` as a URL query token
-on the private direct endpoint. See the
-[Portainer integration guide](docs/portainer.md) for the secure deployment and
-validation workflow.
-
-Proxmox VE SMTP and native webhook events share the `proxmox` source key:
-
-```yaml
-routing:
-  proxmox:
-    outputs:
-      - output: discord
-        target: proxmox
-
-      # - output: teams
-      #   target: proxmox
-```
-
-Native events use `POST /proxmox/events` and the `X-Notifinho-Token` header.
-The webhook body follows a versioned Notifinho contract because Proxmox
-webhook targets render administrator-defined templates instead of one fixed
-vendor envelope. See the [Proxmox integration guide](docs/proxmox.md).
-
-Synology DSM SMTP and custom-provider webhook events share the `synology`
-source key:
-
-```yaml
-routing:
-  synology:
-    outputs:
-      - output: discord
-        target: synology
-
-      # - output: teams
-      #   target: synology
-```
-
-Native events use `POST /synology/events` and accept either JSON or bounded
-form-encoded fields. See the [Synology integration guide](docs/synology.md).
-
-The v2.0 route model will extend these rules with authenticated user and
-application ownership, severity and event filters, and private or shared
-destinations. Existing YAML source routes will remain importable during the
-v2.0 migration.
-
----
+Use the platform export in **Data & recovery** to create a credential-free JSON
+backup of destinations and routes. Private state backups retain credentials,
+users, application-token hashes, settings and delivery history.
 
 ## Logging
 

@@ -155,6 +155,14 @@ class DestinationStore:
         return self._destination(row)
 
     def list_visible(self, actor: Actor) -> list[Destination]:
+        items, errors = self.list_visible_safe(actor)
+        if errors:
+            raise ValueError(errors[0]["message"])
+        return items
+
+    def list_visible_safe(self, actor: Actor) -> tuple[list[Destination], list[dict]]:
+        """Return every readable valid destination plus per-row failures."""
+
         with self.database.connect() as connection:
             if actor.is_admin:
                 rows = connection.execute(
@@ -169,7 +177,21 @@ class DestinationStore:
                     """,
                     (actor.user_id,),
                 ).fetchall()
-        return [self._destination(row) for row in rows]
+        items = []
+        errors = []
+        for row in rows:
+            try:
+                items.append(self._destination(row))
+            except Exception as error:
+                errors.append(
+                    {
+                        "resource_id": str(row["id"]),
+                        "resource": str(row["name"]),
+                        "code": "destination_record_invalid",
+                        "message": f"Destination {str(row['name'])!r} could not be loaded: {error}",
+                    }
+                )
+        return items, errors
 
     def for_delivery(self, actor: Actor, destination_id: str) -> DeliveryDestination:
         target = self.for_delivery_metadata(actor, destination_id)
@@ -254,6 +276,128 @@ class DestinationStore:
             {"shared": shared},
         )
         return self.get(actor, destination_id)
+
+    def update(
+        self,
+        actor: Actor,
+        destination_id: str,
+        *,
+        name=None,
+        output_type=None,
+        settings=None,
+        shared=None,
+        enabled=None,
+    ) -> Destination:
+        """Update destination metadata while preserving its stable database ID."""
+
+        row = self._record(destination_id)
+        owner_user_id = str(row["owner_user_id"])
+        OwnershipPolicy.require_write(actor, owner_user_id)
+        display, normalized = normalized_name(
+            row["name"] if name is None else name,
+            "destination name",
+        )
+        _output_display, normalized_output = normalized_identifier(
+            row["output_type"] if output_type is None else output_type,
+            "output type",
+            maximum=32,
+        )
+        if normalized_output not in OUTPUT_TYPES:
+            raise ValueError("unsupported destination output type")
+        raw_settings = (
+            json.loads(str(row["settings_json"])) if settings is None else settings
+        )
+        if (
+            isinstance(raw_settings, dict)
+            and raw_settings.get("allow_private_network")
+            and not actor.is_admin
+        ):
+            raise PermissionError(
+                "only administrators can allow private-network destinations"
+            )
+        encoded_settings = self._settings(normalized_output, raw_settings)
+        if shared is None:
+            shared_value = bool(row["shared"])
+        elif isinstance(shared, bool):
+            shared_value = shared
+        else:
+            raise ValueError("destination shared must be a boolean")
+        if shared_value != bool(row["shared"]) and not actor.is_admin:
+            raise PermissionError("only administrators can change destination sharing")
+        if enabled is None:
+            enabled_value = bool(row["enabled"])
+        elif isinstance(enabled, bool):
+            enabled_value = enabled
+        else:
+            raise ValueError("destination enabled must be a boolean")
+        now = int(self.clock())
+        try:
+            with self.database.transaction() as connection:
+                if not shared_value:
+                    external_routes = int(
+                        connection.execute(
+                            """
+                            SELECT COUNT(*) FROM routes
+                            WHERE destination_id = ? AND owner_user_id != ?
+                            """,
+                            (str(destination_id), owner_user_id),
+                        ).fetchone()[0]
+                    )
+                    if external_routes:
+                        raise ValueError(
+                            "shared destination is referenced by another user's route"
+                        )
+                connection.execute(
+                    """
+                    UPDATE destinations
+                    SET name = ?, name_normalized = ?, output_type = ?,
+                        settings_json = ?, shared = ?, enabled = ?, updated_at = ?,
+                        configuration_key = NULL
+                    WHERE id = ?
+                    """,
+                    (
+                        display,
+                        normalized,
+                        normalized_output,
+                        encoded_settings,
+                        1 if shared_value else 0,
+                        1 if enabled_value else 0,
+                        now,
+                        str(destination_id),
+                    ),
+                )
+        except sqlite3.IntegrityError as error:
+            raise ValueError(
+                "destination name is already configured for this owner"
+            ) from error
+        destination = self.get(actor, destination_id)
+        self._audit(
+            actor,
+            "destination.update",
+            destination_id,
+            "success",
+            {"output_type": destination.output_type, "shared": destination.shared},
+        )
+        return destination
+
+    def name_available(
+        self,
+        owner_user_id: str,
+        name: str,
+        *,
+        excluding_id: str | None = None,
+    ) -> bool:
+        _display, normalized = normalized_name(name, "destination name")
+        query = (
+            "SELECT 1 FROM destinations WHERE owner_user_id = ? "
+            "AND name_normalized = ?"
+        )
+        values: list[str] = [str(owner_user_id), normalized]
+        if excluding_id is not None:
+            query += " AND id != ?"
+            values.append(str(excluding_id))
+        with self.database.connect() as connection:
+            return connection.execute(query, tuple(values)).fetchone() is None
 
     def update_settings(
         self,

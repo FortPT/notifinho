@@ -51,6 +51,13 @@ class Router:
             if platform_database is not None
             else None
         )
+        if self.configuration_sync is not None:
+            status = self.configuration_sync.synchronize(force=True)
+            if status.errors:
+                log.error(
+                    "Configuration migration/settings load failed: %s",
+                    "; ".join(status.errors),
+                )
 
         log.info(
             "Router initialized (%s output%s)",

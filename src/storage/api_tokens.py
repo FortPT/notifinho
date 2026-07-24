@@ -147,6 +147,109 @@ class APITokenStore:
         self._audit(actor, "token.create", token_id, "success", {"role": token.role})
         return TokenCredentials(token, value)
 
+    def import_legacy_hash(
+        self,
+        actor: Actor,
+        owner_user_id: str,
+        name: str,
+        token_hash: str,
+        *,
+        source_scopes,
+        role: str = "application",
+        rate_limit_per_minute: int = 60,
+        enabled: bool = True,
+    ) -> APIToken:
+        """Import one existing credential without revealing or rotating its value."""
+
+        if not actor.is_admin:
+            raise PermissionError("administrator access is required")
+        display, normalized_name_value = normalized_name(name, "token name")
+        digest = str(token_hash or "").strip().casefold()
+        if len(digest) != 64 or any(character not in "0123456789abcdef" for character in digest):
+            raise ValueError("legacy token hash must contain 64 hexadecimal characters")
+        normalized_role = str(role or "application").strip().casefold()
+        if normalized_role not in {"admin", "application"}:
+            raise ValueError("token role must be admin or application")
+        scopes = self._scopes(source_scopes)
+        rate_limit = int(rate_limit_per_minute)
+        if not 1 <= rate_limit <= 10_000:
+            raise ValueError("rate limit must be between 1 and 10000")
+        now = int(self.clock())
+        token_id = uuid.uuid4().hex
+        with self.database.transaction() as connection:
+            owner = connection.execute(
+                "SELECT role, enabled FROM users WHERE id = ?",
+                (str(owner_user_id),),
+            ).fetchone()
+            if owner is None:
+                raise KeyError("token owner not found")
+            if normalized_role == "admin" and str(owner["role"]) != "admin":
+                raise PermissionError("administrator tokens require an administrator")
+            same_credential = connection.execute(
+                "SELECT * FROM api_tokens WHERE token_hash = ?",
+                (digest,),
+            ).fetchone()
+            if same_credential is not None:
+                if str(same_credential["owner_user_id"]) != str(owner_user_id):
+                    raise ValueError("legacy token credential belongs to another owner")
+                connection.execute(
+                    "UPDATE api_tokens SET enabled = ?, updated_at = ? WHERE id = ?",
+                    (1 if enabled else 0, now, str(same_credential["id"])),
+                )
+                token_id = str(same_credential["id"])
+                existing = same_credential
+            else:
+                existing = connection.execute(
+                    """
+                    SELECT * FROM api_tokens
+                    WHERE owner_user_id = ? AND name_normalized = ?
+                    """,
+                    (str(owner_user_id), normalized_name_value),
+                ).fetchone()
+            if same_credential is not None:
+                pass
+            elif existing is not None:
+                if (
+                    str(existing["token_hash"]) != digest
+                    or str(existing["role"]) != normalized_role
+                    or tuple(json.loads(str(existing["source_scopes"]))) != tuple(scopes)
+                    or int(existing["rate_limit_per_minute"]) != rate_limit
+                ):
+                    raise ValueError(
+                        "an application with this name already exists with different settings"
+                    )
+                connection.execute(
+                    "UPDATE api_tokens SET enabled = ?, updated_at = ? WHERE id = ?",
+                    (1 if enabled else 0, now, str(existing["id"])),
+                )
+                token_id = str(existing["id"])
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO api_tokens(
+                        id, owner_user_id, name, name_normalized, token_hash,
+                        role, source_scopes, rate_limit_per_minute, created_at,
+                        expires_at, version, updated_at, enabled
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1, ?, ?)
+                    """,
+                    (
+                        token_id,
+                        str(owner_user_id),
+                        display,
+                        normalized_name_value,
+                        digest,
+                        normalized_role,
+                        json.dumps(scopes, separators=(",", ":")),
+                        rate_limit,
+                        now,
+                        now,
+                        1 if enabled else 0,
+                    ),
+                )
+        token = self.get(actor, token_id)
+        self._audit(actor, "token.import", token_id, "success", {"role": token.role})
+        return token
+
     def authenticate(self, supplied: str, source: str = "") -> TokenPrincipal | None:
         candidate = str(supplied or "")
         if not candidate:

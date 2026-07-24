@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 2.5.0 - 2026-07-24
+
+### Changed
+
+- Make SQLite authoritative for destinations, routes, API applications,
+  regional preferences, backup scheduling, integration behavior, and aliases.
+- Normalize `config.yaml` to process bootstrap, listener, and security settings.
+- Add WebUI editors for XO, Zabbix, Dell iDRAC, UniFi Protect, Home Assistant,
+  and Redfish behavior.
+- Upgrade platform state to schema 8 with isolated settings records.
+
+### Fixed
+
+- Keep valid destinations and routes available when one stored row is invalid.
+- Fall back safely when one integration-settings row is damaged.
+- Preserve existing application-token values during one-way YAML migration.
+- Replace generic event-submission failures with safe reference-coded errors.
+
 ## 2.4.0 - 2026-07-24
 
 ### Changed

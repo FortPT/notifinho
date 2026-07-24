@@ -86,12 +86,16 @@ def main() -> int:
                 )
                 print("", flush=True)
 
-            backup_scheduler = BackupScheduler(state_database, config)
-            backup_scheduler.start()
-
         dispatcher = Dispatcher()
 
+        # Router initialization performs the one-way resource migration and
+        # applies database-backed runtime settings before background services
+        # read regional or backup scheduling values.
         router = Router(state_database) if state_database is not None else Router()
+
+        if state_database is not None:
+            backup_scheduler = BackupScheduler(state_database, config)
+            backup_scheduler.start()
 
         smtp = SMTPInput(
             dispatcher=dispatcher,

@@ -80,7 +80,7 @@ def test_source_category_configuration_is_bounded():
     }) == ["webui.source_categories contains an invalid category"]
 
 
-def test_source_category_update_persists_in_authoritative_yaml(tmp_path):
+def test_source_category_update_is_database_backed_and_removed_from_yaml(tmp_path):
     path = tmp_path / "config.yaml"
     path.write_text(
         "platform:\n"
@@ -111,9 +111,7 @@ def test_source_category_update_persists_in_authoritative_yaml(tmp_path):
 
     assert categories == {"grafana": "generic"}
     saved = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert saved["webui"]["source_categories"] == {
-        "grafana": "generic",
-    }
+    assert "source_categories" not in saved["webui"]
 
 
 def test_v231_webui_removes_old_header_and_exposes_corrective_controls():
@@ -129,16 +127,16 @@ def test_v231_webui_removes_old_header_and_exposes_corrective_controls():
     assert 'id="view-sources"' in markup
     assert 'id="view-updates"' in markup
     assert "Notify every user" not in markup
-    assert ">Active Sources<" in markup
+    assert ">Routed integrations<" in markup
     assert ">Active Destinations<" in markup
     assert ">Active Routes<" in markup
-    assert "<th>Input</th>" in markup
+    assert "<th>Available inputs</th>" in markup
     assert markup.index('id="audit-table"') < markup.index('id="audit-page-size"')
     assert "Shown in Routing Flow" not in script
     assert 'const form = event.currentTarget;' in script
     assert "form.reset();" in script
-    assert '"Home Assistant API"' in script
-    assert '"Supermicro Redfish"' in script
+    assert '"Home Assistant"' in script
+    assert '"Redfish"' in script
     assert 'semanticInformation ? "information"' in script
     assert "createImageBitmap" in script and "readAsDataURL" in script
     assert ".flow-row.disabled .flow-arrow" in styles

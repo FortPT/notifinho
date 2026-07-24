@@ -87,6 +87,23 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.4.0 integrations and input-aware routing upgrade
+
+Before deployment, create both a platform-state backup and a copy of
+`config.yaml`. v2.4.0 upgrades platform state to schema 7. On first successful
+synchronization, known legacy source-category overrides move to SQLite,
+`webui.source_categories` and `webui.removed_sources` are removed from YAML,
+and the test-only route named `Home Lab Generic` is removed.
+
+Deploy and validate v2.4.0 in an isolated container with a copied production
+configuration before replacing production. Confirm route integration/input
+selections, destination enable/test behavior, duplicate-name rejection, and
+dynamic destination type changes using the
+[v2.4.0 acceptance checklist](v2.4.0-acceptance-checklist.md).
+
+Rollback to v2.3.7 requires restoring both the pre-upgrade schema-6 state
+backup and the matching pre-upgrade `config.yaml`; v2.3.7 cannot open schema 7.
+
 ## v2.3.7 fixed-box Overview icon corrective upgrade
 
 v2.3.7 keeps platform schema 6. After redeployment, force-refresh the browser

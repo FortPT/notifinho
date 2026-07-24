@@ -6,6 +6,10 @@ import re
 import unicodedata
 
 
+class ConflictError(ValueError):
+    """A valid request conflicts with an existing named resource."""
+
+
 _IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9_.-]*$")
 
 

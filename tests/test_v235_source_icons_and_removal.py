@@ -46,15 +46,10 @@ def test_v235_overview_keeps_source_key_dataset_and_base_icon_rule():
     assert "width: 48px !important" in css
 
 
-def test_v235_source_removal_does_not_depend_on_delete_request_body():
+def test_v240_sources_are_built_in_integrations_without_removal():
     script = (ROOT / "src/webui/app.js").read_text(encoding="utf-8")
     platform = (ROOT / "src/api/platform.py").read_text(encoding="utf-8")
 
-    assert '`/source-categories/${encodeURIComponent(source)}`' in script
-    assert 'body: { source }' not in script[
-        script.index('} else if (action === "remove-source")'):
-        script.index('} else if (action === "restore-backup")')
-    ]
-    assert 'path.startswith("/api/v2/source-categories/")' in platform
-    assert "unquote(" in platform
-    assert 'method == "DELETE"' in platform
+    assert 'request("/integrations")' in script
+    assert 'action === "remove-source"' not in script
+    assert 'path == "/api/v2/integrations"' in platform

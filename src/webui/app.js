@@ -169,6 +169,8 @@ const state = {
   backupTargets: [],
   sourceCategories: {},
   removedSources: [],
+  integrations: [],
+  routeSourceOptions: [],
   versionStatus: null,
   managedMounts: false,
   configuration: null,
@@ -262,9 +264,16 @@ function readCsrfCookie(mode = "") {
 }
 
 class APIError extends Error {
-  constructor(status, message) {
-    super(message || "Request failed");
+  constructor(status, message, path = "", code = "", reference = "") {
+    const details = [];
+    if (status) details.push(`HTTP ${status}`);
+    if (path) details.push(`${API}${path}`);
+    if (reference) details.push(`reference ${reference}`);
+    super(`${message || "Request failed"}${details.length ? ` (${details.join(" · ")})` : ""}`);
     this.status = status;
+    this.path = path;
+    this.code = code;
+    this.reference = reference;
   }
 }
 
@@ -290,7 +299,7 @@ async function request(path, options = {}) {
       cache: "no-store",
     });
   } catch (_error) {
-    throw new APIError(0, "Notifinho is not reachable.");
+    throw new APIError(0, "Notifinho is not reachable.", path, "network_error");
   }
   const raw = await response.text();
   let payload = null;
@@ -298,12 +307,12 @@ async function request(path, options = {}) {
     try {
       payload = JSON.parse(raw);
     } catch (_error) {
-      throw new APIError(response.status, "The server returned an invalid response.");
+      throw new APIError(response.status, "The server returned an invalid response.", path, "invalid_response");
     }
   }
   if (!response.ok) {
     if (response.status === 401 && state.user && path !== "/session") expireSession();
-    throw new APIError(response.status, payload && payload.error);
+    throw new APIError(response.status, payload && payload.error, path, payload && payload.code, payload && payload.reference);
   }
   return payload;
 }
@@ -520,9 +529,9 @@ async function initialize() {
 
 async function loadWorkspace() {
   const tasks = {
-    sourceCategories: ["Source tags", request("/source-categories"), (value) => {
-      state.sourceCategories = value.categories;
-      state.removedSources = value.removed_sources || [];
+    integrations: ["Integrations", request("/integrations"), (value) => {
+      state.integrations = value.integrations || [];
+      state.routeSourceOptions = value.route_options || [];
     }],
     destinations: ["Destinations", request("/destinations"), (value) => { state.destinations = value.destinations; }],
     routes: ["Routes", request("/routes"), (value) => { state.routes = value.routes; }],
@@ -727,9 +736,32 @@ function capitalize(value) {
   return text ? text[0].toUpperCase() + text.slice(1) : "—";
 }
 
+function integrationBySource(value) {
+  const key = String(value || "").toLowerCase();
+  return state.integrations.find((item) => item.id === key || (item.sources || []).includes(key)) || null;
+}
+
+function inputLabel(value) {
+  const labels = { smtp: "SMTP", http: "HTTP", redfish: "Redfish" };
+  return labels[String(value || "").toLowerCase()] || String(value || "Any input").toUpperCase();
+}
+
+function routeSourceDescriptor(source, inputType = "") {
+  if (source === "*") {
+    const input = inputLabel(inputType || "http");
+    return { integration: "Generic", input, label: `Generic (${input})` };
+  }
+  const item = integrationBySource(source);
+  const integration = item ? item.name : friendlyName(source);
+  const input = inputLabel(inputType || "");
+  return { integration, input, label: inputType ? `${integration} (${input})` : integration };
+}
+
 function friendlyName(value) {
+  const item = integrationBySource(value);
+  if (item) return item.name;
   const special = { home_assistant: "Home Assistant", hpe_ilo: "HPE iLO", dell_idrac: "Dell iDRAC", xen_orchestra: "Xen Orchestra", xo: "Xen Orchestra", xenorchestra: "Xen Orchestra", redfish: "Redfish", restful: "RESTful API", rest_api: "REST API", unifi_network: "UniFi Network", unifi_protect: "UniFi Protect", unifi_drive: "UniFi Drive" };
-  const key = String(value || "").casefold ? String(value || "").casefold() : String(value || "").toLowerCase();
+  const key = String(value || "").toLowerCase();
   return special[key] || String(value || "Unknown").replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
@@ -752,39 +784,19 @@ function sourceIcon(source) {
   });
 }
 
-function sourceInputType(source) {
+function sourceInputType(source, routeInput = "") {
+  if (routeInput) return inputLabel(routeInput);
   const observed = state.deliveries.find((item) => item.source === source && item.input_type);
-  const key = String(source || "").toLowerCase();
-  if (observed && observed.input_type) {
-    const normalized = String(observed.input_type).toUpperCase();
-    if (key === "home_assistant" && normalized === "HTTP") return "Home Assistant API";
-    if (["supermicro", "hpe_ilo", "dell_idrac"].includes(key) && normalized === "REDFISH") {
-      return SOURCE_TRANSPORTS[key];
-    }
-    return observed.input_type;
-  }
-  return SOURCE_TRANSPORTS[key] || "HTTP";
+  if (observed && observed.input_type) return inputLabel(observed.input_type);
+  const integration = integrationBySource(source);
+  if (integration && integration.inputs.length === 1) return integration.inputs[0].name;
+  return integration ? integration.inputs.map((item) => item.name).join(", ") : "HTTP";
 }
 
 function sourceCategory(source) {
-  const key = String(source || "").toLowerCase();
-  const aliases = {
-    servers: "hardware",
-    services: "monitoring",
-    applications: "generic",
-    controllers: "networking",
-  };
-  const configured = aliases[state.sourceCategories[key]] || state.sourceCategories[key];
-  if (SOURCE_CATEGORIES[configured]) return SOURCE_CATEGORIES[configured];
-  if (["xen_orchestra", "xo", "xenorchestra", "proxmox"].includes(key)) return SOURCE_CATEGORIES.virtualization;
-  if (["grafana", "zabbix"].includes(key)) return SOURCE_CATEGORIES.monitoring;
-  if (["qnap", "truenas", "synology", "unifi_drive"].includes(key)) return SOURCE_CATEGORIES.storage;
-  if (key === "unifi_network") return SOURCE_CATEGORIES.networking;
-  if (["supermicro", "hpe_ilo", "dell_idrac", "redfish"].includes(key)) return SOURCE_CATEGORIES.hardware;
-  if (key === "home_assistant") return SOURCE_CATEGORIES.automation;
-  if (key === "portainer") return SOURCE_CATEGORIES.containers;
-  if (key === "unifi_protect") return SOURCE_CATEGORIES.security;
-  return SOURCE_CATEGORIES.generic;
+  const item = integrationBySource(source);
+  const key = item ? item.category : "generic";
+  return SOURCE_CATEGORIES[key] || SOURCE_CATEGORIES.generic;
 }
 
 function sourceIsActive(source) {
@@ -799,10 +811,13 @@ function renderFlow() {
     const destination = state.destinations.find((item) => item.id === route.destination_id);
     const problem = route.enabled && (!destination || !destination.enabled || (!destination.secret_configured && ["discord", "teams", "slack", "webhook"].includes(destination.output_type)));
     const status = !route.enabled ? "disabled" : problem ? "problem" : "active";
+    const descriptor = routeSourceDescriptor(route.source, route.input_type);
+    const integration = integrationBySource(route.source);
+    const iconKey = route.source === "*" ? "generic" : integration ? integration.icon_key : route.source;
     const category = route.source === "*" ? SOURCE_CATEGORIES.generic : sourceCategory(route.source);
     const arrow = status === "problem" ? "×" : "➜";
     container.append(element("div", { className: `flow-row ${status}` }, [
-      element("div", { className: `flow-node source-node category-${category.key}` }, [sourceIcon(route.source), element("div", {}, [element("strong", { text: route.source === "*" ? "All Sources" : friendlyName(route.source) }), element("small", { text: route.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(route.source) })])]),
+      element("div", { className: `flow-node source-node category-${category.key}` }, [sourceIcon(iconKey), element("div", {}, [element("strong", { text: descriptor.integration }), element("small", { text: descriptor.input })])]),
       element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: arrow }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow delayed", text: arrow })]),
       element("div", { className: "flow-node destination-node" }, [outputIcon(destination && destination.output_type), element("div", {}, [element("strong", { text: destination ? (OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)) : "Missing destination" }), element("small", { text: destination ? (destination.settings.channel_name || destination.name) : "Configuration error" })])]),
     ]));
@@ -811,77 +826,67 @@ function renderFlow() {
 }
 
 function discoveredSources() {
-  const sources = new Set(Object.keys(state.sourceCategories));
-  for (const route of state.routes) {
-    if (route.source && route.source !== "*") sources.add(route.source);
-  }
-  for (const delivery of state.deliveries) {
-    if (delivery.source) sources.add(delivery.source);
-  }
-  for (const token of state.tokens) {
-    for (const source of token.source_scopes || []) {
-      if (source && source !== "*") sources.add(source);
-    }
-  }
-  const removed = new Set(state.removedSources);
-  return [...sources]
-    .filter((source) => !removed.has(source) || sourceIsActive(source))
-    .sort((left, right) => friendlyName(left).localeCompare(friendlyName(right)));
+  return state.integrations.map((item) => item.id);
 }
 
 function renderSources() {
   const body = byId("source-table");
-  const sources = discoveredSources();
   body.replaceChildren();
-  byId("source-empty").hidden = sources.length > 0;
-  if (!sources.length) {
-    byId("source-empty").replaceChildren(element("strong", { text: "No sources" }), element("span", { text: "A source appears after it is configured or observed." }));
+  byId("source-empty").hidden = state.integrations.length > 0;
+  if (!state.integrations.length) {
+    byId("source-empty").replaceChildren(
+      element("strong", { text: "No integrations available" }),
+      element("span", { text: "The built-in integration catalogue could not be loaded." }),
+    );
     return;
   }
-  for (const source of sources) {
-    const category = sourceCategory(source);
+  for (const integration of state.integrations) {
+    const category = SOURCE_CATEGORIES[integration.category] || SOURCE_CATEGORIES.generic;
     const select = element("select", {
-      dataset: { sourceCategory: source },
+      dataset: { integrationCategory: integration.id },
       disabled: !isAdmin(),
-      attributes: { "aria-label": `Tag for ${friendlyName(source)}` },
+      attributes: { "aria-label": `Category for ${integration.name}` },
     });
     for (const item of Object.values(SOURCE_CATEGORIES)) {
       select.append(element("option", { value: item.key, text: item.label }));
     }
     select.value = category.key;
-    const active = sourceIsActive(source);
-    const management = element("div", { className: "source-actions" });
-    if (isAdmin() && !active) {
-      management.append(actionButton("Remove", "remove-source", source, "danger"));
-    }
+    const details = element("details", { className: "integration-inputs" }, [
+      element("summary", { text: `${integration.inputs.length} input${integration.inputs.length === 1 ? "" : "s"} available` }),
+      element("div", { className: "integration-input-list" }, integration.inputs.map((item) =>
+        element("div", { className: "integration-input-row" }, [
+          badge(item.name),
+          element("span", { text: `${integration.name} events received through ${item.name}` }),
+        ])
+      )),
+    ]);
     body.append(element("tr", {}, [
-      element("td", {}, [element("div", { className: "source-identity" }, [sourceIcon(source), element("div", {}, [element("strong", { text: friendlyName(source) }), element("small", { text: source })])])]),
-      element("td", { text: sourceInputType(source) }),
+      element("td", {}, [element("div", { className: "source-identity" }, [sourceIcon(integration.icon_key || integration.id), element("div", {}, [element("strong", { text: integration.name }), element("small", { text: "Built-in integration" })])])]),
+      element("td", {}, details),
       element("td", {}, select),
-      element("td", {}, badge(active ? "Active" : "Inactive", active ? "success" : "warning")),
-      element("td", {}, management),
     ]));
   }
 }
 
 async function saveSourceCategory(event) {
-  const select = event.target.closest("[data-source-category]");
+  const select = event.target.closest("[data-integration-category]");
   if (!select || !isAdmin()) return;
-  const source = select.dataset.sourceCategory;
+  const integrationId = select.dataset.integrationCategory;
   select.disabled = true;
   try {
-    const response = await request("/source-categories", {
+    const response = await request("/integrations", {
       method: "PUT",
-      body: { source, category: select.value },
+      body: { source: integrationId, category: select.value },
     });
-    state.sourceCategories = response.categories;
-    state.removedSources = response.removed_sources || [];
+    state.integrations = response.integrations || [];
+    state.routeSourceOptions = response.route_options || [];
     renderSources();
     renderFlow();
-    toast(`${friendlyName(source)} moved to ${SOURCE_CATEGORIES[select.value].label}.`);
+    const integration = integrationBySource(integrationId);
+    toast(`${integration ? integration.name : friendlyName(integrationId)} moved to ${SOURCE_CATEGORIES[select.value].label}.`);
   } catch (error) {
     renderSources();
-    toast(error.message || "Source tag could not be saved.", "error");
+    toast(error.message || "Integration category could not be saved.", "error");
   }
 }
 
@@ -952,6 +957,7 @@ function renderRoutes() {
     return;
   }
   for (const item of state.routes) {
+    const descriptor = routeSourceDescriptor(item.source, item.input_type);
     const name = isAdmin()
       ? element("button", { className: "route-name-button", text: item.name, type: "button", dataset: { action: "edit-route", id: item.id } })
       : element("strong", { text: item.name });
@@ -964,8 +970,8 @@ function renderRoutes() {
     });
     body.append(element("tr", {}, [
       element("td", {}, name),
-      element("td", { text: item.source === "*" ? "All Sources" : friendlyName(item.source) }),
-      element("td", { text: item.source === "*" ? "HTTP / SMTP / Redfish" : sourceInputType(item.source) }),
+      element("td", { text: descriptor.integration }),
+      element("td", { text: descriptor.input }),
       element("td", { text: destinationTypeName(item.destination_id) }),
       element("td", {}, element("small", { text: filterSummary(item.filters) })),
       element("td", { text: capitalize(item.priority_name || "normal") }),
@@ -1834,18 +1840,21 @@ function renderDestinationFields(settings = {}) {
   settingsContainer.replaceChildren(...definition.settings.map((field) => formField(field, settings[field.key])));
   secretsContainer.replaceChildren(...definition.secrets.map((field) => formField(field)));
   const editing = Boolean(byId("destination-id").value);
-  for (const input of secretsContainer.querySelectorAll("[required]")) input.required = !editing;
+  const originalType = byId("destination-original-type").value;
+  const typeChanged = editing && originalType && originalType !== type;
+  for (const input of secretsContainer.querySelectorAll("[required]")) input.required = !editing || typeChanged;
+  if (typeChanged) byId("destination-help").textContent += " New credentials are required because the destination type changed.";
 }
-
 function openDestination(id = "") {
   const item = state.destinations.find((candidate) => candidate.id === id);
   byId("destination-form").reset();
   clearError("destination-error");
   byId("destination-id").value = item ? item.id : "";
+  byId("destination-original-type").value = item ? item.output_type : "";
   byId("destination-name").value = item ? item.name : "";
   byId("destination-type").value = item ? item.output_type : "discord";
   byId("destination-name").disabled = false;
-  byId("destination-type").disabled = Boolean(item);
+  byId("destination-type").disabled = false;
   byId("destination-enabled").checked = item ? item.enabled : true;
   byId("destination-shared").checked = item ? item.shared : false;
   byId("destination-shared-field").hidden = !isAdmin();
@@ -1888,25 +1897,33 @@ async function saveDestination(event) {
   }
   clearError("destination-error");
   const id = byId("destination-id").value;
+  const submit = byId("destination-submit");
+  const name = byId("destination-name").value.trim();
+  const duplicate = state.destinations.find((item) => item.id !== id && item.name.trim().toLowerCase() === name.toLowerCase());
+  if (duplicate) {
+    showError("destination-error", new APIError(409, `A destination named "${name}" already exists. Choose another name.`, id ? `/destinations/${id}` : "/destinations", "resource_conflict"));
+    return;
+  }
+  submit.disabled = true;
   try {
     const settings = collectFields(byId("destination-settings"));
     const secret = collectFields(byId("destination-secrets"));
     const payload = {
-      name: byId("destination-name").value.trim(),
+      name,
+      output_type: byId("destination-type").value,
       settings,
       enabled: byId("destination-enabled").checked,
     };
     if (isAdmin()) payload.shared = byId("destination-shared").checked;
     if (Object.keys(secret).length) payload.secret = secret;
-    if (!id) {
-      payload.output_type = byId("destination-type").value;
-    }
     await request(id ? `/destinations/${id}` : "/destinations", { method: id ? "PATCH" : "POST", body: payload });
     byId("destination-dialog").close();
     await loadWorkspace();
     toast(id ? "Destination updated." : "Destination added.");
   } catch (error) {
     showError("destination-error", error);
+  } finally {
+    submit.disabled = false;
   }
 }
 
@@ -1923,6 +1940,21 @@ function setRouteOptions(selected = "") {
   if (selected) select.value = selected;
 }
 
+function setRouteSourceOptions(selectedSource = "", selectedInput = "") {
+  const select = byId("route-source");
+  select.replaceChildren();
+  const currentValue = `${selectedSource}::${selectedInput}`;
+  for (const option of state.routeSourceOptions) {
+    const value = `${option.source}::${option.input_type}`;
+    select.append(element("option", { value, text: option.label }));
+  }
+  if (selectedSource && ![...select.options].some((option) => option.value === currentValue)) {
+    const descriptor = routeSourceDescriptor(selectedSource, selectedInput);
+    select.append(element("option", { value: currentValue, text: `${descriptor.label} (legacy)` }));
+  }
+  if (selectedSource) select.value = currentValue;
+}
+
 function openRoute(id = "") {
   if (!state.destinations.length) {
     toast("Add a destination before creating a route.", "error");
@@ -1934,7 +1966,7 @@ function openRoute(id = "") {
   clearError("route-error");
   byId("route-id").value = item ? item.id : "";
   byId("route-name").value = item ? item.name : "";
-  byId("route-source").value = item ? item.source : "";
+  setRouteSourceOptions(item ? item.source : "zabbix", item ? item.input_type : "smtp");
   byId("route-priority").value = item ? (item.priority_name || "normal") : "normal";
   byId("route-enabled").checked = item ? item.enabled : true;
   setRouteOptions(item ? item.destination_id : "");
@@ -1964,12 +1996,14 @@ async function saveRoute(event) {
     const values = splitList(byId(`route-${key}`).value);
     if (values.length) filters[key] = values;
   }
+  const [source, inputType] = byId("route-source").value.split("::", 2);
   try {
     await request(id ? `/routes/${id}` : "/routes", {
       method: id ? "PATCH" : "POST",
       body: {
         name: byId("route-name").value.trim(),
-        source: byId("route-source").value.trim(),
+        source,
+        input_type: inputType,
         destination_id: byId("route-destination").value,
         priority: byId("route-priority").value,
         enabled: byId("route-enabled").checked,
@@ -2118,7 +2152,7 @@ async function runPreview(event) {
     result.hidden = false;
     if (action === "test") {
       const delivery = response.result || {};
-      const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.error_code || "No status returned";
+      const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.safe_error || delivery.error_code || "No status returned";
       toast(delivery.success ? `Test delivery sent successfully (${detail}).` : `Test delivery failed (${detail}).`, delivery.success ? "success" : "error");
     }
   } catch (error) {
@@ -2220,23 +2254,6 @@ async function resourceAction(action, id) {
       clearError("restart-error");
       byId("restart-dialog").showModal();
       return;
-    } else if (action === "remove-source") {
-      const source = id;
-      const accepted = await confirmAction(
-        `Remove ${friendlyName(source)}?`,
-        "This hides the inactive source and removes its saved tag. Delivery history is retained. A source used by an enabled route cannot be removed.",
-        "Remove",
-      );
-      if (!accepted) return;
-      const response = await request(`/source-categories/${encodeURIComponent(source)}`, {
-        method: "DELETE",
-      });
-      state.sourceCategories = response.categories;
-      state.removedSources = response.removed_sources || [];
-      renderSources();
-      renderFlow();
-      toast(`${friendlyName(source)} removed.`);
-      return;
     } else if (action === "restore-backup") {
       await restoreBackup(id);
       return;
@@ -2252,7 +2269,7 @@ async function resourceAction(action, id) {
         body: { event: cardSampleEvent(destination) },
       });
       const delivery = response.result || {};
-      const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.error_code || "No status returned";
+      const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.safe_error || delivery.error_code || "No status returned";
       toast(delivery.success ? `Test delivery sent successfully (${detail}).` : `Test delivery failed (${detail}).`, delivery.success ? "success" : "error");
       return;
     } else if (action === "delete-destination") {

@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 2.4.0 - 2026-07-24
+
+### Changed
+
+- Replace discovered Sources with an always-available built-in integration catalogue.
+- Expand integrations to show their supported SMTP, HTTP, or Redfish inputs.
+- Store integration category overrides in SQLite instead of `config.yaml`.
+- Replace free-text route sources with integration/input choices such as
+  Zabbix (SMTP), Zabbix (HTTP), Generic (HTTP), and Generic (Redfish).
+- Allow administrators to change a destination type while preserving route intent.
+
+### Fixed
+
+- Reject duplicate destination display names before writing `config.yaml`.
+- Enable the parent output provider when an enabled destination is created or enabled.
+- Roll back YAML changes when synchronization fails and preserve file ownership/mode.
+- Return actionable API errors with HTTP status, endpoint, error code, and reference ID.
+- Retire the test-only Home Lab Generic route during the source-model migration.
+
+
 ## 2.3.7 - 2026-07-24
 
 ### Fixed

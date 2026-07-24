@@ -150,3 +150,11 @@ v2.3.0 through v2.3.2 use schema 6. A v2.2.1 image rejects that newer database, 
 requires stopping the container and restoring the complete pre-upgrade state
 and configuration backups before pinning `2.2.1`. Never delete or hand-edit
 the database to imitate a downgrade.
+
+
+## Schema 7 integration catalogue state
+
+v2.4.0 adds `routes.input_type` and the `integration_categories` table. The
+integration catalogue itself is built into the application image; SQLite stores
+only administrator category overrides. A v2.3.7 image cannot open schema-7
+state, so application rollback requires restoring the matching schema-6 backup.

@@ -230,7 +230,7 @@ def test_webui_uses_same_origin_api_without_unsafe_dom_or_secret_persistence():
         "/audit-events",
         "/users",
         "/preferences",
-        "/source-categories",
+        "/integrations",
         "/version",
         "/portability/export",
         "/portability/preview",

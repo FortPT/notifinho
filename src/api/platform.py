@@ -14,6 +14,8 @@ from http.cookies import SimpleCookie
 from urllib.parse import unquote
 
 from api.response import APIResponse
+from integrations.catalog import integrations, route_options
+from logger import log
 from api.security import Principal, RateLimiter
 from outputs.platform import PlatformOutputRegistry
 from outputs.service import PlatformOutputService
@@ -31,11 +33,13 @@ from storage.portability import PlatformPortabilityService
 from storage.routes import RouteStore
 from storage.routes import route_priority_name
 from storage.sanitize import sanitize_text
+from storage.validation import ConflictError
 from storage.secrets import SecretStore
 from storage.sessions import SessionStore
 from storage.users import UserStore
 from storage.notices import NoticeStore
 from storage.health import HealthCheckService
+from storage.integrations import IntegrationCategoryStore
 from storage.backup_scheduler import BackupScheduler
 from storage.backup_targets import BackupTargetStore
 from version import VERSION
@@ -85,6 +89,7 @@ class PlatformAPI:
         self.routes = RouteStore(database, audit=self.audit)
         self.history = DeliveryHistoryStore(database)
         self.notices = NoticeStore(database)
+        self.integration_categories = IntegrationCategoryStore(database)
         self.registry = registry or PlatformOutputRegistry()
         self.outputs = PlatformOutputService(
             self.destinations,
@@ -153,8 +158,8 @@ class PlatformAPI:
                 headers,
                 require_csrf=method not in _SAFE_METHODS,
             )
-        except Exception:
-            return APIResponse(500, {"error": "request failed"})
+        except Exception as error:
+            return self._unexpected(path, error)
         if principal is None:
             return APIResponse(401, {"error": "authentication required"})
         session_rate = Principal(
@@ -176,6 +181,8 @@ class PlatformAPI:
                 return self._own_password(method, payload, principal)
             if path == "/api/v2/account/avatar":
                 return self._own_avatar(method, payload, principal)
+            if path == "/api/v2/integrations":
+                return self._integrations_endpoint(method, payload, actor)
             if path == "/api/v2/preferences":
                 return self._preferences_endpoint(method, payload, actor)
             if path == "/api/v2/source-categories":
@@ -233,14 +240,44 @@ class PlatformAPI:
             if response is not None:
                 return response
             return APIResponse(404, {"error": "resource not found"})
-        except KeyError:
-            return APIResponse(404, {"error": "resource not found"})
-        except PermissionError:
-            return APIResponse(403, {"error": "operation is not permitted"})
-        except (TypeError, ValueError):
-            return APIResponse(400, {"error": "request is invalid"})
-        except Exception:
-            return APIResponse(500, {"error": "request failed"})
+        except ConflictError as error:
+            return APIResponse(
+                409,
+                {
+                    "error": sanitize_text(error),
+                    "code": "resource_conflict",
+                    "path": path,
+                },
+            )
+        except KeyError as error:
+            return APIResponse(
+                404,
+                {
+                    "error": sanitize_text(error) or "resource not found",
+                    "code": "resource_not_found",
+                    "path": path,
+                },
+            )
+        except PermissionError as error:
+            return APIResponse(
+                403,
+                {
+                    "error": sanitize_text(error) or "operation is not permitted",
+                    "code": "operation_not_permitted",
+                    "path": path,
+                },
+            )
+        except (TypeError, ValueError) as error:
+            return APIResponse(
+                400,
+                {
+                    "error": sanitize_text(error) or "request is invalid",
+                    "code": "validation_error",
+                    "path": path,
+                },
+            )
+        except Exception as error:
+            return self._unexpected(path, error)
 
     def _login(self, payload, client) -> APIResponse:
         limiter_principal = Principal(
@@ -555,6 +592,7 @@ class PlatformAPI:
                     {
                         "name",
                         "source",
+                        "input_type",
                         "destination_id",
                         "filters",
                         "priority",
@@ -577,6 +615,7 @@ class PlatformAPI:
                     "owner_user_id",
                     "name",
                     "source",
+                    "input_type",
                     "destination_id",
                     "filters",
                     "priority",
@@ -589,6 +628,7 @@ class PlatformAPI:
                 data.get("name"),
                 data.get("source"),
                 data.get("destination_id"),
+                input_type=data.get("input_type", ""),
                 filters=data.get("filters", {}),
                 priority=data.get("priority", 100),
                 enabled=self._boolean(data, "enabled", True),
@@ -914,6 +954,43 @@ class PlatformAPI:
             (("Cache-Control", "no-store"),),
         )
 
+    def _integrations_endpoint(self, method, payload, actor) -> APIResponse:
+        overrides = self.integration_categories.list_overrides()
+        if method == "GET":
+            return APIResponse(
+                200,
+                {
+                    "integrations": integrations(overrides),
+                    "route_options": route_options(overrides),
+                },
+            )
+        if method == "PUT":
+            self._require_admin(actor)
+            data = self._object(payload, {"source", "category"})
+            if set(data) != {"source", "category"}:
+                raise ValueError("integration and category are required")
+            self.integration_categories.set_category(
+                data.get("source"),
+                data.get("category"),
+            )
+            self.audit.write(
+                actor,
+                "integration.category.update",
+                "integration",
+                str(data.get("source") or ""),
+                "success",
+                {"category": str(data.get("category") or "")},
+            )
+            overrides = self.integration_categories.list_overrides()
+            return APIResponse(
+                200,
+                {
+                    "integrations": integrations(overrides),
+                    "route_options": route_options(overrides),
+                },
+            )
+        return self._method_not_allowed("GET, PUT")
+
     def _preferences_endpoint(self, method, payload, actor) -> APIResponse:
         if self.configuration_sync is None:
             return APIResponse(404, {"error": "resource not found"})
@@ -931,57 +1008,29 @@ class PlatformAPI:
         return self._method_not_allowed("GET, PUT")
 
     def _source_categories_endpoint(self, method, payload, actor) -> APIResponse:
-        if self.configuration_sync is None:
-            return APIResponse(404, {"error": "resource not found"})
         if method == "GET":
             return APIResponse(
                 200,
                 {
-                    "categories": self.configuration_sync.source_categories(),
-                    "removed_sources": self.configuration_sync.removed_sources(),
+                    "categories": self.integration_categories.list_overrides(),
+                    "removed_sources": [],
                 },
             )
         if method == "PUT":
-            self._require_admin(actor)
             data = self._object(payload, {"source", "category"})
-            if set(data) != {"source", "category"}:
-                raise ValueError("source and category are required")
-            return APIResponse(
-                200,
-                {
-                    "categories": self.configuration_sync.update_source_category(
-                        actor,
-                        data.get("source"),
-                        data.get("category"),
-                    ),
-                    "removed_sources": self.configuration_sync.removed_sources(),
-                },
-            )
-        if method == "DELETE":
-            self._require_admin(actor)
-            data = self._object(payload, {"source", "id", "name"})
-            source = str(
-                data.get("source") or data.get("id") or data.get("name") or ""
-            ).strip().casefold()
-            if not source:
-                raise ValueError("source is required")
-            if any(
-                route.enabled and route.source == source
-                for route in self.configuration_sync.list_routes(actor)
-            ):
+            response = self._integrations_endpoint(method, data, actor)
+            if response.status == 200:
                 return APIResponse(
-                    409,
-                    {"error": "source is used by an enabled route and cannot be removed"},
+                    200,
+                    {
+                        "categories": self.integration_categories.list_overrides(),
+                        "removed_sources": [],
+                    },
                 )
-            self.configuration_sync.remove_source(actor, source)
-            return APIResponse(
-                200,
-                {
-                    "categories": self.configuration_sync.source_categories(),
-                    "removed_sources": self.configuration_sync.removed_sources(),
-                },
-            )
-        return self._method_not_allowed("GET, PUT, DELETE")
+            return response
+        if method == "DELETE":
+            raise ValueError("built-in integrations cannot be removed")
+        return self._method_not_allowed("GET, PUT")
 
     def _version_endpoint(self, method) -> APIResponse:
         if method != "GET":
@@ -1335,7 +1384,7 @@ class PlatformAPI:
             destination = self.destinations.get(actor, destination_id)
             return APIResponse(200, {"destination": self._destination(destination)})
         if method == "PATCH":
-            data = self._object(payload, {"name", "settings", "enabled", "shared", "secret"})
+            data = self._object(payload, {"name", "output_type", "settings", "enabled", "shared", "secret"})
             if self.configuration_sync is not None:
                 destination = self.configuration_sync.update_destination(actor, destination_id, data)
                 return APIResponse(
@@ -1424,7 +1473,7 @@ class PlatformAPI:
         if method == "PATCH":
             data = self._object(
                 payload,
-                {"name", "source", "destination_id", "filters", "priority", "enabled"},
+                {"name", "source", "input_type", "destination_id", "filters", "priority", "enabled"},
             )
             if any(value is None for value in data.values()):
                 raise ValueError("route fields cannot be null")
@@ -1679,6 +1728,7 @@ class PlatformAPI:
             "destination_id": item.destination_id,
             "name": item.name,
             "source": item.source,
+            "input_type": item.input_type,
             "filters": {key: list(values) for key, values in item.filters.items()},
             "priority": item.priority,
             "priority_name": route_priority_name(item.priority),
@@ -1748,6 +1798,23 @@ class PlatformAPI:
             "created_at": item.created_at,
             "updated_at": item.updated_at,
         }
+
+    def _unexpected(self, path: str, error: Exception) -> APIResponse:
+        reference = uuid.uuid4().hex[:12]
+        log.exception(
+            "Platform API request failed reference=%s path=%s",
+            reference,
+            path,
+        )
+        return APIResponse(
+            500,
+            {
+                "error": "Notifinho could not complete this request.",
+                "code": "internal_error",
+                "reference": reference,
+                "path": path,
+            },
+        )
 
     @staticmethod
     def _terminate_process():

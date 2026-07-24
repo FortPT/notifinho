@@ -213,7 +213,9 @@ def test_admin_crud_writes_yaml_and_observer_cannot_mutate(unified):
         },
     )
     saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    assert saved["routing"]["home_lab"]["outputs"][0]["id"]
+    configured = saved["routing"]["*"]["outputs"][0]
+    assert configured["id"]
+    assert configured["input"] == "http"
     renamed = unified["service"].update_destination(
         unified["admin"], created.id, {"name": "Automation primary"}
     )
@@ -394,7 +396,9 @@ def test_disabled_credential_free_import_is_adopted_into_yaml(unified):
     target = saved["outputs"]["webhook"]["imported_webhook"]
     assert target["enabled"] is False
     assert "secret" not in target
-    assert saved["routing"]["generic"]["outputs"][0]["enabled"] is False
+    imported_route = saved["routing"]["*"]["outputs"][0]
+    assert imported_route["input"] == "http"
+    assert imported_route["enabled"] is False
 
 
 def test_nested_secrets_are_masked_without_hiding_token_metadata():

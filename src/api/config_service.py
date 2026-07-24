@@ -69,6 +69,9 @@ class ConfigService:
     def replace(self, data) -> Path:
         with self._lock:
             current = self._read()
+            current_bytes = self.path.read_bytes()
+            details = self.path.stat()
+            mode = details.st_mode & 0o777
             candidate = merge_masked_secrets(current, data)
             errors = validate_config(candidate)
             if errors:
@@ -79,31 +82,69 @@ class ConfigService:
             stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
             backup = self._available_backup(backup_dir, stamp)
             shutil.copy2(self.path, backup)
-            os.chmod(backup, 0o600)
-            descriptor, temporary_name = tempfile.mkstemp(
-                prefix=".config-",
-                suffix=".yaml",
-                dir=self.path.parent,
-            )
-            temporary = Path(temporary_name)
+            os.chmod(backup, mode)
+            self._preserve_owner(backup, details.st_uid, details.st_gid)
+
+            rendered = yaml.safe_dump(
+                candidate,
+                sort_keys=False,
+            ).encode("utf-8")
             try:
-                with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
-                    yaml.safe_dump(candidate, stream, sort_keys=False)
-                    stream.flush()
-                    os.fsync(stream.fileno())
-                os.chmod(temporary, 0o600)
-                os.replace(temporary, self.path)
+                self._atomic_write(
+                    rendered,
+                    mode=mode,
+                    uid=details.st_uid,
+                    gid=details.st_gid,
+                )
                 self.configuration.reload()
                 self._last_loaded_signature = self._signature()
             except Exception:
-                temporary.unlink(missing_ok=True)
-                if not self.path.exists():
-                    with self.path.open("w", encoding="utf-8") as stream:
-                        yaml.safe_dump(current, stream, sort_keys=False)
-                    os.chmod(self.path, 0o600)
+                self._atomic_write(
+                    current_bytes,
+                    mode=mode,
+                    uid=details.st_uid,
+                    gid=details.st_gid,
+                )
+                self.configuration.reload()
+                self._last_loaded_signature = self._signature()
                 raise
             self._trim_backups(backup_dir)
             return backup
+
+    def _atomic_write(
+        self,
+        payload: bytes,
+        *,
+        mode: int,
+        uid: int,
+        gid: int,
+    ) -> None:
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".config-",
+            suffix=".yaml",
+            dir=self.path.parent,
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "wb") as stream:
+                stream.write(payload)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.chmod(temporary, mode)
+            self._preserve_owner(temporary, uid, gid)
+            os.replace(temporary, self.path)
+        except Exception:
+            temporary.unlink(missing_ok=True)
+            raise
+
+    @staticmethod
+    def _preserve_owner(path: Path, uid: int, gid: int) -> None:
+        try:
+            os.chown(path, uid, gid)
+        except PermissionError:
+            # Non-root development/test processes cannot change ownership.
+            # The temporary file already belongs to the running process.
+            pass
 
     def _read(self) -> dict:
         value = yaml.safe_load(self.path.read_text(encoding="utf-8")) or {}

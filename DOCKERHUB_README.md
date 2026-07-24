@@ -22,12 +22,14 @@ Built for Homelabs • Ready for Enterprise
 
 Notifinho is an Infrastructure Notification Engine that transforms traditional infrastructure notifications into rich, actionable collaboration messages.
 
-The current stable release is **v2.3.7**.
+The current stable release is **v2.4.0**.
 
 Instead of receiving plain text emails, your infrastructure platforms can deliver beautiful notifications to collaboration tools such as Discord and Microsoft Teams.
 
 Current features include:
 
+- Built-in integrations with expandable SMTP, HTTP, and Redfish inputs
+- Input-aware route selection and safe dynamic destination type changes
 - Xen Orchestra parser
 - Zabbix, QNAP, Grafana Alerting, and TrueNAS notification support
 - UniFi Network, Protect, and Drive native HTTP webhooks

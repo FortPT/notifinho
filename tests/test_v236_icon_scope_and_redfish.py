@@ -40,6 +40,7 @@ def test_v236_establishes_normal_overview_icon_and_card_baseline():
     assert "grid-template-columns: minmax(250px" not in css
 
 
-def test_v236_retains_body_free_source_removal():
+def test_v240_source_removal_is_retired():
     script = (ROOT / "src/webui/app.js").read_text(encoding="utf-8")
-    assert '`/source-categories/${encodeURIComponent(source)}`' in script
+    assert 'action === "remove-source"' not in script
+    assert 'request("/integrations")' in script

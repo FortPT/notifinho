@@ -67,5 +67,5 @@ def test_v234_runtime_polish_keeps_reload_source_tests_clock_and_delete_payloads
     assert ".flow-node.source-node .source-product-icon" in css
     assert "height: 48px !important" in css
     assert "width: 48px !important" in css
-    assert 'data.get("id")' in platform
-    assert 'data.get("name")' in platform
+    assert '"code": "resource_conflict"' in platform
+    assert '"reference": reference' in platform

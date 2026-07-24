@@ -92,85 +92,53 @@ def test_cookie_selection_prefers_the_configured_http_or_https_mode():
     assert api._session_token(headers) == "old-secure"
 
 
-def test_source_categories_migrate_legacy_values_and_removal_is_persistent(
-    tmp_path,
-):
-    path, service, actor = configuration_service(tmp_path)
-
-    assert service.source_categories() == {"old_source": "monitoring"}
-    service.remove_source(actor, "old_source")
-    assert service.source_categories() == {}
-    assert service.removed_sources() == ["old_source"]
-
-    categories = service.update_source_category(
-        actor,
-        "old_source",
-        "virtualization",
+def test_source_categories_migrate_known_integrations_to_sqlite(tmp_path):
+    path = tmp_path / "config.yaml"
+    path.write_text(
+        "platform:\n"
+        "  configuration_model: unified_yaml_v1\n"
+        "webui:\n"
+        "  enabled: true\n"
+        "  source_categories:\n"
+        "    zabbix: services\n"
+        "  removed_sources:\n"
+        "    - grafana\n",
+        encoding="utf-8",
     )
-    assert categories == {"old_source": "virtualization"}
+    runtime = ReloadableConfiguration(path)
+    database = Database(tmp_path / "state" / "notifinho.db")
+    database.migrate()
+    users = UserStore(database, password_hasher=fast_hash)
+    admin = users.bootstrap_admin("administrator", "correct horse battery staple")
+    service = UnifiedConfigurationService(ConfigService(path, runtime), database)
+
+    assert service.source_categories() == {"zabbix": "monitoring"}
     assert service.removed_sources() == []
-
     saved = yaml.safe_load(path.read_text(encoding="utf-8"))
-    assert saved["webui"]["source_categories"] == {
-        "old_source": "virtualization",
-    }
-    assert saved["webui"]["removed_sources"] == []
+    assert "source_categories" not in saved["webui"]
+    assert "removed_sources" not in saved["webui"]
+
+    try:
+        service.remove_source(admin.actor, "zabbix")
+    except ValueError as error:
+        assert "cannot be removed" in str(error)
+    else:
+        raise AssertionError("built-in integration removal was accepted")
 
 
-def test_source_removal_ignores_wildcard_and_rejects_enabled_exact_route():
+def test_legacy_source_categories_endpoint_rejects_removal():
     actor = Actor("admin-user", "admin")
-
-    class Sync:
-        def __init__(self, routes):
-            self.routes = routes
-            self.removed = []
-
-        def list_routes(self, _actor):
-            return self.routes
-
-        def remove_source(self, _actor, source):
-            self.removed.append(source)
-
-        def source_categories(self):
-            return {}
-
-        def removed_sources(self):
-            return self.removed
-
     api = PlatformAPI.__new__(PlatformAPI)
-    api.configuration_sync = Sync([
-        SimpleNamespace(source="*", enabled=True),
-    ])
-    response = api._source_categories_endpoint(
-        "DELETE",
-        {"source": "dell_idrac"},
-        actor,
-    )
-    assert response.status == 200
-    assert response.payload["removed_sources"] == ["dell_idrac"]
-
-    api.configuration_sync = Sync([
-        SimpleNamespace(source="dell_idrac", enabled=True),
-    ])
-    response = api._source_categories_endpoint(
-        "DELETE",
-        {"source": "dell_idrac"},
-        actor,
-    )
-    assert response.status == 409
-    assert "enabled route" in response.payload["error"]
-    assert api.configuration_sync.removed == []
-
-    api.configuration_sync = Sync([
-        SimpleNamespace(source="dell_idrac", enabled=False),
-    ])
-    response = api._source_categories_endpoint(
-        "DELETE",
-        {"source": "dell_idrac"},
-        actor,
-    )
-    assert response.status == 200
-    assert response.payload["removed_sources"] == ["dell_idrac"]
+    try:
+        api._source_categories_endpoint(
+            "DELETE",
+            {"source": "dell_idrac"},
+            actor,
+        )
+    except ValueError as error:
+        assert "cannot be removed" in str(error)
+    else:
+        raise AssertionError("source removal was accepted")
 
 
 def test_nfs_managed_mount_disables_nlm_for_read_only_container(tmp_path):
@@ -246,8 +214,9 @@ def test_v232_webui_uses_vendor_icons_safe_removal_and_header_restart():
     ]
     assert "Restart Notifinho" not in settings
     assert "<th>Category</th>" in markup
-    assert "<th>Management</th>" in markup
-    assert 'actionButton("Remove", "remove-source"' in script
+    assert "<th>Management</th>" not in markup
+    assert "<th>Available inputs</th>" in markup
+    assert 'actionButton("Remove", "remove-source"' not in script
     assert 'route.source === source || route.source === "*"' in script
     assert 'source: "notifinho"' in script
     assert 'source: "home_assistant"' not in script[

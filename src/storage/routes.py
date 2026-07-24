@@ -12,6 +12,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Callable
 
+from integrations.catalog import canonical_source
 from models import Notification
 from storage.audit_events import AuditEventStore
 from storage.database import Database
@@ -63,6 +64,7 @@ class Route:
     enabled: bool
     created_at: int
     updated_at: int
+    input_type: str = ""
 
 
 class RouteStore:
@@ -85,6 +87,7 @@ class RouteStore:
         source: str,
         destination_id: str,
         *,
+        input_type: str = "",
         filters: dict | None = None,
         priority: int = 100,
         enabled: bool = True,
@@ -94,6 +97,7 @@ class RouteStore:
         normalized_source = self._source(source)
         if normalized_source == "*" and not actor.is_admin:
             raise PermissionError("wildcard routes require an administrator")
+        normalized_input = self._input_type(input_type)
         encoded_filters = self._filters(filters or {})
         bounded_priority = route_priority_value(priority)
         route_id = uuid.uuid4().hex
@@ -127,9 +131,9 @@ class RouteStore:
                     """
                     INSERT INTO routes(
                         id, owner_user_id, destination_id, name,
-                        name_normalized, source, filters_json, priority,
-                        enabled, created_at, updated_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        name_normalized, source, input_type, filters_json,
+                        priority, enabled, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         route_id,
@@ -138,6 +142,7 @@ class RouteStore:
                         display,
                         normalized,
                         normalized_source,
+                        normalized_input,
                         encoded_filters,
                         bounded_priority,
                         1 if enabled else 0,
@@ -181,7 +186,7 @@ class RouteStore:
         notification: Notification,
     ) -> list[Route]:
         OwnershipPolicy.require_read(actor, str(owner_user_id))
-        source = str(notification.source or "").casefold()
+        source = canonical_source(notification.source)
         with self.database.connect() as connection:
             rows = connection.execute(
                 """
@@ -222,6 +227,7 @@ class RouteStore:
         *,
         name=None,
         source=None,
+        input_type=None,
         destination_id=None,
         filters=None,
         priority=None,
@@ -240,6 +246,9 @@ class RouteStore:
         )
         if normalized_source == "*" and not actor.is_admin:
             raise PermissionError("wildcard routes require an administrator")
+        normalized_input = self._input_type(
+            row["input_type"] if input_type is None else input_type,
+        )
         encoded_filters = self._filters(
             json.loads(str(row["filters_json"])) if filters is None else filters,
         )
@@ -275,14 +284,15 @@ class RouteStore:
                     """
                     UPDATE routes
                     SET name = ?, name_normalized = ?, source = ?,
-                        destination_id = ?, filters_json = ?, priority = ?,
-                        enabled = ?, updated_at = ?
+                        input_type = ?, destination_id = ?, filters_json = ?,
+                        priority = ?, enabled = ?, updated_at = ?
                     WHERE id = ?
                     """,
                     (
                         display,
                         normalized,
                         normalized_source,
+                        normalized_input,
                         next_destination,
                         encoded_filters,
                         bounded_priority,
@@ -314,9 +324,16 @@ class RouteStore:
 
     @classmethod
     def matches(cls, route: Route, notification: Notification) -> bool:
-        source = str(notification.source or "").casefold()
-        if route.source not in {"*", source}:
+        source = canonical_source(notification.source)
+        route_source = route.source if route.source == "*" else canonical_source(route.source)
+        if route_source not in {"*", source}:
             return False
+        if route.input_type:
+            observed_input = cls._normalized(
+                (notification.metadata or {}).get("_input_type")
+            )
+            if observed_input != route.input_type:
+                return False
         filters = route.filters
         if "hosts" in filters:
             hosts = cls._candidates(
@@ -382,6 +399,7 @@ class RouteStore:
             enabled=bool(row["enabled"]),
             created_at=int(row["created_at"]),
             updated_at=int(row["updated_at"]),
+            input_type=str(row["input_type"] or "") if "input_type" in row.keys() else "",
         )
 
     @classmethod
@@ -413,6 +431,13 @@ class RouteStore:
         if len(encoded.encode("utf-8")) > 16 * 1024:
             raise ValueError("route filters must not exceed 16384 bytes")
         return encoded
+
+    @staticmethod
+    def _input_type(value) -> str:
+        normalized = str(value or "").strip().casefold()
+        if normalized not in {"", "smtp", "http", "redfish"}:
+            raise ValueError("route input type must be smtp, http, or redfish")
+        return normalized
 
     @staticmethod
     def _source(value: str) -> str:

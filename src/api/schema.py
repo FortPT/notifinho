@@ -276,6 +276,7 @@ def validate_config(data) -> list[str]:
                         )
     outputs = data.get("outputs") or {}
     if isinstance(outputs, dict):
+        destination_names = set()
         for output_name, settings in outputs.items():
             if not isinstance(settings, dict):
                 errors.append(f"outputs.{output_name} must be an object")
@@ -295,6 +296,14 @@ def validate_config(data) -> list[str]:
                 if not isinstance(destination, dict):
                     errors.append(f"{prefix} must be an object")
                     continue
+                display_name = " ".join(
+                    str(destination.get("name") or target).split()
+                ).casefold()
+                if display_name in destination_names:
+                    errors.append(
+                        f"{prefix}.name duplicates another destination name"
+                    )
+                destination_names.add(display_name)
                 if "enabled" in destination and not isinstance(destination.get("enabled"), bool):
                     errors.append(f"{prefix}.enabled must be a boolean")
                 public_settings = destination.get("settings")
@@ -336,6 +345,9 @@ def validate_config(data) -> list[str]:
                     continue
                 output = str(destination.get("output") or "").strip()
                 target = str(destination.get("target") or "").strip()
+                input_type = str(destination.get("input") or "").strip().casefold()
+                if input_type and input_type not in {"smtp", "http", "redfish"}:
+                    errors.append(f"{prefix}.input must be smtp, http, or redfish")
                 if output not in OUTPUT_TYPES:
                     errors.append(f"{prefix}.output is not supported")
                     continue

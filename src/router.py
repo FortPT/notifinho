@@ -351,6 +351,14 @@ class Router:
             - "VM-07 | Palworld"
         """
 
+        input_type = str(destination.get("input") or "").strip().casefold()
+        if input_type:
+            observed_input = str(
+                (notification.metadata or {}).get("_input_type") or ""
+            ).strip().casefold()
+            if observed_input != input_type:
+                return False
+
         match = destination.get(
             "match",
         )

@@ -1060,3 +1060,76 @@ def test_first_run_bootstrap_creates_admin_session_and_consumes_token(
     assert repeated.status == 409
     assert credential.token.encode() not in database.path.read_bytes()
     assert users(database).count() == 1
+
+
+def test_integrations_endpoint_is_complete_and_categories_are_database_backed(platform_api):
+    headers = login(platform_api)
+    listed = call(platform_api, "GET", "/api/v2/integrations", headers=headers)
+    assert listed.status == 200
+    integrations_by_source = {
+        item["source"]: item for item in listed.payload["integrations"]
+    }
+    assert [item["id"] for item in integrations_by_source["zabbix"]["inputs"]] == [
+        "smtp",
+        "http",
+    ]
+    assert integrations_by_source["dell_idrac"]["inputs"] == [
+        {"id": "redfish", "name": "Redfish"}
+    ]
+    labels = {item["label"] for item in listed.payload["route_options"]}
+    assert "Generic (HTTP)" in labels
+    assert "Generic (Redfish)" in labels
+
+    updated = call(
+        platform_api,
+        "PUT",
+        "/api/v2/integrations",
+        {"source": "zabbix", "category": "applications"},
+        headers,
+    )
+    assert updated.status == 200
+    changed = next(
+        item for item in updated.payload["integrations"]
+        if item["source"] == "zabbix"
+    )
+    assert changed["category"] == "generic"
+
+
+def test_route_api_round_trips_input_type(platform_api):
+    headers = login(platform_api)
+    destination = create_destination(platform_api, headers)
+    response = call(
+        platform_api,
+        "POST",
+        "/api/v2/routes",
+        {
+            "name": "Zabbix SMTP route",
+            "source": "zabbix",
+            "input_type": "smtp",
+            "destination_id": destination["id"],
+            "filters": {},
+        },
+        headers,
+    )
+    assert response.status == 201
+    assert response.payload["route"]["source"] == "zabbix"
+    assert response.payload["route"]["input_type"] == "smtp"
+
+
+def test_unexpected_platform_error_returns_safe_reference(platform_api, monkeypatch):
+    headers = login(platform_api)
+
+    def broken():
+        raise RuntimeError("synthetic private failure")
+
+    monkeypatch.setattr(
+        platform_api["service"].platform.integration_categories,
+        "list_overrides",
+        broken,
+    )
+    response = call(platform_api, "GET", "/api/v2/integrations", headers=headers)
+    assert response.status == 500
+    assert response.payload["code"] == "internal_error"
+    assert response.payload["path"] == "/api/v2/integrations"
+    assert len(response.payload["reference"]) == 12
+    assert "synthetic private failure" not in response.payload["error"]

@@ -1,4 +1,4 @@
-/* Notifinho WebUI v2.3.7 fixed-box Overview icon normalization. */
+/* Notifinho WebUI v2.4.0 integration catalogue and fixed-box icon styling. */
 #restart-header-button {
   display: none !important;
 }
@@ -173,4 +173,26 @@
   .platform-menu-popover {
     right: -0.25rem;
   }
+}
+
+
+/* v2.4 integration catalogue */
+.integration-inputs summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.integration-input-list {
+  display: grid;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.integration-input-row {
+  align-items: center;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: max-content minmax(0, 1fr);
+}
+.integration-input-row span:last-child {
+  color: var(--muted);
+  font-size: 0.85rem;
 }

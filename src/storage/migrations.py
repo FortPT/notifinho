@@ -299,6 +299,27 @@ MIGRATIONS: tuple[tuple[int, str, tuple[str, ...]], ...] = (
             "CREATE INDEX backup_targets_type_name ON backup_targets(target_type, name_normalized)",
         ),
     ),
+
+    (
+        7,
+        "v2.4 integrations and route inputs",
+        (
+            "ALTER TABLE routes ADD COLUMN input_type TEXT NOT NULL DEFAULT ''",
+            """
+            CREATE TABLE integration_categories (
+                integration_source TEXT PRIMARY KEY,
+                category TEXT NOT NULL CHECK (
+                    category IN (
+                        'virtualization', 'monitoring', 'storage',
+                        'networking', 'hardware', 'automation',
+                        'containers', 'security', 'generic'
+                    )
+                ),
+                updated_at INTEGER NOT NULL
+            )
+            """,
+        ),
+    ),
 )
 
 

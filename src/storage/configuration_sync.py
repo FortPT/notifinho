@@ -15,13 +15,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from api.schema import validate_config
+from integrations.catalog import canonical_source, infer_input_type
 from outputs.settings import OUTPUT_TYPES, normalize_output_settings
 from storage.audit_events import AuditEventStore
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
 from storage.routes import RouteStore, route_priority_name, route_priority_value
 from storage.secrets import SecretStore
-from storage.validation import normalized_name
+from storage.integrations import IntegrationCategoryStore
+from storage.validation import ConflictError, normalized_name
 
 
 CONFIGURATION_MODEL = "unified_yaml_v1"
@@ -79,6 +81,7 @@ class UnifiedConfigurationService:
         self.database = database
         self.audit = audit or AuditEventStore(database)
         self.secrets = SecretStore(database)
+        self.integration_categories = IntegrationCategoryStore(database)
         self._fingerprint = ""
 
     def synchronize(self, *, force: bool = False) -> ConfigurationSyncStatus:
@@ -100,8 +103,9 @@ class UnifiedConfigurationService:
                 errors = tuple(dict.fromkeys([*refresh_errors, *errors]))
             if errors:
                 return ConfigurationSyncStatus(False, False, "", None, errors)
-            fingerprint = hashlib.sha256(source.encode("utf-8")).hexdigest()
+
             owner_id = self._configuration_owner()
+            fingerprint = hashlib.sha256(source.encode("utf-8")).hexdigest()
             if owner_id is None:
                 return ConfigurationSyncStatus(
                     False,
@@ -110,6 +114,14 @@ class UnifiedConfigurationService:
                     None,
                     ("create the first administrator before WebUI synchronization",),
                 )
+
+            candidate = deepcopy(data)
+            if self._migrate_integration_model(candidate):
+                self.config_service.replace(candidate)
+                source = self.config_service.source_text()
+                data = self._decode(source)
+                fingerprint = hashlib.sha256(source.encode("utf-8")).hexdigest()
+
             if not force and fingerprint == self._fingerprint:
                 return ConfigurationSyncStatus(True, False, fingerprint, owner_id)
 
@@ -172,25 +184,30 @@ class UnifiedConfigurationService:
         if output_type not in OUTPUT_TYPES:
             raise ValueError("unsupported destination output type")
         display, _normalized = normalized_name(data.get("name"), "destination name")
-        target = self._new_target(display, output_type)
         settings = normalize_output_settings(output_type, data.get("settings", {}))
         enabled = self._boolean(data.get("enabled", True), "enabled")
+        shared = self._boolean(data.get("shared", True), "shared")
         secret = data.get("secret")
-        candidate = self.config_service.snapshot()
+        original = self.config_service.snapshot()
+        candidate = deepcopy(original)
+        self._assert_destination_name_available(candidate, display)
+        target = self._new_target(display, output_type, data=candidate)
         group = candidate.setdefault("outputs", {}).setdefault(output_type, {})
         if not isinstance(group, dict):
             raise ValueError("output group must be an object")
-        group.setdefault("enabled", True)
+        if enabled:
+            group["enabled"] = True
+        else:
+            group.setdefault("enabled", True)
         group[target] = self._destination_entry(
             output_type,
             display,
             settings,
             enabled,
             secret,
-            self._boolean(data.get("shared", True), "shared"),
+            shared,
         )
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
+        self._replace_and_synchronize(original, candidate)
         item = self._destination_by_key(f"destination:{output_type}:{target}")
         self._audit(actor, "destination.create", "success", {"target": target})
         return item
@@ -199,41 +216,94 @@ class UnifiedConfigurationService:
         self._require_admin(actor)
         self._ready()
         output_type, target = self._destination_location(destination_id)
-        candidate = self.config_service.snapshot()
+        original = self.config_service.snapshot()
+        candidate = deepcopy(original)
         entry = self._destination_yaml(candidate, output_type, target)
         current = self._parse_destination(output_type, target, entry)
+        next_type = str(data.get("output_type") or output_type).strip().casefold()
+        if next_type not in OUTPUT_TYPES:
+            raise ValueError("unsupported destination output type")
         display, _normalized = normalized_name(
             data.get("name", current["name"]),
             "destination name",
         )
-        settings = (
-            normalize_output_settings(output_type, data["settings"])
-            if "settings" in data
-            else current["settings"]
+        self._assert_destination_name_available(
+            candidate,
+            display,
+            excluding=(output_type, target),
         )
+        if "settings" in data:
+            settings = normalize_output_settings(next_type, data["settings"])
+        elif next_type == output_type:
+            settings = current["settings"]
+        else:
+            raise ValueError(
+                "destination settings are required when changing destination type"
+            )
         enabled = (
             self._boolean(data["enabled"], "enabled")
             if "enabled" in data
             else current["enabled"]
         )
-        secret = data.get("secret", current["secret_value"])
         shared = (
             self._boolean(data["shared"], "shared")
             if "shared" in data
             else current["shared"]
         )
-        candidate["outputs"][output_type][target] = self._destination_entry(
-            output_type,
+        if "secret" in data:
+            secret = data["secret"]
+        elif next_type == output_type:
+            secret = current["secret_value"]
+        else:
+            raise ValueError(
+                "new credentials are required when changing destination type"
+            )
+
+        next_target = target
+        rebind = None
+        if next_type != output_type:
+            next_target = self._new_target(display, next_type, data=candidate)
+            del candidate["outputs"][output_type][target]
+            old_group = candidate["outputs"][output_type]
+            if not [key for key in old_group if key != "enabled"]:
+                candidate["outputs"].pop(output_type, None)
+            self._update_route_destination_refs(
+                candidate,
+                output_type,
+                target,
+                next_type,
+                next_target,
+            )
+            rebind = (
+                destination_id,
+                f"destination:{output_type}:{target}",
+                f"destination:{next_type}:{next_target}",
+            )
+
+        group = candidate.setdefault("outputs", {}).setdefault(next_type, {})
+        if not isinstance(group, dict):
+            raise ValueError("output group must be an object")
+        if enabled:
+            group["enabled"] = True
+        else:
+            group.setdefault("enabled", True)
+        group[next_target] = self._destination_entry(
+            next_type,
             display,
             settings,
             enabled,
             secret,
             shared,
         )
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
-        self._audit(actor, "destination.update", "success", {"target": target})
-        return self._destination_by_key(f"destination:{output_type}:{target}")
+        self._replace_and_synchronize(
+            original,
+            candidate,
+            rebind_destination=rebind,
+        )
+        self._audit(actor, "destination.update", "success", {"target": next_target})
+        return self._destination_by_key(
+            f"destination:{next_type}:{next_target}"
+        )
 
     def delete_destination(self, actor: Actor, destination_id: str) -> None:
         self._require_admin(actor)
@@ -260,13 +330,15 @@ class UnifiedConfigurationService:
         self._require_admin(actor)
         self._ready()
         source = RouteStore._source(data.get("source"))
+        input_type = RouteStore._input_type(data.get("input_type"))
         destination_type, target = self._destination_location(data.get("destination_id"))
         display, _normalized = normalized_name(data.get("name"), "route name")
         filters = self._decoded_filters(data.get("filters", {}))
         priority = self._priority(data.get("priority", 100))
         enabled = self._boolean(data.get("enabled", True), "enabled")
         route_key = uuid.uuid4().hex[:16]
-        candidate = self.config_service.snapshot()
+        original = self.config_service.snapshot()
+        candidate = deepcopy(original)
         routes = candidate.setdefault("routing", {})
         section = routes.setdefault(source, {"outputs": []})
         entries = section.setdefault("outputs", [])
@@ -278,13 +350,13 @@ class UnifiedConfigurationService:
                 display,
                 destination_type,
                 target,
+                input_type,
                 filters,
                 priority,
                 enabled,
             )
         )
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
+        self._replace_and_synchronize(original, candidate)
         self._audit(actor, "route.create", "success", {"source": source})
         return self._route_by_key(f"route:{route_key}")
 
@@ -292,9 +364,13 @@ class UnifiedConfigurationService:
         self._require_admin(actor)
         self._ready()
         key = self._route_configuration_key(route_id)
-        candidate = self.config_service.snapshot()
+        original = self.config_service.snapshot()
+        candidate = deepcopy(original)
         source, position, entry = self._find_route(candidate, key)
         next_source = RouteStore._source(data.get("source", source))
+        input_type = RouteStore._input_type(
+            data.get("input_type", entry.get("input", ""))
+        )
         destination_type, target = self._destination_location(
             data.get("destination_id") or self._destination_id_for_entry(entry)
         )
@@ -311,14 +387,17 @@ class UnifiedConfigurationService:
             display,
             destination_type,
             target,
+            input_type,
             filters,
             priority,
             enabled,
         )
         self._remove_route_position(candidate, source, position)
-        candidate.setdefault("routing", {}).setdefault(next_source, {"outputs": []}).setdefault("outputs", []).append(replacement)
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
+        candidate.setdefault("routing", {}).setdefault(
+            next_source,
+            {"outputs": []},
+        ).setdefault("outputs", []).append(replacement)
+        self._replace_and_synchronize(original, candidate)
         self._audit(actor, "route.update", "success", {"source": next_source})
         return self._route_by_key(key)
 
@@ -481,34 +560,11 @@ class UnifiedConfigurationService:
 
     def source_categories(self) -> dict[str, str]:
         self.synchronize()
-        webui = self.config_service.configuration.get("webui", default={}) or {}
-        values = webui.get("source_categories") if isinstance(webui, dict) else {}
-        if not isinstance(values, dict):
-            return {}
-        return {
-            str(source).strip().casefold(): _SOURCE_CATEGORY_ALIASES.get(
-                str(category).strip().casefold(),
-                str(category).strip().casefold(),
-            )
-            for source, category in values.items()
-            if _SOURCE.fullmatch(str(source).strip().casefold())
-            and _SOURCE_CATEGORY_ALIASES.get(
-                str(category).strip().casefold(),
-                str(category).strip().casefold(),
-            ) in _SOURCE_CATEGORIES
-        }
+        return self.integration_categories.list_overrides()
 
     def removed_sources(self) -> list[str]:
         self.synchronize()
-        webui = self.config_service.configuration.get("webui", default={}) or {}
-        values = webui.get("removed_sources") if isinstance(webui, dict) else []
-        if not isinstance(values, list):
-            return []
-        return sorted({
-            str(source).strip().casefold()
-            for source in values
-            if _SOURCE.fullmatch(str(source).strip().casefold())
-        })
+        return []
 
     def update_source_category(
         self,
@@ -518,72 +574,18 @@ class UnifiedConfigurationService:
     ) -> dict[str, str]:
         self._require_admin(actor)
         self._ready()
-        source_name = str(source or "").strip().casefold()
-        category_name = str(category or "").strip().casefold()
-        if not _SOURCE.fullmatch(source_name):
-            raise ValueError("source name is invalid")
-        category_name = _SOURCE_CATEGORY_ALIASES.get(category_name, category_name)
-        if category_name not in _SOURCE_CATEGORIES:
-            raise ValueError("source category is invalid")
-        candidate = self.config_service.snapshot()
-        webui = candidate.setdefault("webui", {})
-        categories = webui.setdefault("source_categories", {})
-        if not isinstance(categories, dict):
-            raise ValueError("webui.source_categories must be an object")
-        categories[source_name] = category_name
-        removed = webui.get("removed_sources", [])
-        if isinstance(removed, list):
-            webui["removed_sources"] = [
-                value for value in removed
-                if str(value).strip().casefold() != source_name
-            ]
-        errors = validate_config(candidate)
-        if errors:
-            raise ValueError("; ".join(errors))
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
+        self.integration_categories.set_category(source, category)
         self._audit(
             actor,
-            "source.category.update",
+            "integration.category.update",
             "success",
-            {"source": source_name, "category": category_name},
+            {"source": canonical_source(source), "category": category},
         )
-        return self.source_categories()
+        return self.integration_categories.list_overrides()
 
     def remove_source(self, actor: Actor, source: str) -> None:
         self._require_admin(actor)
-        self._ready()
-        source_name = str(source or "").strip().casefold()
-        if not _SOURCE.fullmatch(source_name):
-            raise ValueError("source name is invalid")
-        candidate = self.config_service.snapshot()
-        webui = candidate.setdefault("webui", {})
-        categories = webui.setdefault("source_categories", {})
-        if not isinstance(categories, dict):
-            raise ValueError("webui.source_categories must be an object")
-        categories.pop(source_name, None)
-        removed = webui.setdefault("removed_sources", [])
-        if not isinstance(removed, list):
-            raise ValueError("webui.removed_sources must be a list")
-        webui["removed_sources"] = sorted({
-            *(
-                str(value).strip().casefold()
-                for value in removed
-                if _SOURCE.fullmatch(str(value).strip().casefold())
-            ),
-            source_name,
-        })
-        errors = validate_config(candidate)
-        if errors:
-            raise ValueError("; ".join(errors))
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
-        self._audit(
-            actor,
-            "source.remove",
-            "success",
-            {"source": source_name},
-        )
+        raise ValueError("built-in integrations cannot be removed")
 
     def update_input(self, actor: Actor, name: str, enabled: bool) -> dict:
         self._require_admin(actor)
@@ -832,6 +834,7 @@ class UnifiedConfigurationService:
 
     def _upsert_route(self, actor: Actor, spec: dict):
         key = spec["key"]
+        display, normalized = normalized_name(spec["name"], "route name")
         with self.database.connect() as connection:
             row = connection.execute(
                 "SELECT * FROM routes WHERE configuration_key = ?",
@@ -847,7 +850,20 @@ class UnifiedConfigurationService:
                     """,
                     (actor.user_id, spec["source"], spec["destination_id"]),
                 ).fetchone()
-        display, normalized = normalized_name(spec["name"], "route name")
+            if row is None:
+                # Integration migration can canonicalize a legacy source such
+                # as ``generic`` to ``*``. Route names are unique per owner, so
+                # this safely adopts the existing row instead of inserting a
+                # duplicate during the same synchronization pass.
+                row = connection.execute(
+                    """
+                    SELECT * FROM routes
+                    WHERE configuration_key IS NULL AND owner_user_id = ?
+                      AND name_normalized = ?
+                    ORDER BY priority, created_at LIMIT 1
+                    """,
+                    (actor.user_id, normalized),
+                ).fetchone()
         source = RouteStore._source(spec["source"])
         filters_json = RouteStore._filters(spec["filters"])
         now = int(time.time())
@@ -858,9 +874,9 @@ class UnifiedConfigurationService:
                     """
                     INSERT INTO routes(
                         id, owner_user_id, destination_id, name, name_normalized,
-                        source, filters_json, priority, enabled, created_at,
-                        updated_at, configuration_key
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        source, input_type, filters_json, priority, enabled,
+                        created_at, updated_at, configuration_key
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         route_id,
@@ -869,6 +885,7 @@ class UnifiedConfigurationService:
                         display,
                         normalized,
                         source,
+                        spec["input_type"],
                         filters_json,
                         spec["priority"],
                         1 if spec["enabled"] else 0,
@@ -884,9 +901,9 @@ class UnifiedConfigurationService:
                     """
                     UPDATE routes
                     SET owner_user_id = ?, destination_id = ?, name = ?,
-                        name_normalized = ?, source = ?, filters_json = ?,
-                        priority = ?, enabled = ?, updated_at = ?,
-                        configuration_key = ?
+                        name_normalized = ?, source = ?, input_type = ?,
+                        filters_json = ?, priority = ?, enabled = ?,
+                        updated_at = ?, configuration_key = ?
                     WHERE id = ?
                     """,
                     (
@@ -895,6 +912,7 @@ class UnifiedConfigurationService:
                         display,
                         normalized,
                         source,
+                        spec["input_type"],
                         filters_json,
                         spec["priority"],
                         1 if spec["enabled"] else 0,
@@ -985,6 +1003,7 @@ class UnifiedConfigurationService:
                         str(row["name"]),
                         destination[0],
                         destination[1],
+                        str(row["input_type"] or "") if "input_type" in row.keys() else "",
                         json.loads(str(row["filters_json"])),
                         int(row["priority"]),
                         bool(row["enabled"]),
@@ -1019,7 +1038,8 @@ class UnifiedConfigurationService:
             yield {
                 "key": f"route:{route_key}",
                 "name": str(entry.get("name") or self._route_name(source, entry)),
-                "source": str(source),
+                "source": canonical_source(source),
+                "input_type": RouteStore._input_type(entry.get("input", "")),
                 "destination_id": destination_id,
                 "filters": self._decoded_filters(entry.get("match", {})),
                 "priority": self._priority(entry.get("priority", 100 + position)),
@@ -1063,7 +1083,16 @@ class UnifiedConfigurationService:
         return entry
 
     @staticmethod
-    def _route_entry(route_key, name, output_type, target, filters, priority, enabled):
+    def _route_entry(
+        route_key,
+        name,
+        output_type,
+        target,
+        input_type,
+        filters,
+        priority,
+        enabled,
+    ):
         entry = {
             "id": route_key,
             "name": name,
@@ -1072,6 +1101,8 @@ class UnifiedConfigurationService:
             "priority": route_priority_name(priority),
             "enabled": bool(enabled),
         }
+        if input_type:
+            entry["input"] = input_type
         if filters:
             entry["match"] = {key: list(values) for key, values in filters.items()}
         return entry
@@ -1135,6 +1166,170 @@ class UnifiedConfigurationService:
         if output_type in {"discord", "teams"} and isinstance(value, dict):
             return value.get("url") or value.get("value") or ""
         return value
+
+    def _migrate_integration_model(self, candidate: dict) -> bool:
+        changed = False
+        webui = candidate.get("webui")
+        if isinstance(webui, dict):
+            legacy_categories = webui.pop("source_categories", None)
+            if legacy_categories is not None:
+                self.integration_categories.import_legacy(legacy_categories)
+                changed = True
+            if "removed_sources" in webui:
+                webui.pop("removed_sources", None)
+                changed = True
+
+        routing = candidate.get("routing")
+        if not isinstance(routing, dict):
+            return changed
+
+        rebuilt = {}
+        for source, section in routing.items():
+            if not isinstance(section, dict):
+                rebuilt[source] = section
+                continue
+            entries = section.get("outputs")
+            legacy_single = entries is None
+            if entries is None:
+                entries = [section]
+            if not isinstance(entries, list):
+                rebuilt[source] = section
+                continue
+
+            canonical = canonical_source(source)
+            next_source = canonical
+            if canonical in {"generic", "redfish", "restful", "rest_api", "home_lab"}:
+                next_source = "*"
+
+            kept = []
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    kept.append(entry)
+                    continue
+                name = " ".join(str(entry.get("name") or "").split()).casefold()
+                if name == "home lab generic":
+                    changed = True
+                    continue
+                next_entry = deepcopy(entry)
+                if not str(next_entry.get("input") or "").strip():
+                    inferred = infer_input_type(source)
+                    if inferred:
+                        next_entry["input"] = inferred
+                        changed = True
+                kept.append(next_entry)
+
+            if not kept:
+                changed = True
+                continue
+            if next_source != source:
+                changed = True
+            target = rebuilt.setdefault(next_source, {"outputs": []})
+            if not isinstance(target, dict):
+                target = {"outputs": []}
+                rebuilt[next_source] = target
+            target_entries = target.setdefault("outputs", [])
+            if not isinstance(target_entries, list):
+                target_entries = []
+                target["outputs"] = target_entries
+            target_entries.extend(kept)
+            if legacy_single:
+                changed = True
+
+        if rebuilt != routing:
+            candidate["routing"] = rebuilt
+            changed = True
+        return changed
+
+    def _assert_destination_name_available(
+        self,
+        data: dict,
+        display: str,
+        *,
+        excluding: tuple[str, str] | None = None,
+    ) -> None:
+        wanted = normalized_name(display, "destination name")[1]
+        outputs = data.get("outputs") or {}
+        for output_type, group in outputs.items():
+            if not isinstance(group, dict):
+                continue
+            for target, entry in group.items():
+                if target == "enabled" or not isinstance(entry, dict):
+                    continue
+                if excluding == (str(output_type), str(target)):
+                    continue
+                current = normalized_name(
+                    entry.get("name") or target,
+                    "destination name",
+                )[1]
+                if current == wanted:
+                    raise ConflictError(
+                        f'A destination named "{display}" already exists. '
+                        "Choose another name."
+                    )
+
+    def _replace_and_synchronize(
+        self,
+        original: dict,
+        candidate: dict,
+        *,
+        rebind_destination=None,
+    ) -> None:
+        rebound = False
+        try:
+            self.config_service.replace(candidate)
+            if rebind_destination is not None:
+                destination_id, old_key, new_key = rebind_destination
+                with self.database.transaction() as connection:
+                    updated = connection.execute(
+                        """
+                        UPDATE destinations SET configuration_key = ?
+                        WHERE id = ? AND configuration_key = ?
+                        """,
+                        (new_key, destination_id, old_key),
+                    ).rowcount
+                if updated != 1:
+                    raise KeyError("destination could not be rebound")
+                rebound = True
+            status = self.synchronize(force=True)
+            if not status.ready:
+                raise ValueError(
+                    "; ".join(status.errors)
+                    or "configuration synchronization failed"
+                )
+        except Exception:
+            if rebound and rebind_destination is not None:
+                destination_id, old_key, new_key = rebind_destination
+                with self.database.transaction() as connection:
+                    connection.execute(
+                        """
+                        UPDATE destinations SET configuration_key = ?
+                        WHERE id = ? AND configuration_key = ?
+                        """,
+                        (old_key, destination_id, new_key),
+                    )
+            self.config_service.replace(original)
+            rollback = self.synchronize(force=True)
+            if not rollback.ready:
+                raise RuntimeError(
+                    "configuration rollback requires operator attention"
+                )
+            raise
+
+    @staticmethod
+    def _update_route_destination_refs(
+        data: dict,
+        old_type: str,
+        old_target: str,
+        new_type: str,
+        new_target: str,
+    ) -> None:
+        for _source, _position, entry in UnifiedConfigurationService._route_entries(data):
+            if (
+                str(entry.get("output") or "").casefold() == old_type
+                and str(entry.get("target", "default")) == old_target
+            ):
+                entry["output"] = new_type
+                entry["target"] = new_target
 
     def _configuration_owner(self):
         with self.database.connect() as connection:

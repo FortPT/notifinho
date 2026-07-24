@@ -172,7 +172,7 @@
             </article>
           </section>
           <div class="metric-grid" aria-label="Workspace summary">
-            <article class="metric-card"><span>Active Sources</span><strong id="metric-sources">—</strong><small>Enabled and routed</small></article>
+            <article class="metric-card"><span>Routed integrations</span><strong id="metric-sources">—</strong><small>Used by enabled routes</small></article>
             <article class="metric-card"><span>Active Destinations</span><strong id="metric-destinations">—</strong><small>Enabled</small></article>
             <article class="metric-card"><span>Active Routes</span><strong id="metric-routes">—</strong><small>Enabled</small></article>
             <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small>Active credentials</small></article>
@@ -192,7 +192,7 @@
 
         <section id="view-sources" class="view" data-page="sources" hidden>
           <div class="section-toolbar"><div><h2>Sources</h2></div></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Source</th><th>Input</th><th>Category</th><th>Status</th><th>Management</th></tr></thead><tbody id="source-table"></tbody></table></div><div id="source-empty" class="empty-state" hidden></div></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Integration</th><th>Available inputs</th><th>Category</th></tr></thead><tbody id="source-table"></tbody></table></div><div id="source-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-destinations" class="view" data-page="destinations" hidden>
@@ -202,7 +202,7 @@
 
         <section id="view-routes" class="view" data-page="routes" hidden>
           <div class="section-toolbar"><div><h2>Routes</h2></div><button id="add-route-button" class="button primary" type="button" data-action="new-route">Add route</button></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Source</th><th>Input</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Integration</th><th>Input</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-tokens" class="view" data-page="tokens" hidden>
@@ -318,6 +318,7 @@
     <form id="destination-form" method="dialog">
       <div class="modal-heading"><div><p class="eyebrow">Output</p><h2 id="destination-dialog-title">Add destination</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
       <input id="destination-id" type="hidden">
+      <input id="destination-original-type" type="hidden">
       <div class="form-grid">
         <label class="wide"><span>Name</span><input id="destination-name" required maxlength="120" placeholder="Operations alerts"></label>
         <label><span>Type</span><select id="destination-type" required><option value="discord">Discord</option><option value="teams">Microsoft Teams</option><option value="slack">Slack</option><option value="webhook">Generic webhook</option><option value="mqtt">MQTT</option><option value="ntfy">ntfy</option></select></label>
@@ -336,8 +337,8 @@
       <div class="modal-heading"><div><p class="eyebrow">Routing</p><h2 id="route-dialog-title">Add route</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
       <input id="route-id" type="hidden">
       <div class="form-grid">
-        <label class="wide"><span>Name</span><input id="route-name" required maxlength="120" placeholder="Critical home lab events"></label>
-        <label><span>Source</span><input id="route-source" required maxlength="80" placeholder="home_lab"></label>
+        <label class="wide"><span>Name</span><input id="route-name" required maxlength="120" placeholder="Critical Zabbix alerts"></label>
+        <label class="wide"><span>Integration and input</span><select id="route-source" required></select></label>
         <label><span>Destination</span><select id="route-destination" required></select></label>
         <label><span>Priority</span><select id="route-priority"><option value="critical">Critical</option><option value="high">High</option><option value="normal" selected>Normal</option><option value="low">Low</option><option value="lowest">Lowest</option></select></label>
         <label class="switch-field"><input id="route-enabled" type="checkbox" checked><span>Enabled</span></label>
@@ -370,7 +371,7 @@
     <form id="preview-form" method="dialog">
       <div class="modal-heading"><div><p class="eyebrow">Safe sample</p><h2 id="preview-title">Preview destination</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
       <input id="preview-destination-id" type="hidden">
-      <div class="form-grid"><label><span>Source</span><input id="preview-source" value="home_lab" required></label><label><span>Severity</span><select id="preview-severity"><option>information</option><option>warning</option><option>critical</option></select></label><label class="wide"><span>Title</span><input id="preview-event-title" value="Synthetic Notifinho preview" required></label><label class="wide"><span>Message</span><textarea id="preview-message" rows="3" required>This is a safe sample event generated in the WebUI.</textarea></label></div>
+      <div class="form-grid"><label><span>Source</span><input id="preview-source" value="zabbix" required></label><label><span>Severity</span><select id="preview-severity"><option>information</option><option>warning</option><option>critical</option></select></label><label class="wide"><span>Title</span><input id="preview-event-title" value="Synthetic Notifinho preview" required></label><label class="wide"><span>Message</span><textarea id="preview-message" rows="3" required>This is a safe sample event generated in the WebUI.</textarea></label></div>
       <div class="preview-actions"><button id="preview-button" class="button primary" value="preview">Generate preview</button><button id="test-button" class="button danger" value="test">Send test delivery</button></div>
       <p class="field-help">Test delivery contacts the configured destination. Preview never sends data.</p>
       <p id="preview-error" class="form-error" role="alert" hidden></p>

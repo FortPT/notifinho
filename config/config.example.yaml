@@ -101,11 +101,8 @@ webui:
   enforce_https: false
   # Supported interface languages: en-GB and pt-PT.
   language: "en-GB"
-  # Optional WebUI-only presentation tags, editable from Sources.
-  source_categories: {}
-  # Inactive Sources entries removed through the WebUI. Historical delivery
-  # records remain available and an enabled route makes a source visible again.
-  removed_sources: []
+  # Integrations are built into the image and always available. Integration
+  # category overrides are stored in private platform state, not config.yaml.
 
 # Backend API transport for the WebUI and optional v1-compatible API. Management
 # endpoints still require a browser session or explicitly configured token.
@@ -392,54 +389,51 @@ routing:
       # - output: teams
       #   target: synology
 
-  redfish:
-    outputs:
-      - output: discord
-        target: hardware
-      # - output: teams
-      #   target: hardware
-
   supermicro:
     outputs:
-      - output: discord
+      - input: redfish
+        output: discord
         target: hardware
       # - output: teams
       #   target: hardware
 
   hpe_ilo:
     outputs:
-      - output: discord
+      - input: redfish
+        output: discord
         target: hardware
       # - output: teams
       #   target: hardware
 
   dell_idrac:
     outputs:
-      - output: discord
+      - input: redfish
+        output: discord
         target: hardware
       # - output: teams
       #   target: hardware
 
   home_assistant:
     outputs:
-      - output: discord
+      - input: http
+        output: discord
         target: home_assistant
       # - output: teams
       #   target: home_assistant
 
-  # Example source accepted through POST /api/events. The submitting token
-  # must explicitly include this source in api.tokens.<name>.sources.
-  home_lab:
+  # Generic input routes are represented by the wildcard source plus an input.
+  "*":
     outputs:
-      - output: discord
+      - name: Generic HTTP
+        input: http
+        output: discord
         target: default
+      - name: Generic Redfish
+        input: redfish
+        output: discord
+        target: hardware
+        enabled: false
 
-  generic:
-    outputs:
-      # Fallback route for emails that do not match
-      # a supported source parser.
-      - output: discord
-        target: default
 
 notifications:
   unifi_protect:

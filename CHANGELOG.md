@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 2.3.7 - 2026-07-24
+
+### Fixed
+
+- Keep every WebUI Overview source card the same size as Home Assistant.
+- Keep desktop icon layout boxes at 48 × 48 px and mobile boxes at 44 × 44 px.
+- Scale only the visible Notifinho, Dell iDRAC, UniFi Network, UniFi Protect,
+  QNAP, and Synology artwork without changing card or icon-box dimensions.
+- Leave notification payloads, formatters, destination icons, and delivery
+  rendering unchanged.
+
 ## 2.3.6 - 2026-07-24
 
 ### Fixed

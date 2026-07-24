@@ -87,6 +87,16 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
+## v2.3.7 fixed-box Overview icon corrective upgrade
+
+v2.3.7 keeps platform schema 6. After redeployment, force-refresh the browser
+and verify that every Overview source card matches Home Assistant while the
+selected source artwork is more legible inside the unchanged icon boxes.
+Notification payloads and destination rendering are not changed.
+
+Complete the
+[v2.3.7 acceptance checklist](v2.3.7-acceptance-checklist.md) before production.
+
 ## v2.3.6 scoped icon and Redfish corrective upgrade
 
 v2.3.6 keeps platform schema 6. After redeployment, force-refresh the browser,

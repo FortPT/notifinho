@@ -161,8 +161,37 @@ def validate_config(data) -> list[str]:
                 errors.append(
                     "platform.routing_authority must be yaml or database"
                 )
-        if "configuration_model" in platform and platform.get("configuration_model") != "unified_yaml_v1":
-            errors.append("platform.configuration_model must be unified_yaml_v1")
+        if "configuration_model" in platform and platform.get("configuration_model") not in {
+            "unified_yaml_v1",
+            "platform_database_v1",
+        }:
+            errors.append(
+                "platform.configuration_model must be unified_yaml_v1 or platform_database_v1"
+            )
+        if platform.get("configuration_model") == "platform_database_v1":
+            moved_sections = {
+                "outputs": "destinations",
+                "routing": "routes",
+                "notifications": "integration settings",
+                "presentation": "regional settings",
+                "home_assistant": "Home Assistant aliases",
+                "redfish": "Redfish settings",
+            }
+            for section, resource in moved_sections.items():
+                if section in data:
+                    errors.append(
+                        f"{section} is database-managed; edit {resource} in the WebUI"
+                    )
+            if isinstance(api, dict) and "tokens" in api:
+                errors.append("api.tokens is database-managed; edit applications in the WebUI")
+            if "backups" in platform:
+                errors.append(
+                    "platform.backups is database-managed; edit backup settings in the WebUI"
+                )
+            if isinstance(webui, dict) and "language" in webui:
+                errors.append(
+                    "webui.language is database-managed; edit regional settings in the WebUI"
+                )
         if "backup_retention" in platform:
             retention = platform.get("backup_retention")
             if (

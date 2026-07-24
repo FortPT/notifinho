@@ -1,8 +1,9 @@
-"""Single-source config.yaml synchronization and presentation regressions."""
+"""v2.5 one-way database resource migration and isolation regressions."""
 
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 
 import pytest
 import yaml
@@ -10,29 +11,45 @@ import yaml
 from api.config_service import ConfigService
 from api.schema import mask_secrets
 from api.security import hash_password
+from storage.api_tokens import APITokenStore
 from storage.configuration_sync import CONFIGURATION_MODEL, UnifiedConfigurationService
-from storage.configuration_bridge import ConfigurationBridgeService
-from storage.backups import StateBackupStore
 from storage.database import Database
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
-from storage.portability import PlatformPortabilityService
 from storage.routes import RouteStore
 from storage.secrets import SecretStore
+from storage.settings import DEFAULT_INTEGRATION_SETTINGS
 from storage.users import UserStore
 
 
 PASSWORD = "correct horse battery staple"
+TOKEN = "existing-hardware-token"
 WEBHOOK = "https://discord.com/api/webhooks/123/private-value"
 
 
 class Configuration:
     def __init__(self, path):
         self.path = path
+        self.overlay = {}
         self.reload()
 
     def reload(self):
-        self.data = yaml.safe_load(self.path.read_text(encoding="utf-8")) or {}
+        self.disk = yaml.safe_load(self.path.read_text(encoding="utf-8")) or {}
+        self.data = self._merged(self.disk, self.overlay)
+
+    def apply_runtime_overlay(self, overlay):
+        self.overlay = deepcopy(overlay)
+        self.data = self._merged(self.disk, self.overlay)
+
+    @classmethod
+    def _merged(cls, base, overlay):
+        result = deepcopy(base)
+        for key, value in overlay.items():
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = cls._merged(result[key], value)
+            else:
+                result[key] = deepcopy(value)
+        return result
 
     def get(self, *keys, default=None):
         value = self.data
@@ -40,30 +57,44 @@ class Configuration:
             if not isinstance(value, dict) or key not in value:
                 return default
             value = value[key]
-        return value
+        return deepcopy(value)
 
 
 def fast_hash(password: str) -> str:
     return hash_password(password, salt=b"\x0c" * 16, iterations=1_000)
 
 
-def source(state_dir) -> dict:
+def source(state_dir, token_file) -> dict:
     return {
+        "smtp": {"host": "0.0.0.0", "port": 8025},
         "http": {"enabled": True, "port": 8080, "shared_secret": "private-http"},
         "platform": {
             "enabled": True,
             "state_dir": str(state_dir),
-            "routing_authority": "database",
+            "configuration_model": "unified_yaml_v1",
+            "backups": {
+                "schedule": "daily",
+                "time": "14:20",
+                "weekday": 0,
+                "day": 1,
+                "target_id": "",
+                "managed_mounts": True,
+                "external_enabled": False,
+                "external_type": "nfs",
+                "external_path": "",
+            },
         },
-        "webui": {"enabled": True},
-        "presentation": {"timezone": "Europe/Lisbon"},
+        "webui": {"enabled": True, "language": "en-GB"},
+        "presentation": {"timezone": "Europe/Lisbon", "time_format": "24"},
         "api": {
             "enabled": True,
             "tokens": {
-                "idrac": {
-                    "token_sha256": "a" * 64,
-                    "sources": ["dell_idrac"],
-                    "rate_limit_per_minute": 30,
+                "hardware": {
+                    "enabled": True,
+                    "role": "application",
+                    "sources": ["redfish", "dell_idrac"],
+                    "token_file": str(token_file),
+                    "rate_limit_per_minute": 120,
                 }
             },
         },
@@ -72,6 +103,9 @@ def source(state_dir) -> dict:
                 "enabled": True,
                 "ops": {
                     "name": "Operations",
+                    "enabled": True,
+                    "shared": True,
+                    "settings": {"channel_name": "#operations"},
                     "webhook": WEBHOOK,
                 },
             }
@@ -80,6 +114,8 @@ def source(state_dir) -> dict:
             "dell_idrac": {
                 "outputs": [
                     {
+                        "name": "Critical iDRAC",
+                        "input": "redfish",
                         "output": "discord",
                         "target": "ops",
                         "match": {"severities": ["critical"]},
@@ -87,334 +123,271 @@ def source(state_dir) -> dict:
                 ]
             }
         },
+        "notifications": {
+            "xo": {"success": False, "skipped": True, "failure": True, "show_ids": False},
+            "zabbix": {"show_ids": False},
+            "dell_idrac": {"suppress_ipmi_session_audit_from": ["192.168.0.164"]},
+            "unifi_protect": {"device_aliases": {"AA:BB:CC:DD:EE:FF": "CAM-01"}},
+        },
+        "home_assistant": {
+            "aliases": {
+                "endpoints": {"192.168.1.10": {"device": "HUB-01"}},
+                "components": {
+                    "homeassistant.components.ipp.coordinator": {
+                        "device": "PRT-01",
+                        "endpoint": "192.168.1.20",
+                    }
+                },
+            }
+        },
+        "redfish": {"deduplication_window_seconds": 300},
     }
 
 
 @pytest.fixture
-def unified(tmp_path):
-    path = tmp_path / "config" / "config.yaml"
-    path.parent.mkdir()
-    path.write_text(yaml.safe_dump(source(tmp_path / "state"), sort_keys=False), encoding="utf-8")
+def migrated(tmp_path):
+    config_dir = tmp_path / "config"
+    config_dir.mkdir()
+    token_file = config_dir / "api-hardware-token.txt"
+    token_file.write_text(TOKEN, encoding="utf-8")
+    token_file.chmod(0o600)
+    path = config_dir / "config.yaml"
+    path.write_text(
+        yaml.safe_dump(source(tmp_path / "state", token_file), sort_keys=False),
+        encoding="utf-8",
+    )
+    path.chmod(0o640)
     configuration = Configuration(path)
-    config_service = ConfigService(path, configuration)
     database = Database(tmp_path / "state" / "notifinho.db")
-    database.migrate()
+    assert database.migrate() == 8
     users = UserStore(database, password_hasher=fast_hash)
     admin = users.bootstrap_admin("administrator", PASSWORD)
-    user = users.create("observer", "observer secure password")
-    service = UnifiedConfigurationService(config_service, database)
+    observer = users.create("observer", "observer secure password")
+    service = UnifiedConfigurationService(ConfigService(path, configuration), database)
     return {
         "path": path,
         "configuration": configuration,
-        "config_service": config_service,
         "database": database,
         "admin": Actor(admin.id, "admin"),
-        "user": Actor(user.id, "user"),
+        "observer": Actor(observer.id, "user"),
         "service": service,
     }
 
 
-def test_first_sync_replaces_v202_authority_without_duplicate_fallbacks(unified):
-    status = unified["service"].synchronize()
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
+def test_first_sync_migrates_every_webui_resource_and_normalizes_yaml(migrated):
+    status = migrated["service"].synchronize(force=True)
+    saved = yaml.safe_load(migrated["path"].read_text(encoding="utf-8"))
 
     assert status.ready is True and status.changed is True
+    assert status.errors == ()
     assert saved["platform"]["configuration_model"] == CONFIGURATION_MODEL
-    assert "routing_authority" not in saved["platform"]
-    assert len(unified["service"].list_destinations(unified["user"])) == 1
-    assert len(unified["service"].list_routes(unified["user"])) == 1
-    with unified["database"].connect() as connection:
-        assert connection.execute("SELECT COUNT(*) FROM destinations").fetchone()[0] == 1
-        assert connection.execute("SELECT COUNT(*) FROM routes").fetchone()[0] == 1
+    assert migrated["path"].stat().st_mode & 0o777 == 0o640
+    for section in (
+        "outputs",
+        "routing",
+        "notifications",
+        "presentation",
+        "home_assistant",
+        "redfish",
+    ):
+        assert section not in saved
+    assert "tokens" not in saved["api"]
+    assert "backups" not in saved["platform"]
+    assert "language" not in saved["webui"]
+
+    destinations = migrated["service"].list_destinations(migrated["observer"])
+    routes = migrated["service"].list_routes(migrated["observer"])
+    assert [item.name for item in destinations] == ["Operations"]
+    assert [item.name for item in routes] == ["Critical iDRAC"]
+    assert routes[0].input_type == "redfish"
 
 
-def test_first_sync_matches_v202_imported_rows_instead_of_duplicating(unified):
-    secret = SecretStore(unified["database"]).create(
-        unified["admin"],
-        unified["admin"].user_id,
-        "Imported discord ops credential",
-        "discord-webhook",
-        WEBHOOK,
+def test_legacy_application_token_keeps_the_same_value(migrated):
+    assert migrated["service"].synchronize().ready
+    principal = APITokenStore(migrated["database"]).authenticate(TOKEN, "dell_idrac")
+    assert principal is not None
+    assert principal.token_name == "hardware"
+    assert principal.allows("redfish")
+
+
+def test_migrated_settings_are_available_in_webui_and_runtime_overlay(migrated):
+    assert migrated["service"].synchronize().ready
+    settings = migrated["service"].integration_settings()
+    assert settings["errors"] == []
+    assert settings["settings"]["dell_idrac"]["suppress_ipmi_session_audit_from"] == [
+        "192.168.0.164"
+    ]
+    assert settings["settings"]["unifi_protect"]["device_aliases"] == {
+        "AABBCCDDEEFF": "CAM-01"
+    }
+    assert migrated["service"].backup_settings()["schedule"] == "daily"
+    assert migrated["service"].preferences() == {
+        "timezone": "Europe/Lisbon",
+        "language": "en-GB",
+        "time_format": "24",
+    }
+    assert migrated["configuration"].get(
+        "redfish", "deduplication_window_seconds"
+    ) == 300
+    assert migrated["configuration"].get(
+        "home_assistant", "aliases", "endpoints", "192.168.1.10", "device"
+    ) == "HUB-01"
+
+
+def test_database_crud_does_not_rewrite_core_yaml(migrated):
+    assert migrated["service"].synchronize().ready
+    before = migrated["path"].read_bytes()
+    secrets = SecretStore(migrated["database"])
+    secret = secrets.create(
+        migrated["admin"],
+        migrated["admin"].user_id,
+        "Automation webhook",
+        "discord-credentials",
+        {"url": "https://discord.com/api/webhooks/456/private"},
     )
-    destination = DestinationStore(unified["database"]).create(
-        unified["admin"],
-        unified["admin"].user_id,
-        "Imported discord ops",
+    destinations = DestinationStore(migrated["database"])
+    destination = destinations.create(
+        migrated["admin"],
+        migrated["admin"].user_id,
+        "Automation",
         "discord",
         secret_id=secret.id,
-        settings={"components_v2": True},
+        settings={"channel_name": "#automation"},
         shared=True,
     )
-    route = RouteStore(unified["database"]).create(
-        unified["admin"],
-        unified["admin"].user_id,
-        "Imported dell_idrac to discord ops 1",
-        "dell_idrac",
+    route = RouteStore(migrated["database"]).create(
+        migrated["admin"],
+        migrated["admin"].user_id,
+        "Automation HTTP",
+        "home_assistant",
         destination.id,
-        filters={"severities": ["critical"]},
+        input_type="http",
     )
-
-    unified["service"].synchronize()
-    destinations = unified["service"].list_destinations(unified["user"])
-    routes = unified["service"].list_routes(unified["user"])
-    assert [item.id for item in destinations] == [destination.id]
-    assert [item.id for item in routes] == [route.id]
+    assert route.destination_id == destination.id
+    assert migrated["path"].read_bytes() == before
 
 
-def test_external_yaml_edits_are_reflected_and_invalid_yaml_is_reported(unified):
-    unified["service"].synchronize()
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    saved["outputs"]["discord"]["secondary"] = {
-        "name": "Secondary",
-        "webhook": "https://discord.com/api/webhooks/456/other-private",
-    }
-    unified["path"].write_text(yaml.safe_dump(saved, sort_keys=False), encoding="utf-8")
+def test_invalid_database_managed_yaml_section_is_rejected_without_losing_resources(migrated):
+    assert migrated["service"].synchronize().ready
+    saved = yaml.safe_load(migrated["path"].read_text(encoding="utf-8"))
+    saved["outputs"] = {"discord": {"enabled": True}}
+    migrated["path"].write_text(yaml.safe_dump(saved, sort_keys=False), encoding="utf-8")
 
-    status = unified["service"].synchronize()
-    assert status.ready is True
-    assert {item.name for item in unified["service"].list_destinations(unified["user"])} == {
-        "Operations",
-        "Secondary",
-    }
-
-    unified["path"].write_text("outputs: [broken", encoding="utf-8")
-    broken = unified["service"].synchronize(force=True)
-    assert broken.ready is False
-    assert "invalid" in " ".join(broken.errors).casefold()
-    assert unified["configuration"].get("outputs", "discord", "secondary", "name") == "Secondary"
-    assert len(unified["service"].list_destinations(unified["user"])) == 2
-    assert unified["service"].preferences()["timezone"] == "Europe/Lisbon"
-
-
-def test_admin_crud_writes_yaml_and_observer_cannot_mutate(unified):
-    unified["service"].synchronize()
-    created = unified["service"].create_destination(
-        unified["admin"],
-        {
-            "name": "Automation webhook",
-            "output_type": "webhook",
-            "settings": {"method": "POST"},
-            "secret": {"url": "https://example.invalid/events"},
-            "enabled": True,
-        },
+    status = migrated["service"].synchronize(force=True)
+    assert status.ready is False
+    assert "outputs is database-managed" in " ".join(status.errors)
+    destinations, errors = DestinationStore(migrated["database"]).list_visible_safe(
+        migrated["admin"]
     )
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    assert saved["outputs"]["webhook"]["automation_webhook"]["secret"]["url"].endswith("/events")
+    assert [item.name for item in destinations] == ["Operations"]
+    assert errors == []
 
-    route = unified["service"].create_route(
-        unified["admin"],
-        {
-            "name": "Automation route",
-            "source": "home_lab",
-            "destination_id": created.id,
-            "filters": {"severities": ["warning"]},
-            "priority": 25,
-            "enabled": True,
-        },
-    )
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    configured = saved["routing"]["*"]["outputs"][0]
-    assert configured["id"]
-    assert configured["input"] == "http"
-    renamed = unified["service"].update_destination(
-        unified["admin"], created.id, {"name": "Automation primary"}
-    )
-    assert renamed.name == "Automation primary"
-    assert unified["service"].update_route(
-        unified["admin"], route.id, {"enabled": False}
-    ).enabled is False
-    with pytest.raises(PermissionError):
-        unified["service"].update_destination(
-            unified["user"], created.id, {"enabled": False}
+
+def test_one_damaged_settings_row_uses_default_without_breaking_other_settings(migrated):
+    assert migrated["service"].synchronize().ready
+    with migrated["database"].transaction() as connection:
+        connection.execute(
+            """
+            UPDATE settings_records SET value_json = ?
+            WHERE namespace = 'integration' AND setting_key = 'zabbix'
+            """,
+            ("not-json",),
         )
 
-
-def test_shared_destination_channel_and_semantic_priority_round_trip(unified):
-    unified["service"].synchronize()
-    destination = unified["service"].create_destination(
-        unified["admin"],
-        {
-            "name": "Discord infrastructure",
-            "output_type": "discord",
-            "settings": {"channel_name": "infrastructure-alerts"},
-            "secret": {"url": "https://discord.com/api/webhooks/456/private"},
-            "shared": True,
-            "enabled": True,
-        },
-    )
-    route = unified["service"].create_route(
-        unified["admin"],
-        {
-            "name": "Critical infrastructure",
-            "source": "home_assistant",
-            "destination_id": destination.id,
-            "filters": {"severities": ["critical"]},
-            "priority": "high",
-            "enabled": True,
-        },
-    )
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    entry = saved["outputs"]["discord"]["discord_infrastructure"]
-    configured_route = saved["routing"]["home_assistant"]["outputs"][0]
-
-    assert entry["shared"] is True
-    assert entry["settings"]["channel_name"] == "infrastructure-alerts"
-    assert configured_route["priority"] == "high"
-    mirrored = next(
-        item
-        for item in unified["service"].list_destinations(unified["user"])
-        if item.id == destination.id
-    )
-    assert mirrored.shared is True
-    assert route.priority == 25
+    status = migrated["service"].synchronize(force=True)
+    values = migrated["service"].integration_settings()
+    assert status.ready is True
+    assert any("integration.zabbix" in error for error in status.errors)
+    assert values["settings"]["zabbix"] == DEFAULT_INTEGRATION_SETTINGS["zabbix"]
+    assert values["settings"]["xo"]["failure"] is True
+    assert values["errors"][0]["resource"] == "zabbix"
 
 
-def test_route_toggle_writes_named_priority_that_inventory_can_reload(unified):
-    unified["service"].synchronize()
-    route = unified["service"].list_routes(unified["admin"])[0]
-    updated = unified["service"].update_route(
-        unified["admin"],
-        route.id,
-        {"enabled": False, "priority": "normal"},
-    )
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    configured = saved["routing"]["dell_idrac"]["outputs"][0]
-
-    database = unified["database"]
-    bridge = ConfigurationBridgeService(
-        unified["config_service"],
-        PlatformPortabilityService(database),
-        StateBackupStore(database),
-    )
-    inventory_route = bridge.inventory(unified["admin"])["routes"][0]
-
-    assert updated.enabled is False
-    assert configured["enabled"] is False
-    assert configured["priority"] == "normal"
-    assert inventory_route["enabled"] is False
-    assert inventory_route["priority"] == 50
-    assert inventory_route["priority_name"] == "normal"
-
-
-def test_inputs_applications_and_external_backup_settings_are_file_backed(unified, tmp_path):
-    unified["service"].synchronize()
-    disabled = unified["service"].update_input(unified["admin"], "http", False)
-    application = unified["service"].legacy_applications()[0]
-    updated = unified["service"].update_application(
-        unified["admin"], application["id"], enabled=False
-    )
-    external = tmp_path / "mounted-nfs"
-    external.mkdir()
-    backups = unified["service"].update_backup_settings(
-        unified["admin"],
-        {
-            "schedule": "weekly",
-            "time": "03:15",
-            "weekday": 2,
-            "day": 1,
-            "external_enabled": True,
-            "external_type": "nfs",
-            "external_path": str(external),
-        },
-    )
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-
-    assert disabled == {"name": "http", "enabled": False, "restart_required": True}
-    assert updated["enabled"] is False
-    assert saved["http"]["enabled"] is False
-    assert saved["api"]["tokens"]["idrac"]["enabled"] is False
-    assert backups["schedule"] == "weekly"
-    assert backups["external_path"] == str(external)
-    assert saved["platform"]["backups"]["external_type"] == "nfs"
-
-    unified["service"].delete_application(unified["admin"], application["id"])
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    assert "idrac" not in saved["api"]["tokens"]
-
-
-def test_yaml_applications_and_preferences_are_safe_and_file_backed(unified):
-    unified["service"].synchronize()
-    applications = unified["service"].legacy_applications()
-    assert applications == [
-        {
-            "id": applications[0]["id"],
-            "name": "idrac",
-            "role": "application",
-            "source_scopes": ["dell_idrac"],
-            "rate_limit_per_minute": 30,
-            "version": 1,
-            "created_at": None,
-            "updated_at": None,
-            "expires_at": None,
-            "last_used_at": None,
-            "request_count": 0,
-            "revoked_at": None,
-            "enabled": True,
-            "management": "yaml",
-            "credential_source": "SHA-256",
-            "credential_available": True,
-        }
-    ]
-    assert WEBHOOK not in json.dumps(applications)
-
-    preferences = unified["service"].update_preferences(
-        unified["admin"],
-        {"timezone": "Atlantic/Azores", "language": "pt-PT", "time_format": "12"},
-    )
-    assert preferences == {
-        "timezone": "Atlantic/Azores",
-        "language": "pt-PT",
-        "time_format": "12",
-    }
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    assert saved["presentation"]["time_format"] == "12"
-    assert saved["webui"]["language"] == "pt-PT"
-
-
-def test_disabled_credential_free_import_is_adopted_into_yaml(unified):
-    unified["service"].synchronize()
-    destination = DestinationStore(unified["database"]).create(
-        unified["admin"],
-        unified["admin"].user_id,
-        "Imported webhook",
-        "webhook",
-        settings={"method": "POST"},
+def test_one_damaged_destination_or_route_does_not_hide_valid_rows(migrated):
+    assert migrated["service"].synchronize().ready
+    destinations = DestinationStore(migrated["database"])
+    routes = RouteStore(migrated["database"])
+    original = destinations.list_visible(migrated["admin"])[0]
+    with migrated["database"].transaction() as connection:
+        connection.execute(
+            "UPDATE destinations SET settings_json = 'not-json' WHERE id = ?",
+            (original.id,),
+        )
+    valid_destination = destinations.create(
+        migrated["admin"],
+        migrated["admin"].user_id,
+        "Valid destination",
+        "discord",
+        settings={},
         shared=True,
-        enabled=False,
     )
-    RouteStore(unified["database"]).create(
-        unified["admin"],
-        unified["admin"].user_id,
-        "Imported route",
-        "generic",
-        destination.id,
-        enabled=False,
+    valid_route = routes.create(
+        migrated["admin"],
+        migrated["admin"].user_id,
+        "Valid route",
+        "zabbix",
+        valid_destination.id,
+        input_type="smtp",
     )
+    with migrated["database"].transaction() as connection:
+        connection.execute(
+            "UPDATE routes SET filters_json = 'not-json' WHERE name = 'Critical iDRAC'"
+        )
 
-    assert unified["service"].adopt_unmanaged_resources(unified["admin"]) == 2
-    saved = yaml.safe_load(unified["path"].read_text(encoding="utf-8"))
-    target = saved["outputs"]["webhook"]["imported_webhook"]
-    assert target["enabled"] is False
-    assert "secret" not in target
-    imported_route = saved["routing"]["*"]["outputs"][0]
-    assert imported_route["input"] == "http"
-    assert imported_route["enabled"] is False
+    destination_items, destination_errors = destinations.list_visible_safe(
+        migrated["observer"]
+    )
+    route_items, route_errors = routes.list_visible_safe(migrated["observer"])
+    assert [item.id for item in destination_items] == [valid_destination.id]
+    assert destination_errors[0]["resource_id"] == original.id
+    assert [item.id for item in route_items] == [valid_route.id]
+    assert route_errors[0]["code"] == "route_record_invalid"
+
+
+def test_migration_is_idempotent(migrated):
+    first = migrated["service"].synchronize(force=True)
+    config_after_first = migrated["path"].read_bytes()
+    with migrated["database"].connect() as connection:
+        counts_before = tuple(
+            int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+            for table in ("destinations", "routes", "api_tokens", "settings_records")
+        )
+    second = migrated["service"].synchronize(force=True)
+    with migrated["database"].connect() as connection:
+        counts_after = tuple(
+            int(connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0])
+            for table in ("destinations", "routes", "api_tokens", "settings_records")
+        )
+    assert first.ready and second.ready
+    assert migrated["path"].read_bytes() == config_after_first
+    assert counts_after == counts_before
 
 
 def test_nested_secrets_are_masked_without_hiding_token_metadata():
     masked = mask_secrets(
         {
-            "outputs": {"webhook": {"ops": {"secret": {"url": "private"}}}},
             "api": {
                 "tokens": {
-                    "idrac": {
+                    "hardware": {
+                        "enabled": True,
+                        "token_file": "/run/secrets/hardware",
                         "token_sha256": "a" * 64,
-                        "sources": ["dell_idrac"],
+                        "sources": ["redfish"],
+                    }
+                }
+            },
+            "outputs": {
+                "webhook": {
+                    "ops": {
+                        "secret": {
+                            "url": "https://example.invalid/private",
+                            "headers": {"Authorization": "Bearer private"},
+                        }
                     }
                 }
             },
         }
     )
+    assert masked["api"]["tokens"]["hardware"]["token_file"] == "<configured>"
+    assert masked["api"]["tokens"]["hardware"]["sources"] == ["redfish"]
     assert masked["outputs"]["webhook"]["ops"]["secret"]["url"] == "<configured>"
-    assert masked["api"]["tokens"]["idrac"]["token_sha256"] == "<configured>"
-    assert masked["api"]["tokens"]["idrac"]["sources"] == ["dell_idrac"]

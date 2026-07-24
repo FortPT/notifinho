@@ -1,9 +1,10 @@
 # v2 user tokens, destinations, routes, and delivery history
 
 The platform state provides an ownership-enforcing backend service layer
-exposed through the [authenticated platform API](platform-api.md). In v2.1.0,
-the mounted `config.yaml` is authoritative and SQLite mirrors it for delivery
-history, retries, previews, and test delivery.
+exposed through the [authenticated platform API](platform-api.md). Since
+v2.5.0, SQLite is authoritative for API tokens, destinations, routes, settings,
+delivery history, retries, previews, and test delivery. `config.yaml` contains
+only process bootstrap, listener, and security configuration.
 
 ## API tokens
 
@@ -104,20 +105,26 @@ Sensitive detail keys are replaced with `<redacted>`, and credential patterns
 inside other text are sanitized. Users see their own audit activity;
 administrators may inspect all activity.
 
-## Unified configuration authority
+## Database resource authority
 
-Every output and route shown by the WebUI maps to one entry in `config.yaml`.
-Valid external edits are synchronized before routing and on WebUI refresh.
-Administrator changes are validated against the complete candidate document,
-backed up, and atomically written before the in-memory configuration reloads.
+The first v2.5.0 start validates the legacy `unified_yaml_v1` document, imports
+its tokens, destinations, routes, and WebUI-managed settings into schema 8, and
+then atomically normalizes the mounted file to
+`platform.configuration_model: platform_database_v1`.
 
-On the first v2.1.0 start, resources imported by v2.0.2 are matched to their
-existing YAML targets and routes. Remaining database-only resources are adopted
-into YAML once. `platform.routing_authority` is removed and replaced by
-`platform.configuration_model: unified_yaml_v1`; duplicate fallback rows are
-then removed from the user interface and runtime mirror.
+After migration, destination and route API requests never synchronize the whole
+YAML document. Each store uses its own database transaction and returns valid
+rows independently from malformed rows. Integration behavior, regional
+preferences, and backup scheduling use isolated `settings_records`; a damaged
+record reports a scoped warning and falls back to its validated default without
+preventing other pages from loading.
 
-Invalid external YAML is reported and does not replace the last known-good
-in-memory/runtime mirror. The operator must repair the mounted file. Listener
-binding changes such as ports and TLS certificates require a container restart;
-route, output credential, token, and presentation changes do not.
+Existing credential values are not copied into YAML or API responses. YAML
+application token values are imported as hashes, destination credentials remain
+in the owner-only secret store, and the original token/secret files remain
+mounted for rollback and auditability.
+
+Listener binding changes such as ports, TLS certificates, HTTP publication, and
+SMTP authentication remain process-level `config.yaml` settings and require a
+container restart. Destination, route, token, alias, presentation, deduplication,
+and backup schedule changes take effect through their database stores.

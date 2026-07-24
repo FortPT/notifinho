@@ -188,7 +188,7 @@ def test_dell_components_v2_uses_native_responsive_separators():
     assert "🕒 **Event time:**" in rendered
     assert "🌡️ **Sensor:** PSU 1" in rendered
     assert "📍 **Origin:** /redfish/v1/Chassis/1/Power" in rendered
-    assert "FortPT Labs • Notifinho v2.4.0" in rendered
+    assert "FortPT Labs • Notifinho v2.5.0" in rendered
     assert "─" not in rendered
     assert "embeds" not in payload
     assert "attachments" not in payload
@@ -244,7 +244,7 @@ def test_every_discord_integration_uses_approved_components_v2_contract():
         assert "**Category:**" in rendered, source
         assert "**Event time:**" in rendered, source
         assert "📋 Event details" in rendered, source
-        assert "FortPT Labs • Notifinho v2.4.0" in rendered, source
+        assert "FortPT Labs • Notifinho v2.5.0" in rendered, source
         assert len(flattened_components(payload)) <= 40, source
         assert len(rendered) <= 4000, source
 

@@ -238,6 +238,10 @@
               <div class="wide"><button class="button primary" type="submit">Save settings</button></div>
             </form>
           </article>
+          <article class="panel settings-card">
+            <div class="panel-heading"><div><p class="eyebrow">Integration behavior</p><h3>Notification policies and aliases</h3><p>Manage formatter filters, device aliases, trusted management clients, and Redfish deduplication without editing config.yaml.</p></div></div>
+            <div id="integration-settings-list" class="resource-grid"></div>
+          </article>
         </section>
 
         <section id="view-updates" class="view" data-page="updates" hidden>
@@ -313,6 +317,17 @@
       </main>
     </div>
   </div>
+
+  <dialog id="integration-settings-dialog" class="modal">
+    <form id="integration-settings-form" method="dialog">
+      <div class="modal-heading"><div><p class="eyebrow">Database settings</p><h2 id="integration-settings-title">Integration settings</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <input id="integration-settings-source" type="hidden">
+      <p id="integration-settings-help" class="field-help"></p>
+      <div id="integration-settings-fields" class="form-grid"></div>
+      <p id="integration-settings-error" class="form-error" role="alert" hidden></p>
+      <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button id="integration-settings-submit" class="button primary" value="default">Save settings</button></div>
+    </form>
+  </dialog>
 
   <dialog id="destination-dialog" class="modal">
     <form id="destination-form" method="dialog">

@@ -31,10 +31,18 @@ class HealthCheckService:
         if self.configuration_sync is None:
             return self._check("configuration", True, "Configuration", "legacy mode")
         status = self.configuration_sync.synchronize()
+        if status.ready and status.errors:
+            return self._check(
+                "configuration",
+                False,
+                "Database settings",
+                "; ".join(status.errors),
+                warning=True,
+            )
         return self._check(
             "configuration",
             status.ready,
-            "Unified configuration",
+            "Core configuration",
             "synchronized" if status.ready else "; ".join(status.errors),
         )
 

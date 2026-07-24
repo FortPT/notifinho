@@ -27,7 +27,7 @@ api:
 platform:
   enabled: true
   state_dir: "/notifinho/state"
-  configuration_model: "unified_yaml_v1"
+  configuration_model: "platform_database_v1"
   secure_cookies: false
 ```
 
@@ -65,7 +65,9 @@ used for account, token, destination, route, preview, history, or audit
 management. Tokens are source-scoped, rate-limited per token and client,
 returned only at creation or rotation, and stored only as SHA-256 digests.
 
-The older YAML token API at `/api/events` remains separate and unchanged.
+Legacy YAML application tokens are imported into SQLite during the v2.5 migration.
+Their existing values continue working, but token management is database-only
+after migration.
 
 ## Endpoints
 
@@ -86,6 +88,8 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | PUT | `/api/v2/account/password` | session + CSRF | change the current password |
 | PUT/DELETE | `/api/v2/account/avatar` | session + CSRF | set or remove the current profile picture |
 | GET/PUT | `/api/v2/source-categories` | session / administrator + CSRF for PUT | list or update source presentation tags |
+| GET | `/api/v2/integration-settings` | session | list isolated integration behavior and per-resource errors |
+| GET/PUT | `/api/v2/integration-settings/{source}` | session / administrator + CSRF for PUT | inspect or update one integration settings record |
 | GET | `/api/v2/version` | session | return running and advertised update versions |
 | GET/POST | `/api/v2/notices` | session / administrator + CSRF | list or publish operational notices |
 | POST | `/api/v2/notices/{id}/dismiss` | session + CSRF | dismiss an ordinary notice for this account |
@@ -103,15 +107,15 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | POST | `/api/v2/tokens/{id}/rotate` | owner/admin + CSRF | rotate and return a token once |
 | POST | `/api/v2/tokens/{id}/revoke` | owner/admin + CSRF | revoke a token permanently |
 | PATCH/DELETE | `/api/v2/tokens/{id}` | owner/admin + CSRF | enable, disable, or delete an application |
-| GET | `/api/v2/destinations` | session | list YAML-backed destinations |
-| POST | `/api/v2/destinations` | administrator + CSRF | create in YAML with a write-only secret |
+| GET | `/api/v2/destinations` | session | list database-backed destinations plus isolated row errors |
+| POST | `/api/v2/destinations` | administrator + CSRF | create a database destination with a write-only secret |
 | GET | `/api/v2/destinations/{id}` | visible session | return secret-free metadata |
-| PATCH | `/api/v2/destinations/{id}` | administrator + CSRF | update YAML metadata or secret |
-| DELETE | `/api/v2/destinations/{id}` | administrator + CSRF | delete an unused YAML destination |
+| PATCH | `/api/v2/destinations/{id}` | administrator + CSRF | update database metadata, type, or secret while preserving the ID |
+| DELETE | `/api/v2/destinations/{id}` | administrator + CSRF | delete an unused database destination |
 | POST | `/api/v2/destinations/{id}/preview` | visible session + CSRF | preview payload |
 | POST | `/api/v2/destinations/{id}/test` | administrator + CSRF | test delivery |
-| GET | `/api/v2/routes` | session | list YAML-backed routes |
-| POST | `/api/v2/routes` | administrator + CSRF | create a YAML-backed route |
+| GET | `/api/v2/routes` | session | list database-backed routes plus isolated row errors |
+| POST | `/api/v2/routes` | administrator + CSRF | create a database-backed route |
 | GET | `/api/v2/routes/{id}` | owner/admin session | return a route |
 | PATCH | `/api/v2/routes/{id}` | owner/admin + CSRF | update a route atomically |
 | DELETE | `/api/v2/routes/{id}` | owner/admin + CSRF | delete a route |
@@ -125,7 +129,7 @@ The older YAML token API at `/api/events` remains separate and unchanged.
 | POST | `/api/v2/migrations/v1/import` | administrator + CSRF | apply fingerprinted YAML migration |
 | GET | `/api/v2/configuration/inventory` | administrator session | inspect mounted YAML without credentials |
 | GET | `/api/v2/preferences` | session | read language, timezone, and clock format |
-| PUT | `/api/v2/preferences` | administrator + CSRF | update regional settings in YAML |
+| PUT | `/api/v2/preferences` | administrator + CSRF | update the isolated regional settings record |
 | GET | `/api/v2/backups` | administrator session | list verified state backups |
 | POST | `/api/v2/backups` | administrator + CSRF | create a private state backup |
 | POST | `/api/v2/backups/{id}/restore` | administrator + CSRF | confirmed restore and session revocation |

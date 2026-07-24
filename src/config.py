@@ -41,6 +41,8 @@ class Config:
     def __init__(self):
 
         self._data = {}
+        self._disk_data = {}
+        self._runtime_overlay = {}
 
         self._lock = RLock()
 
@@ -61,7 +63,29 @@ class Config:
 
         with self._lock:
 
-            self._data = loaded
+            self._disk_data = loaded
+            self._data = self._merged(loaded, self._runtime_overlay)
+
+
+    def apply_runtime_overlay(self, overlay):
+        """Apply database-backed settings without writing them to config.yaml."""
+
+        if not isinstance(overlay, dict):
+            raise ValueError("runtime configuration overlay must be an object")
+
+        with self._lock:
+            self._runtime_overlay = deepcopy(overlay)
+            self._data = self._merged(self._disk_data, self._runtime_overlay)
+
+    @classmethod
+    def _merged(cls, base, overlay):
+        result = deepcopy(base)
+        for key, value in overlay.items():
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = cls._merged(result[key], value)
+            else:
+                result[key] = deepcopy(value)
+        return result
 
     def get(self, *keys, default=None):
         """

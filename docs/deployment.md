@@ -87,22 +87,30 @@ NOTIFINHO_EXTERNAL_BACKUP_DIR=/mnt/notifinho-backups
 Use a versioned image tag for production. Upgrade only after validating the
 same image in development, then change `NOTIFINHO_IMAGE`, pull, and redeploy.
 
-## v2.4.0 integrations and input-aware routing upgrade
+## v2.5.0 database-authoritative resources upgrade
 
-Before deployment, create both a platform-state backup and a copy of
-`config.yaml`. v2.4.0 upgrades platform state to schema 7. On first successful
-synchronization, known legacy source-category overrides move to SQLite,
-`webui.source_categories` and `webui.removed_sources` are removed from YAML,
-and the test-only route named `Home Lab Generic` is removed.
+Before deployment, create a matched backup of `config`, `state`, and `secrets`.
+v2.5.0 upgrades platform state to schema 8. During the first successful start,
+Notifinho imports destinations, routes, YAML application tokens, regional
+preferences, backup scheduling, integration notification behavior, Home
+Assistant aliases, UniFi Protect aliases, and Redfish deduplication settings.
 
-Deploy and validate v2.4.0 in an isolated container with a copied production
-configuration before replacing production. Confirm route integration/input
-selections, destination enable/test behavior, duplicate-name rejection, and
-dynamic destination type changes using the
-[v2.4.0 acceptance checklist](v2.4.0-acceptance-checklist.md).
+After the import succeeds, `config.yaml` is atomically normalized and receives
+`platform.configuration_model: platform_database_v1`. The migrated `outputs`,
+`routing`, `api.tokens`, `notifications`, `presentation`, `home_assistant`,
+`redfish`, `platform.backups`, and `webui.language` sections are removed. The
+original file is retained in `config/backups` and its ownership and mode are
+preserved.
 
-Rollback to v2.3.7 requires restoring both the pre-upgrade schema-6 state
-backup and the matching pre-upgrade `config.yaml`; v2.3.7 cannot open schema 7.
+Deploy and validate v2.5.0 in an isolated container with a copied production
+configuration before replacing production. Confirm that resource counts,
+credential-backed test deliveries, application-token authentication, aliases,
+regional settings, and backup scheduling match production. Complete the
+[v2.5.0 acceptance checklist](v2.5.0-acceptance-checklist.md).
+
+Rollback to v2.4.0 requires stopping v2.5.0 and restoring the matched pre-upgrade
+`config`, `state`, and `secrets` backup. v2.4.0 cannot open schema 8 and the
+normalized v2.5.0 YAML no longer contains destinations or routes.
 
 ## v2.3.7 fixed-box Overview icon corrective upgrade
 

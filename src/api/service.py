@@ -192,6 +192,18 @@ class APIService:
             supplied = authorization[7:].strip()
         if not supplied:
             supplied = str(headers.get("X-Notifinho-Token", ""))
+        if self.platform is not None:
+            principal = self.platform.tokens.authenticate(supplied, source)
+            if principal is not None:
+                if require_admin and principal.token_role != "admin":
+                    return None
+                return principal
+            if (
+                self.platform.configuration_sync is not None
+                and self.platform.configuration_sync.database_authoritative
+            ):
+                return None
+
         principal = self.authenticator.authenticate(
             supplied,
             source=source,

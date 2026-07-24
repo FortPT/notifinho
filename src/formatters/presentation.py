@@ -8,7 +8,11 @@ import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from tzlocal import get_localzone
+try:
+    from tzlocal import get_localzone
+except ImportError:  # Development/test fallback; release images install tzlocal.
+    def get_localzone():
+        return ZoneInfo("UTC")
 
 from config import config
 

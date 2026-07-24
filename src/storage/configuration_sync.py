@@ -1,4 +1,4 @@
-"""Keep config.yaml authoritative while SQLite provides a runtime mirror."""
+"""Migrate legacy YAML resources into isolated database-authoritative stores."""
 
 from __future__ import annotations
 
@@ -15,18 +15,28 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from api.schema import validate_config
+from api.security import TokenAuthenticator, hash_token
 from integrations.catalog import canonical_source, infer_input_type
 from outputs.settings import OUTPUT_TYPES, normalize_output_settings
+from storage.api_tokens import APITokenStore
 from storage.audit_events import AuditEventStore
 from storage.destinations import DestinationStore
 from storage.ownership import Actor
 from storage.routes import RouteStore, route_priority_name, route_priority_value
 from storage.secrets import SecretStore
 from storage.integrations import IntegrationCategoryStore
+from storage.settings import (
+    DEFAULT_BACKUP_SETTINGS,
+    DEFAULT_INTEGRATION_SETTINGS,
+    DEFAULT_REGIONAL_SETTINGS,
+    SettingsStore,
+    runtime_overlay_status,
+)
 from storage.validation import ConflictError, normalized_name
 
 
-CONFIGURATION_MODEL = "unified_yaml_v1"
+LEGACY_CONFIGURATION_MODEL = "unified_yaml_v1"
+CONFIGURATION_MODEL = "platform_database_v1"
 _SYNC_LOCK = threading.RLock()
 _TARGET = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$")
 _ROUTE_ID = re.compile(r"^[0-9a-f]{12,32}$")
@@ -68,12 +78,12 @@ class ConfigurationSyncStatus:
 
 
 class UnifiedConfigurationService:
-    """Synchronize, inspect, and mutate YAML-backed platform resources.
+    """Perform one-way YAML migration and maintain runtime settings overlays.
 
-    YAML is the durable source of truth. SQLite rows and secret files are a
-    private mirror used by the existing delivery, history, preview, and retry
-    services. This keeps CLI-only operation possible without exposing secrets
-    through the browser API.
+    In ``platform_database_v1`` mode, destinations, routes, API tokens, regional
+    preferences, backup schedules, aliases, and integration behavior live in
+    isolated SQLite records. ``config.yaml`` contains only process bootstrap and
+    listener settings.
     """
 
     def __init__(self, config_service, database, *, audit=None):
@@ -81,10 +91,25 @@ class UnifiedConfigurationService:
         self.database = database
         self.audit = audit or AuditEventStore(database)
         self.secrets = SecretStore(database)
+        self.tokens = APITokenStore(database, audit=self.audit)
+        self.settings = SettingsStore(database, audit=self.audit)
         self.integration_categories = IntegrationCategoryStore(database)
         self._fingerprint = ""
 
+    @property
+    def database_authoritative(self) -> bool:
+        return str(
+            self.config_service.configuration.get(
+                "platform",
+                "configuration_model",
+                default="",
+            )
+            or ""
+        ).strip().casefold() == CONFIGURATION_MODEL
+
     def synchronize(self, *, force: bool = False) -> ConfigurationSyncStatus:
+        """Migrate legacy YAML once, then only refresh the runtime overlay."""
+
         with _SYNC_LOCK:
             _reloaded, refresh_errors = self.config_service.refresh()
             try:
@@ -106,76 +131,95 @@ class UnifiedConfigurationService:
 
             owner_id = self._configuration_owner()
             fingerprint = hashlib.sha256(source.encode("utf-8")).hexdigest()
+            platform = data.get("platform") if isinstance(data.get("platform"), dict) else {}
+            model = str(platform.get("configuration_model") or "").strip().casefold()
+
+            if model == CONFIGURATION_MODEL:
+                overlay_errors = self._apply_runtime_overlay()
+                changed = force or fingerprint != self._fingerprint
+                self._fingerprint = fingerprint
+                return ConfigurationSyncStatus(
+                    True,
+                    changed,
+                    fingerprint,
+                    owner_id,
+                    tuple(
+                        f"{item['namespace']}.{item['resource']}: {item['message']}"
+                        for item in overlay_errors
+                    ),
+                )
+
+            if model not in {"", LEGACY_CONFIGURATION_MODEL}:
+                return ConfigurationSyncStatus(
+                    False,
+                    False,
+                    fingerprint,
+                    owner_id,
+                    (f"unsupported configuration model: {model}",),
+                )
+
             if owner_id is None:
                 return ConfigurationSyncStatus(
                     False,
                     False,
                     fingerprint,
                     None,
-                    ("create the first administrator before WebUI synchronization",),
+                    ("create the first administrator before resource migration",),
                 )
-
-            candidate = deepcopy(data)
-            if self._migrate_integration_model(candidate):
-                self.config_service.replace(candidate)
-                source = self.config_service.source_text()
-                data = self._decode(source)
-                fingerprint = hashlib.sha256(source.encode("utf-8")).hexdigest()
-
-            if not force and fingerprint == self._fingerprint:
-                return ConfigurationSyncStatus(True, False, fingerprint, owner_id)
 
             actor = Actor(owner_id, "admin")
-            changed = self._synchronize_data(actor, data, remove_stale=False)
-            platform = data.get("platform") if isinstance(data.get("platform"), dict) else {}
-            if platform.get("configuration_model") != CONFIGURATION_MODEL:
+            try:
                 candidate = deepcopy(data)
-                adopted = self._adopt_unmanaged(candidate, actor)
-                candidate_platform = candidate.setdefault("platform", {})
-                candidate_platform["configuration_model"] = CONFIGURATION_MODEL
-                candidate_platform.pop("routing_authority", None)
-                self.config_service.replace(candidate)
+                self._migrate_integration_model(candidate)
+                changed = self._synchronize_data(actor, candidate, remove_stale=True)
+                imported_tokens = self._import_legacy_tokens(actor, candidate)
+                imported_settings = self._import_legacy_settings(candidate)
+                normalized = self._database_core_configuration(candidate)
+                with self.database.transaction() as connection:
+                    connection.execute(
+                        "UPDATE destinations SET configuration_key = NULL "
+                        "WHERE configuration_key IS NOT NULL"
+                    )
+                    connection.execute(
+                        "UPDATE routes SET configuration_key = NULL "
+                        "WHERE configuration_key IS NOT NULL"
+                    )
+                self.config_service.replace(normalized)
+                self._apply_runtime_overlay()
                 source = self.config_service.source_text()
-                data = self._decode(source)
                 fingerprint = hashlib.sha256(source.encode("utf-8")).hexdigest()
-                changed = self._synchronize_data(actor, data, remove_stale=True) or changed
-                changed = True
+                self._fingerprint = fingerprint
                 self._audit(
                     actor,
-                    "configuration.unify",
+                    "configuration.database_migrate",
                     "success",
-                    {"database_resources_adopted": adopted},
+                    {
+                        "tokens_imported": imported_tokens,
+                        "settings_imported": imported_settings,
+                    },
                 )
-            else:
-                changed = self._synchronize_data(actor, data, remove_stale=True) or changed
-            self._fingerprint = fingerprint
-            return ConfigurationSyncStatus(True, changed, fingerprint, owner_id)
+                return ConfigurationSyncStatus(
+                    True,
+                    True,
+                    fingerprint,
+                    owner_id,
+                )
+            except Exception as error:
+                return ConfigurationSyncStatus(
+                    False,
+                    False,
+                    fingerprint,
+                    owner_id,
+                    (f"resource migration failed: {error}",),
+                )
 
     def list_destinations(self, actor: Actor) -> list:
         self.synchronize()
-        with self.database.connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM destinations
-                WHERE configuration_key IS NOT NULL
-                ORDER BY name_normalized
-                """
-            ).fetchall()
-        # Every YAML destination is intentionally visible; only administrators
-        # can mutate the shared configuration file.
-        return [DestinationStore._destination(row) for row in rows]
+        return DestinationStore(self.database).list_visible(actor)
 
     def list_routes(self, actor: Actor) -> list:
         self.synchronize()
-        with self.database.connect() as connection:
-            rows = connection.execute(
-                """
-                SELECT * FROM routes
-                WHERE configuration_key IS NOT NULL
-                ORDER BY priority, name_normalized
-                """
-            ).fetchall()
-        return [RouteStore._route(row) for row in rows]
+        return RouteStore(self.database).list_visible(actor)
 
     def create_destination(self, actor: Actor, data: dict):
         self._require_admin(actor)
@@ -414,6 +458,8 @@ class UnifiedConfigurationService:
 
     def legacy_applications(self) -> list[dict]:
         self.synchronize()
+        if self.database_authoritative:
+            return []
         tokens = self.config_service.configuration.get("api", "tokens", default={})
         if not isinstance(tokens, dict):
             return []
@@ -526,37 +572,19 @@ class UnifiedConfigurationService:
 
     def preferences(self) -> dict:
         self.synchronize()
-        presentation = self.config_service.configuration.get("presentation", default={}) or {}
-        webui = self.config_service.configuration.get("webui", default={}) or {}
-        return {
-            "timezone": str(presentation.get("timezone") or "Europe/Lisbon"),
-            "language": str(webui.get("language") or "en-GB"),
-            "time_format": str(presentation.get("time_format") or "24"),
-        }
+        values, _error = self.settings.get_safe(
+            "platform",
+            "regional",
+            DEFAULT_REGIONAL_SETTINGS,
+        )
+        return values
 
     def update_preferences(self, actor: Actor, values: dict) -> dict:
         self._require_admin(actor)
-        timezone_name = str(values.get("timezone") or "").strip()
-        language = str(values.get("language") or "").strip()
-        time_format = str(values.get("time_format") or "").strip()
-        if language not in {"en-GB", "pt-PT"}:
-            raise ValueError("unsupported language")
-        if time_format not in {"12", "24"}:
-            raise ValueError("time format must be 12 or 24")
-        candidate = self.config_service.snapshot()
-        presentation = candidate.setdefault("presentation", {})
-        presentation["timezone"] = timezone_name
-        presentation["time_format"] = time_format
-        webui = candidate.setdefault("webui", {})
-        webui["language"] = language
-        webui.pop("time_format", None)
-        errors = validate_config(candidate)
-        if errors:
-            raise ValueError("; ".join(errors))
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
-        self._audit(actor, "preferences.update", "success", self.preferences())
-        return self.preferences()
+        self._ready()
+        record = self.settings.set(actor, "platform", "regional", values)
+        self._apply_runtime_overlay()
+        return record.value
 
     def source_categories(self) -> dict[str, str]:
         self.synchronize()
@@ -617,74 +645,57 @@ class UnifiedConfigurationService:
 
     def backup_settings(self) -> dict:
         self.synchronize()
-        platform = self.config_service.configuration.get("platform", default={}) or {}
-        values = platform.get("backups") if isinstance(platform, dict) else {}
-        values = values if isinstance(values, dict) else {}
-        return {
-            "schedule": str(values.get("schedule") or "disabled"),
-            "time": str(values.get("time") or "02:00"),
-            "weekday": int(values.get("weekday", 0)),
-            "day": int(values.get("day", 1)),
-            "target_id": str(values.get("target_id") or ""),
-            "managed_mounts": values.get("managed_mounts", False) is True,
-            "external_enabled": values.get("external_enabled", False) is True,
-            "external_type": str(values.get("external_type") or "nfs"),
-            "external_path": str(values.get("external_path") or ""),
-        }
+        values, _error = self.settings.get_safe(
+            "platform",
+            "backups",
+            DEFAULT_BACKUP_SETTINGS,
+        )
+        return values
 
     def update_backup_settings(self, actor: Actor, values: dict) -> dict:
         self._require_admin(actor)
         self._ready()
-        schedule = str(values.get("schedule") or "").strip().casefold()
-        clock_time = str(values.get("time") or "").strip()
-        external_type = str(values.get("external_type") or "").strip().casefold()
-        external_path = str(values.get("external_path") or "").strip()
-        external_enabled = self._boolean(values.get("external_enabled"), "external_enabled")
-        target_id = str(values.get("target_id") or "").strip()
-        managed_mounts = self._boolean(
-            values.get("managed_mounts", False), "managed_mounts"
-        )
-        if target_id and not re.fullmatch(r"[0-9a-f]{32}", target_id):
-            raise ValueError("backup target identifier is invalid")
-        if schedule not in {"disabled", "daily", "weekly", "monthly"}:
-            raise ValueError("backup schedule is invalid")
-        if not re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]", clock_time):
-            raise ValueError("backup time must use HH:MM")
-        if external_type not in {"nfs", "smb"}:
-            raise ValueError("external backup type must be NFS or SMB")
-        if external_enabled and (
-            not external_path.startswith("/") or external_path == "/"
-        ):
-            raise ValueError("external backup path must be an absolute mounted directory")
-        weekday = int(values.get("weekday", 0))
-        day = int(values.get("day", 1))
-        if not 0 <= weekday <= 6 or not 1 <= day <= 28:
-            raise ValueError("backup weekday or day is invalid")
-        candidate = self.config_service.snapshot()
-        platform = candidate.setdefault("platform", {})
-        platform["backups"] = {
-            "schedule": schedule,
-            "time": clock_time,
-            "weekday": weekday,
-            "day": day,
-            "target_id": target_id,
-            "managed_mounts": managed_mounts,
-            "external_enabled": external_enabled,
-            "external_type": external_type,
-            "external_path": external_path,
-        }
-        errors = validate_config(candidate)
-        if errors:
-            raise ValueError("; ".join(errors))
-        self.config_service.replace(candidate)
-        self.synchronize(force=True)
-        self._audit(actor, "backup.schedule.update", "success", self.backup_settings())
-        return self.backup_settings()
+        record = self.settings.set(actor, "platform", "backups", values)
+        self._apply_runtime_overlay()
+        return record.value
+
+    def integration_settings(self) -> dict:
+        self.synchronize()
+        values = {}
+        errors = []
+        for key, default in DEFAULT_INTEGRATION_SETTINGS.items():
+            try:
+                values[key] = self.settings.get("integration", key, default)
+            except Exception as error:
+                values[key] = deepcopy(default)
+                errors.append(
+                    {
+                        "resource": key,
+                        "code": "integration_settings_unavailable",
+                        "message": str(error),
+                    }
+                )
+        return {"settings": values, "errors": errors}
+
+    def update_integration_settings(
+        self,
+        actor: Actor,
+        source: str,
+        values: dict,
+    ) -> dict:
+        self._require_admin(actor)
+        self._ready()
+        key = str(source or "").strip().casefold()
+        record = self.settings.set(actor, "integration", key, values)
+        self._apply_runtime_overlay()
+        return record.value
 
     def adopt_unmanaged_resources(self, actor: Actor) -> int:
-        """Move newly imported database resources into authoritative YAML."""
+        """Compatibility no-op after the one-way database migration."""
 
         self._require_admin(actor)
+        if self.database_authoritative:
+            return 0
         with _SYNC_LOCK:
             candidate = self.config_service.snapshot()
             adopted = self._adopt_unmanaged(candidate, actor)
@@ -694,6 +705,191 @@ class UnifiedConfigurationService:
                 self.config_service.replace(candidate)
                 self.synchronize(force=True)
             return adopted
+
+    def _import_legacy_tokens(self, actor: Actor, data: dict) -> int:
+        api = data.get("api") if isinstance(data.get("api"), dict) else {}
+        tokens = api.get("tokens") if isinstance(api, dict) else {}
+        if not isinstance(tokens, dict):
+            return 0
+        imported = 0
+        for name, values in tokens.items():
+            if not isinstance(values, dict):
+                continue
+            enabled = values.get("enabled", True) is True
+            digest = TokenAuthenticator._expected_hash(values)
+            if not digest:
+                if enabled:
+                    raise ValueError(
+                        f"api token {name} cannot be imported because its credential is unavailable"
+                    )
+                digest = hash_token(f"disabled-legacy-{name}-{uuid.uuid4().hex}")
+            display_name = str(name)
+            try:
+                self.tokens.import_legacy_hash(
+                    actor,
+                    actor.user_id,
+                    display_name,
+                    digest,
+                    source_scopes=values.get("sources", []),
+                    role=values.get("role", "application"),
+                    rate_limit_per_minute=values.get("rate_limit_per_minute", 60),
+                    enabled=enabled,
+                )
+            except ValueError as error:
+                if "application with this name already exists" not in str(error):
+                    raise
+                display_name = self._available_legacy_token_name(actor.user_id, display_name)
+                self.tokens.import_legacy_hash(
+                    actor,
+                    actor.user_id,
+                    display_name,
+                    digest,
+                    source_scopes=values.get("sources", []),
+                    role=values.get("role", "application"),
+                    rate_limit_per_minute=values.get("rate_limit_per_minute", 60),
+                    enabled=enabled,
+                )
+            imported += 1
+        return imported
+
+    def _available_legacy_token_name(self, owner_user_id: str, name: str) -> str:
+        base = f"Legacy {str(name or '').strip()}".strip()
+        for index in range(1, 1000):
+            candidate = base if index == 1 else f"{base} {index}"
+            _display, normalized = normalized_name(candidate, "token name")
+            with self.database.connect() as connection:
+                exists = connection.execute(
+                    """
+                    SELECT 1 FROM api_tokens
+                    WHERE owner_user_id = ? AND name_normalized = ?
+                    """,
+                    (str(owner_user_id), normalized),
+                ).fetchone()
+            if exists is None:
+                return candidate
+        raise ValueError("a unique legacy token name could not be allocated")
+
+    def _import_legacy_settings(self, data: dict) -> int:
+        imported = 0
+        presentation = data.get("presentation")
+        presentation = presentation if isinstance(presentation, dict) else {}
+        webui = data.get("webui")
+        webui = webui if isinstance(webui, dict) else {}
+        regional = {
+            "timezone": str(
+                presentation.get("timezone")
+                or DEFAULT_REGIONAL_SETTINGS["timezone"]
+            ),
+            "language": str(
+                webui.get("language")
+                or DEFAULT_REGIONAL_SETTINGS["language"]
+            ),
+            "time_format": str(
+                presentation.get("time_format")
+                or DEFAULT_REGIONAL_SETTINGS["time_format"]
+            ),
+        }
+        imported += int(
+            self.settings.import_if_missing("platform", "regional", regional)
+        )
+
+        platform = data.get("platform")
+        platform = platform if isinstance(platform, dict) else {}
+        backups = platform.get("backups")
+        if not isinstance(backups, dict):
+            backups = deepcopy(DEFAULT_BACKUP_SETTINGS)
+        else:
+            backups = {**DEFAULT_BACKUP_SETTINGS, **backups}
+        imported += int(
+            self.settings.import_if_missing("platform", "backups", backups)
+        )
+
+        notifications = data.get("notifications")
+        notifications = notifications if isinstance(notifications, dict) else {}
+        for key in ("xo", "zabbix", "dell_idrac", "unifi_protect"):
+            value = notifications.get(key)
+            if not isinstance(value, dict):
+                value = deepcopy(DEFAULT_INTEGRATION_SETTINGS[key])
+            else:
+                value = {**DEFAULT_INTEGRATION_SETTINGS[key], **value}
+            imported += int(
+                self.settings.import_if_missing("integration", key, value)
+            )
+
+        home_assistant_section = data.get("home_assistant")
+        if not isinstance(home_assistant_section, dict):
+            home_assistant = deepcopy(DEFAULT_INTEGRATION_SETTINGS["home_assistant"])
+        else:
+            home_assistant = {
+                "aliases": deepcopy(home_assistant_section.get("aliases") or {})
+            }
+        imported += int(
+            self.settings.import_if_missing(
+                "integration", "home_assistant", home_assistant
+            )
+        )
+
+        redfish_section = data.get("redfish")
+        if not isinstance(redfish_section, dict):
+            redfish = deepcopy(DEFAULT_INTEGRATION_SETTINGS["redfish"])
+        else:
+            redfish = {
+                "deduplication_window_seconds": redfish_section.get(
+                    "deduplication_window_seconds",
+                    DEFAULT_INTEGRATION_SETTINGS["redfish"][
+                        "deduplication_window_seconds"
+                    ],
+                )
+            }
+        imported += int(
+            self.settings.import_if_missing("integration", "redfish", redfish)
+        )
+        return imported
+
+    def _database_core_configuration(self, data: dict) -> dict:
+        candidate = deepcopy(data)
+        for key in (
+            "outputs",
+            "routing",
+            "notifications",
+            "presentation",
+            "home_assistant",
+            "redfish",
+        ):
+            candidate.pop(key, None)
+
+        api = candidate.get("api")
+        if isinstance(api, dict):
+            api.pop("tokens", None)
+
+        platform = candidate.setdefault("platform", {})
+        if not isinstance(platform, dict):
+            raise ValueError("platform must be an object")
+        platform["configuration_model"] = CONFIGURATION_MODEL
+        platform.pop("routing_authority", None)
+        platform.pop("backups", None)
+
+        webui = candidate.get("webui")
+        if isinstance(webui, dict):
+            webui.pop("language", None)
+            webui.pop("source_categories", None)
+            webui.pop("removed_sources", None)
+
+        errors = validate_config(candidate)
+        if errors:
+            raise ValueError("; ".join(errors))
+        return candidate
+
+    def _apply_runtime_overlay(self) -> list[dict]:
+        overlay, errors = runtime_overlay_status(self.settings)
+        apply = getattr(
+            self.config_service.configuration,
+            "apply_runtime_overlay",
+            None,
+        )
+        if callable(apply):
+            apply(overlay)
+        return errors
 
     def _ready(self) -> ConfigurationSyncStatus:
         status = self.synchronize()

@@ -124,6 +124,13 @@ class PlatformAPI:
             and getattr(config_service, "reloadable", True)
             else None
         )
+        if self.configuration_sync is not None:
+            status = self.configuration_sync.synchronize(force=True)
+            if status.errors:
+                log.error(
+                    "Configuration migration/settings load failed: %s",
+                    "; ".join(status.errors),
+                )
         self.health = HealthCheckService(database, self.configuration_sync)
         self.backup_scheduler = BackupScheduler(database, configuration)
         self.backup_targets = BackupTargetStore(
@@ -144,6 +151,13 @@ class PlatformAPI:
             "secure_cookies",
             default=False,
         ) is True
+
+    @property
+    def yaml_resource_authority(self) -> bool:
+        return (
+            self.configuration_sync is not None
+            and not self.configuration_sync.database_authoritative
+        )
 
     def handle(self, method, path, payload, headers, client) -> APIResponse:
         method = str(method or "").upper()
@@ -183,6 +197,13 @@ class PlatformAPI:
                 return self._own_avatar(method, payload, principal)
             if path == "/api/v2/integrations":
                 return self._integrations_endpoint(method, payload, actor)
+            if path == "/api/v2/integration-settings":
+                return self._integration_settings_endpoint(method, payload, actor)
+            if path.startswith("/api/v2/integration-settings/"):
+                source = unquote(path[len("/api/v2/integration-settings/"):])
+                return self._integration_settings_resource(
+                    method, payload, actor, source
+                )
             if path == "/api/v2/preferences":
                 return self._preferences_endpoint(method, payload, actor)
             if path == "/api/v2/source-categories":
@@ -453,7 +474,7 @@ class PlatformAPI:
                 }
                 for item in self.tokens.list_for_owner(actor, owner_id)
             ]
-            if actor.is_admin and self.configuration_sync is not None:
+            if actor.is_admin and self.yaml_resource_authority:
                 tokens.extend(self.configuration_sync.legacy_applications())
             return APIResponse(
                 200,
@@ -489,7 +510,7 @@ class PlatformAPI:
         return self._method_not_allowed("GET, POST")
 
     def _destinations_endpoint(self, method, payload, actor) -> APIResponse:
-        if self.configuration_sync is not None:
+        if self.yaml_resource_authority:
             if method == "GET":
                 return APIResponse(
                     200,
@@ -513,13 +534,12 @@ class PlatformAPI:
                 )
             return self._method_not_allowed("GET, POST")
         if method == "GET":
+            destinations, errors = self.destinations.list_visible_safe(actor)
             return APIResponse(
                 200,
                 {
-                    "destinations": [
-                        self._destination(item)
-                        for item in self.destinations.list_visible(actor)
-                    ]
+                    "destinations": [self._destination(item) for item in destinations],
+                    "errors": errors,
                 },
             )
         if method == "POST":
@@ -539,6 +559,10 @@ class PlatformAPI:
             output_type = data.get("output_type")
             settings = data.get("settings", {})
             normalize_output_settings(output_type, settings)
+            if not self.destinations.name_available(owner_id, data.get("name")):
+                raise ConflictError(
+                    f"A destination named {str(data.get('name') or '').strip()} already exists."
+                )
             secret_value = (
                 self._secret_value(data.get("secret"))
                 if "secret" in data
@@ -574,7 +598,7 @@ class PlatformAPI:
         return self._method_not_allowed("GET, POST")
 
     def _routes_endpoint(self, method, payload, actor) -> APIResponse:
-        if self.configuration_sync is not None:
+        if self.yaml_resource_authority:
             if method == "GET":
                 return APIResponse(
                     200,
@@ -606,8 +630,11 @@ class PlatformAPI:
                 )
             return self._method_not_allowed("GET, POST")
         if method == "GET":
-            routes = self.routes.list_for_owner(actor, actor.user_id)
-            return APIResponse(200, {"routes": [self._route(item) for item in routes]})
+            routes, errors = self.routes.list_visible_safe(actor)
+            return APIResponse(
+                200,
+                {"routes": [self._route(item) for item in routes], "errors": errors},
+            )
         if method == "POST":
             data = self._object(
                 payload,
@@ -944,10 +971,30 @@ class PlatformAPI:
                 "errors": list(status.errors),
                 "fingerprint": status.fingerprint,
             }
-            configuration["applications"] = self.configuration_sync.legacy_applications()
+            with self.database.connect() as connection:
+                destination_count = int(
+                    connection.execute("SELECT COUNT(*) FROM destinations").fetchone()[0]
+                )
+                route_count = int(
+                    connection.execute("SELECT COUNT(*) FROM routes").fetchone()[0]
+                )
+                token_count = int(
+                    connection.execute("SELECT COUNT(*) FROM api_tokens").fetchone()[0]
+                )
+            configuration["applications"] = []
             configuration["preferences"] = self.configuration_sync.preferences()
-            configuration["authority"] = "yaml"
-            configuration["migration_available"] = False
+            configuration["authority"] = (
+                "database" if self.configuration_sync.database_authoritative else "yaml"
+            )
+            configuration["resource_model"] = (
+                "platform_database_v1"
+                if self.configuration_sync.database_authoritative
+                else "unified_yaml_v1"
+            )
+            configuration["migration_available"] = not self.configuration_sync.database_authoritative
+            configuration["summary"]["outputs"] = destination_count
+            configuration["summary"]["routes"] = route_count
+            configuration["summary"]["applications"] = token_count
         return APIResponse(
             200,
             {"configuration": configuration},
@@ -989,6 +1036,53 @@ class PlatformAPI:
                     "route_options": route_options(overrides),
                 },
             )
+        return self._method_not_allowed("GET, PUT")
+
+    def _integration_settings_endpoint(
+        self,
+        method,
+        payload,
+        actor,
+    ) -> APIResponse:
+        if self.configuration_sync is None:
+            return APIResponse(404, {"error": "resource not found"})
+        if method != "GET":
+            return self._method_not_allowed("GET")
+        result = self.configuration_sync.integration_settings()
+        return APIResponse(200, result)
+
+    def _integration_settings_resource(
+        self,
+        method,
+        payload,
+        actor,
+        source,
+    ) -> APIResponse:
+        if self.configuration_sync is None:
+            return APIResponse(404, {"error": "resource not found"})
+        key = str(source or "").strip().casefold()
+        current = self.configuration_sync.integration_settings()
+        if key not in current["settings"]:
+            raise KeyError("integration settings not found")
+        if method == "GET":
+            errors = [
+                item
+                for item in current["errors"]
+                if item.get("resource") == key
+            ]
+            return APIResponse(
+                200,
+                {"source": key, "settings": current["settings"][key], "errors": errors},
+            )
+        if method == "PUT":
+            self._require_admin(actor)
+            data = self._object(payload, set(current["settings"][key]))
+            settings = self.configuration_sync.update_integration_settings(
+                actor,
+                key,
+                data,
+            )
+            return APIResponse(200, {"source": key, "settings": settings})
         return self._method_not_allowed("GET, PUT")
 
     def _preferences_endpoint(self, method, payload, actor) -> APIResponse:
@@ -1053,7 +1147,7 @@ class PlatformAPI:
     def _configuration_migration_preview(self, method, actor) -> APIResponse:
         self._require_admin(actor)
         if self.configuration_sync is not None:
-            raise ValueError("routing-authority migration is retired by unified YAML configuration")
+            raise ValueError("routing-authority migration is retired by database-authoritative resources")
         if method != "POST":
             return self._method_not_allowed("POST")
         plan, inventory, warnings = self._configuration_bridge().preview(actor)
@@ -1070,7 +1164,7 @@ class PlatformAPI:
     def _configuration_migration_apply(self, method, payload, actor) -> APIResponse:
         self._require_admin(actor)
         if self.configuration_sync is not None:
-            raise ValueError("routing-authority migration is retired by unified YAML configuration")
+            raise ValueError("routing-authority migration is retired by database-authoritative resources")
         if method != "POST":
             return self._method_not_allowed("POST")
         data = self._object(payload, {"fingerprint", "confirm"})
@@ -1085,7 +1179,7 @@ class PlatformAPI:
     def _configuration_authority(self, method, payload, actor) -> APIResponse:
         self._require_admin(actor)
         if self.configuration_sync is not None:
-            raise ValueError("routing authority is fixed to unified YAML configuration")
+            raise ValueError("routing authority is fixed to database-authoritative resources")
         if method != "PUT":
             return self._method_not_allowed("PUT")
         data = self._object(payload, {"authority", "confirmation"})
@@ -1315,7 +1409,7 @@ class PlatformAPI:
                     raise ValueError("enabled is required")
                 enabled = self._boolean(data, "enabled")
                 if token_id.startswith("yaml-"):
-                    if self.configuration_sync is None:
+                    if not self.yaml_resource_authority:
                         raise KeyError("application not found")
                     token = self.configuration_sync.update_application(
                         actor, token_id, enabled=enabled
@@ -1325,7 +1419,7 @@ class PlatformAPI:
                 return APIResponse(200, {"token": self._token(token)})
             if method == "DELETE":
                 if token_id.startswith("yaml-"):
-                    if self.configuration_sync is None:
+                    if not self.yaml_resource_authority:
                         raise KeyError("application not found")
                     self.configuration_sync.delete_application(actor, token_id)
                 else:
@@ -1348,7 +1442,7 @@ class PlatformAPI:
         if action in {"preview", "test"}:
             if method != "POST":
                 return self._method_not_allowed("POST")
-            if action == "test" and self.configuration_sync is not None:
+            if action == "test" and self.yaml_resource_authority:
                 self._require_admin(actor)
             data = self._object(payload, {"event"})
             notification = self._notification(data.get("event"))
@@ -1369,7 +1463,7 @@ class PlatformAPI:
             return APIResponse(200, {"result": self._delivery_result(result)})
 
         if method == "GET":
-            if self.configuration_sync is not None:
+            if self.yaml_resource_authority:
                 item = next(
                     (
                         value
@@ -1385,7 +1479,7 @@ class PlatformAPI:
             return APIResponse(200, {"destination": self._destination(destination)})
         if method == "PATCH":
             data = self._object(payload, {"name", "output_type", "settings", "enabled", "shared", "secret"})
-            if self.configuration_sync is not None:
+            if self.yaml_resource_authority:
                 destination = self.configuration_sync.update_destination(actor, destination_id, data)
                 return APIResponse(
                     200,
@@ -1396,59 +1490,73 @@ class PlatformAPI:
                 raise PermissionError("destination cannot be changed by this user")
             if "shared" in data and not actor.is_admin:
                 raise PermissionError("only administrators can change sharing")
-            if "settings" in data:
-                normalize_output_settings(destination.output_type, data.get("settings"))
-            if "enabled" in data:
+
+            next_name = data.get("name", destination.name)
+            next_type = str(
+                data.get("output_type", destination.output_type)
+                or destination.output_type
+            ).strip().casefold()
+            type_changed = next_type != destination.output_type
+            if not self.destinations.name_available(
+                destination.owner_user_id,
+                next_name,
+                excluding_id=destination.id,
+            ):
+                raise ConflictError(
+                    f"A destination named {str(next_name or '').strip()} already exists."
+                )
+            if type_changed and "settings" not in data:
+                raise ValueError(
+                    "destination settings are required when changing destination type"
+                )
+            if type_changed and "secret" not in data:
+                raise ValueError(
+                    "new credentials are required when changing destination type"
+                )
+            next_settings = data.get("settings", destination.settings)
+            normalize_output_settings(next_type, next_settings)
+            enabled = (
                 self._boolean(data, "enabled")
-            if "shared" in data:
+                if "enabled" in data
+                else destination.enabled
+            )
+            shared = (
                 self._boolean(data, "shared")
+                if "shared" in data
+                else destination.shared
+            )
             secret_value = (
                 self._secret_value(data.get("secret"))
                 if "secret" in data
                 else None
             )
-            if "settings" in data:
-                destination = self.destinations.update_settings(
-                    actor,
-                    destination_id,
-                    data.get("settings"),
-                )
-            if "enabled" in data:
-                destination = self.destinations.set_enabled(
-                    actor,
-                    destination_id,
-                    self._boolean(data, "enabled"),
-                )
-            if "shared" in data:
-                destination = self.destinations.set_shared(
-                    actor,
-                    destination_id,
-                    self._boolean(data, "shared"),
-                )
+
             if secret_value is not None:
                 target = self.destinations.for_delivery_metadata(actor, destination_id)
                 if target.secret_id:
-                    self.secrets.rotate(
-                        actor,
-                        target.secret_id,
-                        secret_value,
-                    )
+                    self.secrets.rotate(actor, target.secret_id, secret_value)
                 else:
                     secret = self.secrets.create(
                         actor,
                         target.destination.owner_user_id,
-                        self._secret_name(target.destination.name),
-                        f"{target.destination.output_type}-credentials",
+                        self._secret_name(str(next_name)),
+                        f"{next_type}-credentials",
                         secret_value,
                     )
-                    destination = self.destinations.set_secret(
-                        actor,
-                        destination_id,
-                        secret.id,
-                    )
+                    self.destinations.set_secret(actor, destination_id, secret.id)
+
+            destination = self.destinations.update(
+                actor,
+                destination_id,
+                name=next_name,
+                output_type=next_type,
+                settings=next_settings,
+                enabled=enabled,
+                shared=shared,
+            )
             return APIResponse(200, {"destination": self._destination(destination)})
         if method == "DELETE":
-            if self.configuration_sync is not None:
+            if self.yaml_resource_authority:
                 self.configuration_sync.delete_destination(actor, destination_id)
                 return APIResponse(204)
             self.destinations.delete(actor, destination_id)
@@ -1457,7 +1565,7 @@ class PlatformAPI:
 
     def _route_resource(self, method, payload, actor, route_id):
         if method == "GET":
-            if self.configuration_sync is not None:
+            if self.yaml_resource_authority:
                 item = next(
                     (
                         value
@@ -1477,13 +1585,13 @@ class PlatformAPI:
             )
             if any(value is None for value in data.values()):
                 raise ValueError("route fields cannot be null")
-            if self.configuration_sync is not None:
+            if self.yaml_resource_authority:
                 route = self.configuration_sync.update_route(actor, route_id, data)
                 return APIResponse(200, {"route": {**self._route(route), "management": "yaml"}})
             route = self.routes.update(actor, route_id, **data)
             return APIResponse(200, {"route": self._route(route)})
         if method == "DELETE":
-            if self.configuration_sync is not None:
+            if self.yaml_resource_authority:
                 self.configuration_sync.delete_route(actor, route_id)
                 return APIResponse(204)
             self.routes.delete(actor, route_id)
@@ -1527,8 +1635,8 @@ class PlatformAPI:
                 "success",
                 {"source": notification.source, "matched": summary.matched_routes},
             )
-        except Exception:
-            return APIResponse(500, {"error": "request failed"})
+        except Exception as error:
+            return self._unexpected("/api/v2/events", error)
         return APIResponse(
             202,
             {

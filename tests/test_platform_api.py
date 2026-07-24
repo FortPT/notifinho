@@ -1133,3 +1133,55 @@ def test_unexpected_platform_error_returns_safe_reference(platform_api, monkeypa
     assert response.payload["path"] == "/api/v2/integrations"
     assert len(response.payload["reference"]) == 12
     assert "synthetic private failure" not in response.payload["error"]
+
+
+def test_resource_list_errors_are_isolated_per_destination_and_route(platform_api):
+    headers = login(platform_api)
+    broken_destination = create_destination(platform_api, headers)
+    second = call(
+        platform_api,
+        "POST",
+        "/api/v2/destinations",
+        {
+            "name": "Second webhook",
+            "output_type": "webhook",
+            "settings": {"method": "POST"},
+            "shared": True,
+            "secret": {"url": "https://example.invalid/second"},
+        },
+        headers,
+    ).payload["destination"]
+    broken_route = create_route(platform_api, headers, broken_destination["id"])
+    second_route = call(
+        platform_api,
+        "POST",
+        "/api/v2/routes",
+        {
+            "name": "Second route",
+            "source": "zabbix",
+            "input_type": "smtp",
+            "destination_id": second["id"],
+            "filters": {},
+        },
+        headers,
+    ).payload["route"]
+
+    with platform_api["database"].transaction() as connection:
+        connection.execute(
+            "UPDATE destinations SET settings_json = 'not-json' WHERE id = ?",
+            (broken_destination["id"],),
+        )
+        connection.execute(
+            "UPDATE routes SET filters_json = 'not-json' WHERE id = ?",
+            (broken_route["id"],),
+        )
+
+    destinations = call(platform_api, "GET", "/api/v2/destinations", headers=headers)
+    routes = call(platform_api, "GET", "/api/v2/routes", headers=headers)
+
+    assert destinations.status == 200
+    assert [item["id"] for item in destinations.payload["destinations"]] == [second["id"]]
+    assert destinations.payload["errors"][0]["resource_id"] == broken_destination["id"]
+    assert routes.status == 200
+    assert [item["id"] for item in routes.payload["routes"]] == [second_route["id"]]
+    assert routes.payload["errors"][0]["resource_id"] == broken_route["id"]

@@ -179,6 +179,52 @@ class RouteStore:
             ).fetchall()
         return [self._route(row) for row in rows]
 
+    def list_visible(self, actor: Actor) -> list[Route]:
+        """List routes the actor may inspect without granting write access."""
+
+        items, errors = self.list_visible_safe(actor)
+        if errors:
+            raise ValueError(errors[0]["message"])
+        return items
+
+    def list_visible_safe(self, actor: Actor) -> tuple[list[Route], list[dict]]:
+        """Return every readable valid route plus per-row failures."""
+
+        with self.database.connect() as connection:
+            if actor.is_admin:
+                rows = connection.execute(
+                    """
+                    SELECT routes.* FROM routes
+                    ORDER BY routes.priority, routes.name_normalized
+                    """
+                ).fetchall()
+            else:
+                rows = connection.execute(
+                    """
+                    SELECT routes.* FROM routes
+                    JOIN destinations
+                      ON destinations.id = routes.destination_id
+                    WHERE routes.owner_user_id = ? OR destinations.shared = 1
+                    ORDER BY routes.priority, routes.name_normalized
+                    """,
+                    (actor.user_id,),
+                ).fetchall()
+        items = []
+        errors = []
+        for row in rows:
+            try:
+                items.append(self._route(row))
+            except Exception as error:
+                errors.append(
+                    {
+                        "resource_id": str(row["id"]),
+                        "resource": str(row["name"]),
+                        "code": "route_record_invalid",
+                        "message": f"Route {str(row['name'])!r} could not be loaded: {error}",
+                    }
+                )
+        return items, errors
+
     def matching(
         self,
         actor: Actor,

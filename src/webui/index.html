@@ -95,7 +95,7 @@
           <span class="nav-icon" aria-hidden="true">↗</span><span>Routes</span>
         </button>
         <button class="nav-item" type="button" data-view="tokens">
-          <span class="nav-icon" aria-hidden="true">◇</span><span>Applications</span>
+          <span class="nav-icon" aria-hidden="true">◇</span><span>API access</span>
         </button>
         <button class="nav-item" type="button" data-view="deliveries">
           <span class="nav-icon" aria-hidden="true">≋</span><span>Delivery history</span>
@@ -175,7 +175,7 @@
             <article class="metric-card"><span>Routed integrations</span><strong id="metric-sources">—</strong><small>Used by enabled routes</small></article>
             <article class="metric-card"><span>Active Destinations</span><strong id="metric-destinations">—</strong><small>Enabled</small></article>
             <article class="metric-card"><span>Active Routes</span><strong id="metric-routes">—</strong><small>Enabled</small></article>
-            <article class="metric-card"><span>Applications</span><strong id="metric-tokens">—</strong><small>Active credentials</small></article>
+            <article class="metric-card"><span>Event API tokens</span><strong id="metric-tokens">—</strong><small>Active credentials</small></article>
             <article class="metric-card metric-history"><span>Success</span><strong id="metric-success">—</strong><small id="metric-success-note">Selected history</small></article>
             <article class="metric-card metric-history"><span>Requests</span><strong id="metric-requests">—</strong><label class="history-filter"><span>History</span><select id="history-range"><option value="10m">10 minutes</option><option value="1h" selected>1 hour</option><option value="1d">1 day</option><option value="1m">1 month</option><option value="1y">1 year</option></select></label></article>
           </div>
@@ -206,8 +206,8 @@
         </section>
 
         <section id="view-tokens" class="view" data-page="tokens" hidden>
-          <div class="section-toolbar"><div><h2>Applications</h2></div><button class="button primary" type="button" data-action="new-token">Issue token</button></div>
-          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Sources</th><th>Rate limit</th><th>Last used</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="token-table"></tbody></table></div><div id="token-empty" class="empty-state" hidden></div></div>
+          <div class="section-toolbar"><div><h2>Event API tokens</h2><p>Allow external applications to submit events to <code>/api/v2/events</code>. SMTP, HTTP integration webhooks, Redfish subscriptions, and WebUI login do not require these tokens.</p></div><button class="button primary" type="button" data-action="new-token">Issue token</button></div>
+          <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Allowed integrations</th><th>Rate limit</th><th>Last used</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead><tbody id="token-table"></tbody></table></div><div id="token-empty" class="empty-state" hidden></div></div>
         </section>
 
         <section id="view-deliveries" class="view" data-page="deliveries" hidden>
@@ -257,7 +257,7 @@
           <div class="section-toolbar"><div><h2>Inputs</h2></div></div>
           <div class="data-tools-grid">
             <article class="panel data-tool-card configuration-card">
-              <div><p class="eyebrow">Inputs</p><h3 id="configuration-card-title">Configured listeners</h3><p id="configuration-card-copy">Click a status to enable or disable an input. Listener changes apply after Notifinho restarts.</p></div>
+              <div><p class="eyebrow">Inputs</p><h3 id="configuration-card-title">Configured inputs</h3><p id="configuration-card-copy">SMTP, HTTP, and Redfish are managed independently. Click a status to enable or disable an input; changes apply after Notifinho restarts.</p></div>
               <div id="configuration-summary" class="configuration-summary"></div>
               <div id="configuration-inputs" class="configuration-inputs"></div>
               <div id="configuration-errors" class="form-error" role="alert" hidden></div>
@@ -358,16 +358,17 @@
         <label><span>Priority</span><select id="route-priority"><option value="critical">Critical</option><option value="high">High</option><option value="normal" selected>Normal</option><option value="low">Low</option><option value="lowest">Lowest</option></select></label>
         <label class="switch-field"><input id="route-enabled" type="checkbox" checked><span>Enabled</span></label>
       </div>
-      <fieldset><legend>Optional filters</legend><p class="field-help">Select one or more severities/statuses. Hosts and events accept comma-separated shell-style wildcards.</p><div class="form-grid"><label><span>Severities</span><select id="route-severities" multiple size="5"><option value="debug">Debug</option><option value="information">Information</option><option value="warning">Warning</option><option value="error">Error</option><option value="critical">Critical</option></select></label><label><span>Statuses</span><select id="route-statuses" multiple size="4"><option value="active">Active</option><option value="resolved">Resolved</option><option value="firing">Firing</option><option value="recovered">Recovered</option></select></label><label><span>Hosts</span><input id="route-hosts" placeholder="nas-*, hypervisor-01"></label><label><span>Events</span><input id="route-events" placeholder="backup.*, disk.*"></label></div></fieldset>
+      <fieldset><legend>Optional route filters</legend><p class="field-help">Include filters narrow delivery. Exclude filters always win. Hosts and events accept comma-separated shell-style wildcards.</p><div class="form-grid route-filter-grid"><label><span>Include severities</span><select id="route-severities" multiple size="6"><option value="debug">Debug</option><option value="information">Information</option><option value="warning">Warning</option><option value="error">Error</option><option value="critical">Critical</option><option value="failure">Failure</option></select></label><label><span>Exclude severities</span><select id="route-exclude_severities" multiple size="6"><option value="debug">Debug</option><option value="information">Information</option><option value="warning">Warning</option><option value="error">Error</option><option value="critical">Critical</option><option value="failure">Failure</option></select></label><label><span>Include statuses</span><select id="route-statuses" multiple size="7"><option value="active">Active</option><option value="resolved">Resolved</option><option value="firing">Firing</option><option value="recovered">Recovered</option><option value="success">Success</option><option value="skipped">Skipped</option><option value="failure">Failure</option></select></label><label><span>Exclude statuses</span><select id="route-exclude_statuses" multiple size="7"><option value="active">Active</option><option value="resolved">Resolved</option><option value="firing">Firing</option><option value="recovered">Recovered</option><option value="success">Success</option><option value="skipped">Skipped</option><option value="failure">Failure</option></select></label><label><span>Include hosts or devices</span><input id="route-hosts" placeholder="nas-*, hypervisor-01"></label><label><span>Exclude hosts or devices</span><input id="route-exclude_hosts" placeholder="test-*, maintenance-*"></label><label><span>Include events</span><input id="route-events" placeholder="backup.*, disk.*"></label><label><span>Exclude events</span><input id="route-exclude_events" placeholder="audit.noise.*, heartbeat"></label></div></fieldset>
       <p id="route-error" class="form-error" role="alert" hidden></p>
       <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button primary" value="default">Save route</button></div>
     </form>
   </dialog>
 
-  <dialog id="token-dialog" class="modal small-modal">
+  <dialog id="token-dialog" class="modal">
     <form id="token-form" method="dialog">
-      <div class="modal-heading"><div><p class="eyebrow">Application access</p><h2>Issue token</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
-      <div class="stack compact"><label><span>Name</span><input id="token-name" required maxlength="120" placeholder="Home lab automation"></label><label><span>Allowed sources</span><input id="token-sources" required placeholder="home_lab, backup_service"><small>Comma-separated. Administrators may use <code>*</code>.</small></label><label><span>Requests per minute</span><input id="token-rate" type="number" min="1" max="10000" value="60" required></label></div>
+      <div class="modal-heading"><div><p class="eyebrow">Event API access</p><h2>Issue Event API token</h2></div><button class="icon-button" value="cancel" formnovalidate aria-label="Close">×</button></div>
+      <p class="field-help">Use this only for an external application that posts normalized events to <code>/api/v2/events</code>. The token value is shown once.</p>
+      <div class="form-grid"><label class="wide"><span>Name</span><input id="token-name" required maxlength="120" placeholder="Home Assistant event sender"></label><label class="wide"><span>Allowed integrations</span><select id="token-sources" multiple size="10"></select><small>Select every integration this application may submit. Administrators can select All sources.</small></label><label class="wide"><span>Custom source identifiers</span><input id="token-custom-sources" placeholder="home_lab, backup_service"><small>Optional comma-separated identifiers for custom Event API producers.</small></label><label><span>Requests per minute</span><input id="token-rate" type="number" min="1" max="10000" value="60" required></label></div>
       <p id="token-error" class="form-error" role="alert" hidden></p>
       <div class="modal-actions"><button class="button secondary" value="cancel" formnovalidate>Cancel</button><button class="button primary" value="default">Issue token</button></div>
     </form>

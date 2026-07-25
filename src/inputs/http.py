@@ -126,6 +126,17 @@ class HTTPHandler(BaseHTTPRequestHandler):
             self._respond(401)
             return
 
+        if (
+            application in {"redfish", "supermicro", "hpe", "dell"}
+            and config.get("redfish", "enabled", default=True) is not True
+        ):
+            # Redfish shares the HTTP listener, so disabling the logical input
+            # acknowledges subscriptions without routing or triggering retry
+            # storms from management controllers.
+            log.info("Redfish input disabled; event acknowledged without delivery")
+            self._respond(204)
+            return
+
         content_type = self.headers.get("Content-Type", "")
         form_encoded = (
             application == "synology"

@@ -7,7 +7,7 @@ const VIEW_TITLES = {
   sources: "Sources",
   destinations: "Destinations",
   routes: "Routes",
-  tokens: "Applications",
+  tokens: "API access",
   deliveries: "Delivery history",
   audit: "Audit log",
   users: "Users",
@@ -61,15 +61,6 @@ const PRIORITIES = [
   ["low", "Low"],
   ["lowest", "Lowest"],
 ];
-const SOURCE_TRANSPORTS = {
-  xen_orchestra: "SMTP", xo: "SMTP", xenorchestra: "SMTP", zabbix: "SMTP", qnap: "SMTP", truenas: "SMTP",
-  redfish: "REST API", restful: "REST API", rest_api: "REST API",
-  grafana: "HTTP", proxmox: "HTTP API", portainer: "HTTP API",
-  home_assistant: "Home Assistant API",
-  unifi_network: "UniFi API", unifi_protect: "UniFi API", unifi_drive: "UniFi API",
-  supermicro: "Supermicro Redfish", hpe_ilo: "HPE iLO Redfish",
-  dell_idrac: "Dell iDRAC Redfish", alfa: "Redfish", synology: "Synology API",
-};
 const SOURCE_CATEGORIES = {
   virtualization: { key: "virtualization", label: "Virtualization" },
   monitoring: { key: "monitoring", label: "Monitoring" },
@@ -86,6 +77,8 @@ const PT_TRANSLATIONS = {
   "Destinations": "Destinos",
   "Routes": "Rotas",
   "Applications": "Aplicações",
+  "API access": "Acesso à API",
+  "Event API tokens": "Tokens da API de eventos",
   "Delivery history": "Histórico de entregas",
   "Audit log": "Registo de auditoria",
   "Users": "Utilizadores",
@@ -161,6 +154,7 @@ const state = {
   currentView: "dashboard",
   destinations: [],
   destinationErrors: [],
+  destinationTestResults: {},
   routes: [],
   routeErrors: [],
   tokens: [],
@@ -549,7 +543,7 @@ async function loadWorkspace() {
       state.routes = value.routes || [];
       state.routeErrors = value.errors || [];
     }],
-    tokens: ["Applications", request("/tokens"), (value) => { state.tokens = value.tokens; }],
+    tokens: ["Event API tokens", request("/tokens"), (value) => { state.tokens = value.tokens; }],
     deliveries: ["Delivery history", request("/deliveries"), (value) => { state.deliveries = value.deliveries; }],
     audit: ["Audit log", request("/audit-events"), (value) => { state.audit = value.audit_events; }],
     preferences: ["Regional settings", request("/preferences"), (value) => { state.preferences = value.preferences; }],
@@ -769,7 +763,7 @@ function inputLabel(value) {
 function routeSourceDescriptor(source, inputType = "") {
   if (source === "*") {
     const input = inputLabel(inputType || "http");
-    return { integration: "Generic", input, label: `Generic (${input})` };
+    return { integration: "Fallback", input, label: `Fallback (${input})` };
   }
   const item = integrationBySource(source);
   const integration = item ? item.name : friendlyName(source);
@@ -824,22 +818,85 @@ function sourceIsActive(source) {
     route.enabled && (route.source === source || route.source === "*"));
 }
 
+const CREDENTIAL_OUTPUTS = new Set(["discord", "teams", "slack", "webhook"]);
+
+function inputFlowState(inputType) {
+  const key = String(inputType || "http").toLowerCase();
+  const inventory = state.configuration && Array.isArray(state.configuration.inputs)
+    ? state.configuration.inputs
+    : null;
+  if (!inventory) return { state: "active", detail: `${inputLabel(key)} status unavailable` };
+  const item = inventory.find((candidate) => candidate.name === key);
+  if (!item || item.configured === false) {
+    return { state: "error", detail: `${inputLabel(key)} is not configured` };
+  }
+  if (!item.enabled) return { state: "disabled", detail: `${inputLabel(key)} is disabled` };
+  const sync = state.configuration.sync || {};
+  if (sync.ready === false) return { state: "error", detail: `${inputLabel(key)} configuration requires repair` };
+  return { state: "active", detail: `${inputLabel(key)} is enabled` };
+}
+
+function routeFlowState(route) {
+  if (!route) return { state: "error", detail: "Route is unavailable" };
+  if (!route.enabled) return { state: "disabled", detail: "Route is disabled" };
+  return { state: "active", detail: "Route is enabled" };
+}
+
+function destinationFlowState(destination) {
+  if (!destination) return { state: "error", detail: "Destination is missing" };
+  if (!destination.enabled) return { state: "disabled", detail: "Destination is disabled" };
+  if (CREDENTIAL_OUTPUTS.has(destination.output_type) && !destination.secret_configured) {
+    return { state: "error", detail: "Destination credentials are unavailable" };
+  }
+  return { state: "active", detail: "Destination is enabled and configured" };
+}
+
+function combinedFlowState(...states) {
+  if (states.some((item) => item.state === "error")) return "error";
+  if (states.some((item) => item.state === "disabled")) return "disabled";
+  return "active";
+}
+
+function flowSignal(status, detail, delayed = false) {
+  const symbols = { active: "➜", disabled: "⛔", error: "✕" };
+  return element("span", {
+    className: `flow-arrow flow-${status}${delayed ? " delayed" : ""}`,
+    text: symbols[status] || symbols.error,
+    title: detail,
+    attributes: { "aria-label": detail, role: "img" },
+  });
+}
+
 function renderFlow() {
   const container = byId("dashboard-flow");
   container.replaceChildren();
   for (const route of state.routes) {
     const destination = state.destinations.find((item) => item.id === route.destination_id);
-    const problem = route.enabled && (!destination || !destination.enabled || (!destination.secret_configured && ["discord", "teams", "slack", "webhook"].includes(destination.output_type)));
-    const status = !route.enabled ? "disabled" : problem ? "problem" : "active";
+    const inputStatus = inputFlowState(route.input_type || "http");
+    const routeStatus = routeFlowState(route);
+    const destinationStatus = destinationFlowState(destination);
+    const firstStatus = combinedFlowState(inputStatus, routeStatus);
     const descriptor = routeSourceDescriptor(route.source, route.input_type);
     const integration = integrationBySource(route.source);
     const iconKey = route.source === "*" ? "generic" : integration ? integration.icon_key : route.source;
     const category = route.source === "*" ? SOURCE_CATEGORIES.generic : sourceCategory(route.source);
-    const arrow = status === "problem" ? "×" : "➜";
-    container.append(element("div", { className: `flow-row ${status}` }, [
-      element("div", { className: `flow-node source-node category-${category.key}` }, [sourceIcon(iconKey), element("div", {}, [element("strong", { text: descriptor.integration }), element("small", { text: descriptor.input })])]),
-      element("div", { className: "flow-route" }, [element("span", { className: "flow-arrow", text: arrow }), element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]), element("span", { className: "flow-arrow delayed", text: arrow })]),
-      element("div", { className: "flow-node destination-node" }, [outputIcon(destination && destination.output_type), element("div", {}, [element("strong", { text: destination ? (OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)) : "Missing destination" }), element("small", { text: destination ? (destination.settings.channel_name || destination.name) : "Configuration error" })])]),
+    container.append(element("div", { className: `flow-row source-${inputStatus.state}` }, [
+      element("div", {
+        className: `flow-node source-node category-${category.key} state-${inputStatus.state}`,
+        title: inputStatus.detail,
+      }, [sourceIcon(iconKey), element("div", {}, [element("strong", { text: descriptor.integration }), element("small", { text: descriptor.input })])]),
+      element("div", {
+        className: `flow-route state-${routeStatus.state}`,
+        title: routeStatus.detail,
+      }, [
+        flowSignal(firstStatus, `${inputStatus.detail}; ${routeStatus.detail}`),
+        element("div", {}, [element("strong", { text: route.name }), element("small", { text: filterSummary(route.filters) })]),
+        flowSignal(destinationStatus.state, destinationStatus.detail, true),
+      ]),
+      element("div", {
+        className: `flow-node destination-node state-${destinationStatus.state}`,
+        title: destinationStatus.detail,
+      }, [outputIcon(destination && destination.output_type), element("div", {}, [element("strong", { text: destination ? (OUTPUT_NAMES[destination.output_type] || friendlyName(destination.output_type)) : "Missing destination" }), element("small", { text: destination ? (destination.settings.channel_name || destination.name) : "Configuration error" })])]),
     ]));
   }
   if (!container.children.length) empty(container, "No routing flow", "Create a destination and route to display it here.");
@@ -859,7 +916,7 @@ const INTEGRATION_SETTING_LABELS = {
 };
 
 const INTEGRATION_SETTING_HELP = {
-  xo: "Choose which backup outcomes are delivered and whether job/run identifiers are shown.",
+  xo: "Control whether Xen Orchestra job and run identifiers are shown. Delivery selection belongs to Routes.",
   zabbix: "Control whether Zabbix problem identifiers are included in notifications.",
   dell_idrac: "Suppress successful IPMI session login/logout audits from trusted management clients. Failed authentication is never suppressed.",
   unifi_protect: "Map camera or console MAC addresses to readable names. Use one ‘MAC = Alias’ entry per line.",
@@ -890,10 +947,7 @@ function renderIntegrationSettings() {
 }
 
 function integrationSettingSummary(source, settings) {
-  if (source === "xo") {
-    const outcomes = ["success", "skipped", "failure"].filter((key) => settings[key]);
-    return `${outcomes.length ? outcomes.join(", ") : "No outcomes"}; IDs ${settings.show_ids ? "shown" : "hidden"}`;
-  }
+  if (source === "xo") return `Job and run IDs ${settings.show_ids ? "shown" : "hidden"}`;
   if (source === "zabbix") return `Problem IDs ${settings.show_ids ? "shown" : "hidden"}`;
   if (source === "dell_idrac") return `${(settings.suppress_ipmi_session_audit_from || []).length} trusted client(s)`;
   if (source === "unifi_protect") return `${Object.keys(settings.device_aliases || {}).length} device alias(es)`;
@@ -936,9 +990,6 @@ function openIntegrationSettings(source) {
   fields.replaceChildren();
   if (source === "xo") {
     fields.append(
-      settingCheckbox("integration-xo-success", "Deliver successful backups", settings.success),
-      settingCheckbox("integration-xo-skipped", "Deliver skipped backups", settings.skipped),
-      settingCheckbox("integration-xo-failure", "Deliver failed backups", settings.failure),
       settingCheckbox("integration-xo-show-ids", "Show job and run IDs", settings.show_ids),
     );
   } else if (source === "zabbix") {
@@ -1007,9 +1058,6 @@ async function saveIntegrationSettings(event) {
   try {
     if (source === "xo") {
       body = {
-        success: byId("integration-xo-success").checked,
-        skipped: byId("integration-xo-skipped").checked,
-        failure: byId("integration-xo-failure").checked,
         show_ids: byId("integration-xo-show-ids").checked,
       };
     } else if (source === "zabbix") {
@@ -1066,15 +1114,11 @@ function renderSources() {
       select.append(element("option", { value: item.key, text: item.label }));
     }
     select.value = category.key;
-    const details = element("details", { className: "integration-inputs" }, [
-      element("summary", { text: `${integration.inputs.length} input${integration.inputs.length === 1 ? "" : "s"} available` }),
-      element("div", { className: "integration-input-list" }, integration.inputs.map((item) =>
-        element("div", { className: "integration-input-row" }, [
-          badge(item.name),
-          element("span", { text: `${integration.name} events received through ${item.name}` }),
-        ])
-      )),
-    ]);
+    const details = element(
+      "div",
+      { className: "integration-input-chips" },
+      integration.inputs.map((item) => badge(item.name, "input")),
+    );
     body.append(element("tr", {}, [
       element("td", {}, [element("div", { className: "source-identity" }, [sourceIcon(integration.icon_key || integration.id), element("div", {}, [element("strong", { text: integration.name }), element("small", { text: "Built-in integration" })])])]),
       element("td", {}, details),
@@ -1121,15 +1165,36 @@ function renderDestinations() {
       actions.append(
         actionButton("Send test", "test-destination-card", item.id, "primary"),
         actionButton("Edit", "edit-destination", item.id),
-        actionButton(item.enabled ? "Disable" : "Enable", "toggle-destination", item.id),
         actionButton("Delete", "delete-destination", item.id, "danger"),
       );
     }
-    const meta = element("div", { className: "resource-meta" }, [
-      badge(item.enabled ? "Enabled" : "Disabled", item.enabled ? "success" : "warning"),
-      badge(item.shared ? "Shared" : "Private"),
-      badge(item.secret_configured ? "Credentials set" : "No credentials", item.secret_configured ? "success" : "warning"),
-    ]);
+    const testResult = state.destinationTestResults[item.id];
+    const metaItems = [
+      element("button", {
+        className: `badge status-button ${item.enabled ? "success" : "danger"}`,
+        text: item.enabled ? "Enabled" : "Disabled",
+        type: "button",
+        disabled: !editable,
+        dataset: { action: "toggle-destination", id: item.id },
+      }),
+      element("button", {
+        className: `badge status-button ${item.shared ? "success" : "warning"}`,
+        text: item.shared ? "Shared" : "Private",
+        type: "button",
+        disabled: !editable,
+        dataset: { action: "toggle-destination-shared", id: item.id },
+      }),
+    ];
+    if (!item.secret_configured && ["discord", "teams", "slack", "webhook"].includes(item.output_type)) {
+      metaItems.push(badge("Credentials required", "danger"));
+    }
+    if (testResult) {
+      metaItems.push(badge(
+        testResult.success ? "Last test passed" : "Last test failed",
+        testResult.success ? "success" : "danger",
+      ));
+    }
+    const meta = element("div", { className: "resource-meta" }, metaItems);
     container.append(element("article", { className: "resource-card" }, [
       element("div", { className: "resource-heading" }, [
         element("div", { className: "resource-identity" }, [
@@ -1155,12 +1220,24 @@ function destinationTypeName(id) {
 
 function filterSummary(filters) {
   const parts = [];
-  for (const key of ["severities", "statuses", "hosts", "events"]) {
+  const labels = {
+    severities: "Include severity",
+    statuses: "Include status",
+    hosts: "Include host",
+    events: "Include event",
+    exclude_severities: "Exclude severity",
+    exclude_statuses: "Exclude status",
+    exclude_hosts: "Exclude host",
+    exclude_events: "Exclude event",
+  };
+  for (const key of Object.keys(labels)) {
     const values = filters && filters[key];
-    if (Array.isArray(values) && values.length) parts.push(`${capitalize(key.replace(/s$/, ""))}: ${values.map(capitalize).join(", ")}`);
+    if (Array.isArray(values) && values.length) {
+      parts.push(`${labels[key]}: ${values.map(capitalize).join(", ")}`);
+    }
   }
   if (parts.length === 1 && filters.severities && filters.severities.length === 1 && filters.severities[0] === "critical") return "Just Critical";
-  return parts.join(" · ") || "All Events";
+  return parts.join(" · ") || "All events";
 }
 
 function renderRoutes() {
@@ -1201,7 +1278,7 @@ function renderTokens() {
   body.replaceChildren();
   byId("token-empty").hidden = state.tokens.length > 0;
   if (!state.tokens.length) {
-    byId("token-empty").replaceChildren(element("strong", { text: "No application tokens" }), element("span", { text: "Issue a source-scoped token for an event producer." }));
+    byId("token-empty").replaceChildren(element("strong", { text: "No Event API tokens" }), element("span", { text: "Issue a source-scoped token only for an external application that posts to /api/v2/events." }));
     return;
   }
   for (const item of state.tokens) {
@@ -1220,7 +1297,7 @@ function renderTokens() {
       element("td", {}, [element("strong", { text: item.name }), element("small", { text: yamlManaged ? `Configured credential · ${item.credential_source}` : `Issued credential · version ${item.version}` })]),
       element("td", { text: item.source_scopes.map(friendlyName).join(", ") || "None" }),
       element("td", { text: `${item.rate_limit_per_minute}/min` }),
-      element("td", { text: item.last_used_at ? relativeTime(item.last_used_at) : "Never" }),
+      element("td", { text: item.last_used_at ? relativeTime(item.last_used_at) : "Never used" }),
       element("td", {}, element("button", {
         className: `badge status-button ${unavailable || revoked ? "danger" : inactive ? "warning" : "success"}`,
         text: unavailable ? "Credential unavailable" : revoked ? "Revoked" : inactive ? "Inactive" : "Active",
@@ -1380,8 +1457,8 @@ function renderConfiguration() {
   const configuration = state.configuration;
   const summary = configuration.summary;
   const sync = configuration.sync || { ready: true, errors: [] };
-  byId("configuration-card-title").textContent = sync.ready ? "Configured listeners" : "Inputs require configuration repair";
-  byId("configuration-card-copy").textContent = "Click an input status to change it. Restart Notifinho after listener changes.";
+  byId("configuration-card-title").textContent = sync.ready ? "Configured inputs" : "Inputs require configuration repair";
+  byId("configuration-card-copy").textContent = "SMTP, HTTP, and Redfish are managed independently. Click a status to change it, then restart Notifinho.";
   const badges = byId("configuration-summary");
   badges.replaceChildren(
     badge(`${summary.inputs} inputs`),
@@ -1395,7 +1472,7 @@ function renderConfiguration() {
     inputs.append(element("small", { text: "No recognized YAML input sections were detected." }));
   } else {
     for (const item of configuration.inputs) {
-      const detail = Object.entries(item.details || {}).map(([key, value]) => `${key} ${value}`).join(" · ");
+      const detail = Object.entries(item.details || {}).map(([key, value]) => `${friendlyName(key)}: ${value}`).join(" · ");
       inputs.append(element("div", { className: "configuration-input" }, [
         element("div", {}, [element("strong", { text: item.label }), element("small", { text: detail || item.name })]),
         element("button", {
@@ -2185,11 +2262,13 @@ function openRoute(id = "") {
   byId("route-priority").value = item ? (item.priority_name || "normal") : "normal";
   byId("route-enabled").checked = item ? item.enabled : true;
   setRouteOptions(item ? item.destination_id : "");
-  for (const key of ["severities", "statuses"]) {
+  for (const key of ["severities", "statuses", "exclude_severities", "exclude_statuses"]) {
     const selected = new Set(item && item.filters[key] ? item.filters[key] : []);
     for (const option of byId(`route-${key}`).options) option.selected = selected.has(option.value);
   }
-  for (const key of ["hosts", "events"]) byId(`route-${key}`).value = item && item.filters[key] ? item.filters[key].join(", ") : "";
+  for (const key of ["hosts", "events", "exclude_hosts", "exclude_events"]) {
+    byId(`route-${key}`).value = item && item.filters[key] ? item.filters[key].join(", ") : "";
+  }
   byId("route-dialog-title").textContent = item ? `Edit ${item.name}` : "Add route";
   byId("route-dialog").showModal();
 }
@@ -2203,11 +2282,11 @@ async function saveRoute(event) {
   clearError("route-error");
   const id = byId("route-id").value;
   const filters = {};
-  for (const key of ["severities", "statuses"]) {
+  for (const key of ["severities", "statuses", "exclude_severities", "exclude_statuses"]) {
     const values = [...byId(`route-${key}`).selectedOptions].map((option) => option.value);
     if (values.length) filters[key] = values;
   }
-  for (const key of ["hosts", "events"]) {
+  for (const key of ["hosts", "events", "exclude_hosts", "exclude_events"]) {
     const values = splitList(byId(`route-${key}`).value);
     if (values.length) filters[key] = values;
   }
@@ -2236,6 +2315,14 @@ async function saveRoute(event) {
 function openToken() {
   byId("token-form").reset();
   byId("token-rate").value = 60;
+  const select = byId("token-sources");
+  select.replaceChildren();
+  if (isAdmin()) {
+    select.append(element("option", { value: "*", text: "All sources (administrator only)" }));
+  }
+  for (const integration of state.integrations) {
+    select.append(element("option", { value: integration.source || integration.id, text: integration.name }));
+  }
   clearError("token-error");
   byId("token-dialog").showModal();
 }
@@ -2247,12 +2334,22 @@ async function saveToken(event) {
     return;
   }
   clearError("token-error");
+  const sourceScopes = [
+    ...new Set([
+      ...[...byId("token-sources").selectedOptions].map((option) => option.value),
+      ...splitList(byId("token-custom-sources").value),
+    ]),
+  ];
+  if (!sourceScopes.length) {
+    showError("token-error", new Error("Select at least one integration or enter a custom source identifier."));
+    return;
+  }
   try {
     const response = await request("/tokens", {
       method: "POST",
       body: {
         name: byId("token-name").value.trim(),
-        source_scopes: splitList(byId("token-sources").value),
+        source_scopes: sourceScopes,
         rate_limit_per_minute: Number(byId("token-rate").value),
       },
     });
@@ -2476,6 +2573,10 @@ async function resourceAction(action, id) {
       const item = state.destinations.find((candidate) => candidate.id === id);
       await request(`/destinations/${id}`, { method: "PATCH", body: { enabled: !item.enabled } });
       toast(`Destination ${item.enabled ? "disabled" : "enabled"}.`);
+    } else if (action === "toggle-destination-shared") {
+      const item = state.destinations.find((candidate) => candidate.id === id);
+      await request(`/destinations/${id}`, { method: "PATCH", body: { shared: !item.shared } });
+      toast(`Destination changed to ${item.shared ? "private" : "shared"}.`);
     } else if (action === "test-destination-card") {
       const destination = state.destinations.find((candidate) => candidate.id === id);
       if (!destination) return;
@@ -2484,6 +2585,11 @@ async function resourceAction(action, id) {
         body: { event: cardSampleEvent(destination) },
       });
       const delivery = response.result || {};
+      state.destinationTestResults[id] = {
+        success: delivery.success === true,
+        response_status: delivery.response_status || null,
+      };
+      renderDestinations();
       const detail = delivery.response_status ? `HTTP ${delivery.response_status}` : delivery.safe_error || delivery.error_code || "No status returned";
       toast(delivery.success ? `Test delivery sent successfully (${detail}).` : `Test delivery failed (${detail}).`, delivery.success ? "success" : "error");
       return;

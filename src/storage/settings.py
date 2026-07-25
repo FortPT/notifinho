@@ -40,12 +40,7 @@ DEFAULT_BACKUP_SETTINGS = {
 }
 
 DEFAULT_INTEGRATION_SETTINGS = {
-    "xo": {
-        "success": False,
-        "skipped": True,
-        "failure": True,
-        "show_ids": False,
-    },
+    "xo": {"show_ids": False},
     "zabbix": {"show_ids": False},
     "dell_idrac": {"suppress_ipmi_session_audit_from": []},
     "unifi_protect": {"device_aliases": {}},
@@ -300,12 +295,17 @@ class SettingsStore:
     @classmethod
     def _integration(cls, key: str, value: dict) -> dict:
         if key == "xo":
+            # v2.5.0 stored outcome switches here. Preserve those fields only
+            # long enough for the v2.5.1 one-way route-filter migration.
             allowed = {"success", "skipped", "failure", "show_ids"}
             cls._unknown(value, allowed, key)
-            return {
-                name: cls._bool(value.get(name, DEFAULT_INTEGRATION_SETTINGS[key][name]), name)
-                for name in ("success", "skipped", "failure", "show_ids")
+            result = {
+                "show_ids": cls._bool(value.get("show_ids", False), "show_ids")
             }
+            for name in ("success", "skipped", "failure"):
+                if name in value:
+                    result[name] = cls._bool(value[name], name)
+            return result
         if key == "zabbix":
             cls._unknown(value, {"show_ids"}, key)
             return {"show_ids": cls._bool(value.get("show_ids", False), "show_ids")}

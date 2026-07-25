@@ -15,7 +15,7 @@ Built for Homelabs • Ready for Enterprise
 <p align="center">
 
 <a href="https://github.com/FortPT/notifinho/releases">
-  <img src="https://img.shields.io/badge/stable-v2.5.0-blue" alt="Stable release v2.5.0">
+  <img src="https://img.shields.io/badge/stable-v2.5.1-blue" alt="Stable release v2.5.1">
 </a>
 
 <a href="https://www.python.org/">
@@ -49,7 +49,7 @@ Built for Homelabs • Ready for Enterprise
 | Property | Value |
 |----------|-------|
 | **Status** | 🚀 Stable – Production Ready |
-| **Current Stable Release** | **v2.5.0** |
+| **Current Stable Release** | **v2.5.1** |
 | **Next Planned Release** | **v2.x** |
 | **License** | MIT |
 | **Python** | 3.13 |
@@ -57,7 +57,7 @@ Built for Homelabs • Ready for Enterprise
 Notifinho is stable and production ready. New parsers, notification platforms
 and integrations remain planned with backwards compatibility as a priority.
 
-See the [v2.5.0 release notes](docs/releases/v2.5.0.md) for the database-authoritative resource migration and normalized core configuration. The complete operator walkthrough is in the [v2.5.0 acceptance checklist](docs/v2.5.0-acceptance-checklist.md).
+See the [v2.5.1 release notes](docs/releases/v2.5.1.md) for fallback-only routing and WebUI normalization. The complete operator walkthrough is in the [v2.5.1 acceptance checklist](docs/v2.5.1-acceptance-checklist.md).
 
 Notifinho v2 adds a self-hosted notification platform with local accounts,
 database-authoritative destinations, routes, application tokens, regional

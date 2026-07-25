@@ -291,7 +291,7 @@ def test_webui_keeps_workspace_visible_and_identifies_partial_api_failures():
     for component in (
         "Destinations",
         "Routes",
-        "Applications",
+        "Event API tokens",
         "Delivery history",
         "Configuration inventory",
         "Backup settings",

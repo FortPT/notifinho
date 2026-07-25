@@ -135,8 +135,13 @@ class UnifiedConfigurationService:
             model = str(platform.get("configuration_model") or "").strip().casefold()
 
             if model == CONFIGURATION_MODEL:
+                migrated_xo_routes = self._migrate_v251_xo_route_filters()
                 overlay_errors = self._apply_runtime_overlay()
-                changed = force or fingerprint != self._fingerprint
+                changed = (
+                    migrated_xo_routes > 0
+                    or force
+                    or fingerprint != self._fingerprint
+                )
                 self._fingerprint = fingerprint
                 return ConfigurationSyncStatus(
                     True,
@@ -174,6 +179,7 @@ class UnifiedConfigurationService:
                 changed = self._synchronize_data(actor, candidate, remove_stale=True)
                 imported_tokens = self._import_legacy_tokens(actor, candidate)
                 imported_settings = self._import_legacy_settings(candidate)
+                migrated_xo_routes = self._migrate_v251_xo_route_filters()
                 normalized = self._database_core_configuration(candidate)
                 with self.database.transaction() as connection:
                     connection.execute(
@@ -196,6 +202,7 @@ class UnifiedConfigurationService:
                     {
                         "tokens_imported": imported_tokens,
                         "settings_imported": imported_settings,
+                        "xo_routes_migrated": migrated_xo_routes,
                     },
                 )
                 return ConfigurationSyncStatus(
@@ -619,7 +626,7 @@ class UnifiedConfigurationService:
         self._require_admin(actor)
         self._ready()
         input_name = str(name or "").strip().casefold()
-        if input_name not in {"smtp", "http", "redfish", "home_assistant", "unifi"}:
+        if input_name not in {"smtp", "http", "redfish"}:
             raise ValueError("input is not managed by the WebUI")
         candidate = self.config_service.snapshot()
         section = candidate.get(input_name)
@@ -845,6 +852,122 @@ class UnifiedConfigurationService:
             self.settings.import_if_missing("integration", "redfish", redfish)
         )
         return imported
+
+    def _migrate_v251_xo_route_filters(self) -> int:
+        """Move legacy Xen Orchestra outcome switches into route filters.
+
+        v2.5.0 stored success/skipped/failure switches in the integration
+        settings row. The route engine is the correct authority for delivery
+        selection, so v2.5.1 consumes those legacy fields exactly once and
+        rewrites the settings row to presentation-only ``show_ids``.
+        """
+
+        with self.database.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT value_json FROM settings_records
+                WHERE namespace = 'integration' AND setting_key = 'xo'
+                """
+            ).fetchone()
+        if row is None:
+            return 0
+        try:
+            settings = json.loads(str(row["value_json"]))
+        except (TypeError, ValueError):
+            return 0
+        if not isinstance(settings, dict):
+            return 0
+        legacy_keys = {"success", "skipped", "failure"}
+        if not legacy_keys.intersection(settings):
+            return 0
+
+        enabled_outcomes = [
+            name
+            for name in ("success", "skipped", "failure")
+            if settings.get(name, DEFAULT_INTEGRATION_SETTINGS.get("xo", {}).get(name, name != "success")) is True
+        ]
+        all_outcomes = {"success", "skipped", "failure"}
+        migrated = 0
+        now = int(time.time())
+
+        with self.database.transaction() as connection:
+            routes = connection.execute(
+                """
+                SELECT id, source, filters_json, enabled
+                FROM routes
+                ORDER BY priority, name_normalized
+                """
+            ).fetchall()
+            for route in routes:
+                if canonical_source(str(route["source"])) != "xo":
+                    continue
+                try:
+                    filters = json.loads(str(route["filters_json"] or "{}"))
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(filters, dict):
+                    continue
+
+                next_enabled = bool(route["enabled"])
+                current = filters.get("statuses")
+                if isinstance(current, str):
+                    current = [current]
+                current_values = [
+                    str(value).strip().casefold()
+                    for value in (current or [])
+                    if str(value).strip()
+                ]
+
+                if not enabled_outcomes:
+                    next_enabled = False
+                elif set(enabled_outcomes) != all_outcomes:
+                    if current_values:
+                        allowed = [
+                            value for value in current_values
+                            if value in enabled_outcomes
+                        ]
+                        if allowed:
+                            filters["statuses"] = allowed
+                        else:
+                            next_enabled = False
+                    else:
+                        filters["statuses"] = enabled_outcomes
+
+                encoded = RouteStore._filters(filters)
+                if (
+                    encoded != str(route["filters_json"])
+                    or next_enabled != bool(route["enabled"])
+                ):
+                    connection.execute(
+                        """
+                        UPDATE routes
+                        SET filters_json = ?, enabled = ?, updated_at = ?
+                        WHERE id = ?
+                        """,
+                        (
+                            encoded,
+                            1 if next_enabled else 0,
+                            now,
+                            str(route["id"]),
+                        ),
+                    )
+                    migrated += 1
+
+            presentation = {
+                "show_ids": settings.get("show_ids", False) is True,
+            }
+            connection.execute(
+                """
+                UPDATE settings_records
+                SET value_json = ?, updated_at = ?
+                WHERE namespace = 'integration' AND setting_key = 'xo'
+                """,
+                (
+                    json.dumps(presentation, sort_keys=True, separators=(",", ":")),
+                    now,
+                ),
+            )
+        return migrated
 
     def _database_core_configuration(self, data: dict) -> dict:
         candidate = deepcopy(data)

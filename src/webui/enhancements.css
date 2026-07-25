@@ -1,4 +1,4 @@
-/* Notifinho WebUI v2.5.0 database resources and fixed-box icon styling. */
+/* Notifinho WebUI v2.5.1 fallback routing and fixed-box icon styling. */
 #restart-header-button {
   display: none !important;
 }
@@ -195,4 +195,64 @@
 .integration-input-row span:last-child {
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+/* v2.5.1 fallback routing and WebUI normalization */
+.integration-input-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.badge.input {
+  background: rgba(91, 157, 255, 0.10);
+  border-color: rgba(91, 157, 255, 0.20);
+  color: #b8d4ff;
+}
+
+.compact-resource-card {
+  display: grid;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.resource-card-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.resource-card-heading > div {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.resource-card-heading strong,
+.resource-card-heading small {
+  display: block;
+}
+
+.resource-card-heading small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.compact-resource-card .resource-actions {
+  margin-top: 0;
+}
+
+.route-filter-grid {
+  align-items: start;
+}
+
+.resource-meta .status-button:not(:disabled):hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+/* Separate the Integration Behavior heading from the first settings card. */
+#integration-settings-list {
+  margin-top: 1.5rem;
 }

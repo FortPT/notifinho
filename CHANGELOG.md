@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## 2.5.1 - 2026-07-25
+
+### Changed
+
+- Treat wildcard routes as fallback-only and suppress duplicate deliveries to the
+  same destination.
+- Standardize every integration input label to SMTP, HTTP, or Redfish.
+- Replace passive destination badges with clickable Enabled/Disabled and
+  Shared/Private controls.
+- Rename Applications to Event API tokens and populate source scopes from the
+  built-in integration catalogue.
+- Move Xen Orchestra outcome selection into route status filters and add
+  include/exclude filters for hosts, events, severities, and statuses.
+
+### Fixed
+
+- Prevent dedicated iDRAC events from also reaching the default destination.
+- Remove redundant source-input descriptions and the positive Credentials set
+  badge.
+- Correct integration-settings card spacing and preserve independent resource
+  error boundaries.
+- Make production validation use a durable pre-upgrade baseline when available
+  and continue current-state validation when it is unavailable.
+
 ## 2.5.0 - 2026-07-24
 
 ### Changed

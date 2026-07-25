@@ -206,17 +206,17 @@ def route_options(overrides: dict[str, str] | None = None) -> list[dict]:
             {
                 "source": "*",
                 "input_type": "http",
-                "integration_name": "Generic",
+                "integration_name": "Fallback",
                 "input_name": "HTTP",
-                "label": "Generic (HTTP)",
+                "label": "Fallback (HTTP)",
                 "generic": True,
             },
             {
                 "source": "*",
                 "input_type": "redfish",
-                "integration_name": "Generic",
+                "integration_name": "Fallback",
                 "input_name": "Redfish",
-                "label": "Generic (Redfish)",
+                "label": "Fallback (Redfish)",
                 "generic": True,
             },
         )

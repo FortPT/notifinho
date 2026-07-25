@@ -117,7 +117,7 @@ def test_inventory_detects_mounted_resources_without_returning_credentials(
     assert inventory["authority"] == "yaml"
     assert inventory["migration_available"] is True
     assert inventory["summary"] == {
-        "inputs": 2,
+        "inputs": 3,
         "outputs": 1,
         "routes": 1,
         "migratable_outputs": 1,

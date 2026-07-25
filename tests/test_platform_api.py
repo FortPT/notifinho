@@ -1077,8 +1077,8 @@ def test_integrations_endpoint_is_complete_and_categories_are_database_backed(pl
         {"id": "redfish", "name": "Redfish"}
     ]
     labels = {item["label"] for item in listed.payload["route_options"]}
-    assert "Generic (HTTP)" in labels
-    assert "Generic (Redfish)" in labels
+    assert "Fallback (HTTP)" in labels
+    assert "Fallback (Redfish)" in labels
 
     updated = call(
         platform_api,

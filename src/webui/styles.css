@@ -666,6 +666,35 @@ h3 {
   border-left-color: var(--warning);
 }
 
+.flow-row.source-active {
+  border-left-color: var(--success);
+}
+
+.flow-row.source-disabled {
+  border-left-color: var(--warning);
+}
+
+.flow-row.source-error {
+  border-left-color: var(--danger);
+}
+
+.flow-node.state-active,
+.flow-route.state-active {
+  border-color: rgba(99, 221, 178, 0.42);
+}
+
+.flow-node.state-disabled,
+.flow-route.state-disabled {
+  background: rgba(245, 191, 100, 0.09);
+  border-color: rgba(245, 191, 100, 0.42);
+}
+
+.flow-node.state-error,
+.flow-route.state-error {
+  background: rgba(255, 124, 136, 0.09);
+  border-color: rgba(255, 124, 136, 0.44);
+}
+
 .flow-row.disabled .flow-node,
 .flow-row.disabled .flow-route {
   background: rgba(245, 191, 100, 0.09);
@@ -819,6 +848,22 @@ h3 {
   animation-delay: 0.3s;
 }
 
+.flow-arrow.flow-active {
+  color: var(--success);
+}
+
+.flow-arrow.flow-disabled {
+  animation: none;
+  color: var(--warning);
+  opacity: 1;
+}
+
+.flow-arrow.flow-error {
+  animation: none;
+  color: var(--danger);
+  opacity: 1;
+}
+
 @keyframes route-flow {
   0%, 100% { opacity: 0.35; transform: translateX(-3px); }
   50% { opacity: 1; transform: translateX(3px); }
@@ -929,6 +974,10 @@ h3 {
 
 .settings-card {
   max-width: 900px;
+}
+
+.settings-card + .settings-card {
+  margin-top: 1.25rem;
 }
 
 .panel {

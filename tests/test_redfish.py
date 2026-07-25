@@ -274,6 +274,24 @@ def test_redfish_endpoint_requires_token_and_suppresses_duplicates():
     assert len(running.router.notifications) == 1
 
 
+
+
+def test_disabled_redfish_input_is_acknowledged_without_delivery(monkeypatch):
+    current = json.loads(json.dumps(config._data))
+    current["redfish"] = {**(current.get("redfish") or {}), "enabled": False}
+    monkeypatch.setattr(config, "_data", current)
+    value = payload("supermicro_thermal.json")
+    with RunningServer() as running:
+        status = post(
+            running.server.server_port,
+            "/redfish/supermicro",
+            value,
+            "synthetic-redfish-secret",
+        )
+    assert status == 204
+    assert running.router.notifications == []
+
+
 def test_invalid_and_oversized_redfish_envelopes_are_rejected():
     assert RedfishParser.is_envelope({"Events": []}) is False
     assert RedfishParser.is_envelope({"Events": [{}]}) is False

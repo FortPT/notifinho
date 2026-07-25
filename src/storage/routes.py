@@ -20,7 +20,10 @@ from storage.ownership import Actor, OwnershipPolicy
 from storage.validation import normalized_identifier, normalized_name
 
 
-_FILTER_KEYS = {"hosts", "events", "severities", "statuses"}
+_FILTER_KEYS = {
+    "hosts", "events", "severities", "statuses",
+    "exclude_hosts", "exclude_events", "exclude_severities", "exclude_statuses",
+}
 ROUTE_PRIORITY_VALUES = {
     "critical": 10,
     "high": 25,
@@ -247,7 +250,23 @@ class RouteStore:
                 (str(owner_user_id), source),
             ).fetchall()
         routes = [self._route(row) for row in rows]
-        return [route for route in routes if self.matches(route, notification)]
+        matched = [route for route in routes if self.matches(route, notification)]
+
+        # Wildcard routes are fallback-only. A dedicated integration route must
+        # never duplicate the same event into a generic/default destination.
+        specific = [route for route in matched if route.source != "*"]
+        selected = specific if specific else [route for route in matched if route.source == "*"]
+
+        # Multiple matching filters may intentionally target the same output,
+        # but one event should produce at most one delivery per destination.
+        unique = []
+        seen_destinations = set()
+        for route in selected:
+            if route.destination_id in seen_destinations:
+                continue
+            seen_destinations.add(route.destination_id)
+            unique.append(route)
+        return unique
 
     def set_enabled(self, actor: Actor, route_id: str, enabled: bool) -> Route:
         row = self._record(route_id)
@@ -414,10 +433,33 @@ class RouteStore:
                 filters["severities"],
             ):
                 return False
+        statuses = [cls._normalized(notification.status)] if notification.status else []
+        statuses.extend(cls._candidates(notification, "state", "status"))
         if "statuses" in filters:
-            statuses = [cls._normalized(notification.status)] if notification.status else []
-            statuses.extend(cls._candidates(notification, "state", "status"))
             if not statuses or not cls._any_pattern(statuses, filters["statuses"]):
+                return False
+
+        excluded = {
+            "exclude_hosts": cls._candidates(
+                notification, "host", "hostname", "device", "node"
+            ),
+            "exclude_events": cls._candidates(
+                notification, "event", "event_type", "event_name"
+            ),
+            "exclude_severities": cls._candidates(notification, "severity"),
+            "exclude_statuses": statuses,
+        }
+        excluded["exclude_events"].extend(
+            cls._normalized(item)
+            for item in (notification.category, notification.title)
+            if str(item or "").strip()
+        )
+        if notification.status:
+            excluded["exclude_severities"].append(
+                cls._normalized(notification.status)
+            )
+        for key, values in excluded.items():
+            if key in filters and values and cls._any_pattern(values, filters[key]):
                 return False
         return True
 

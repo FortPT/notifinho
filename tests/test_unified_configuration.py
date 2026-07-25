@@ -299,7 +299,7 @@ def test_one_damaged_settings_row_uses_default_without_breaking_other_settings(m
     assert status.ready is True
     assert any("integration.zabbix" in error for error in status.errors)
     assert values["settings"]["zabbix"] == DEFAULT_INTEGRATION_SETTINGS["zabbix"]
-    assert values["settings"]["xo"]["failure"] is True
+    assert values["settings"]["xo"]["show_ids"] is False
     assert values["errors"][0]["resource"] == "zabbix"
 
 

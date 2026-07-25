@@ -1289,7 +1289,7 @@ class PlatformAPI:
             return self._method_not_allowed("GET, PATCH, DELETE")
 
         input_match = re.fullmatch(
-            r"/api/v2/configuration/inputs/(smtp|http|redfish|home_assistant|unifi)",
+            r"/api/v2/configuration/inputs/(smtp|http|redfish)",
             path,
         )
         if input_match:

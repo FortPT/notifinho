@@ -224,28 +224,47 @@ class ConfigurationBridgeService:
 
     @classmethod
     def _inputs(cls, data: dict) -> list[dict]:
+        """Return the three operator-facing inputs with normalized names.
+
+        Home Assistant, UniFi, and other integration endpoints are HTTP
+        integrations, not separate listeners. Redfish is a logical input over
+        the HTTP listener and can be disabled independently through its own
+        lightweight YAML switch.
+        """
+
         labels = {
-            "smtp": "SMTP Listener",
-            "http": "HTTP API / Webhooks",
-            "redfish": "Redfish Event Service",
-            "home_assistant": "Home Assistant API",
-            "unifi": "UniFi API / Webhooks",
+            "smtp": "SMTP",
+            "http": "HTTP",
+            "redfish": "Redfish",
         }
+        http_value = data.get("http")
+        http_enabled = cls._section_active("http", http_value)
         inputs = []
         for name, label in labels.items():
-            if name not in data:
-                continue
             value = data.get(name)
             details = {}
-            if isinstance(value, dict):
+            configured = name in data
+            if name in {"smtp", "http"} and isinstance(value, dict):
                 for key in ("host", "port", "max_body_bytes"):
                     if key in value:
                         details[key] = value[key]
+            if name == "redfish":
+                # The database-authoritative configuration intentionally removes
+                # the legacy Redfish behavior block. In that normal state the
+                # logical Redfish input follows HTTP until an explicit enabled
+                # override is created from the Inputs page.
+                configured = True
+                redfish_enabled = cls._section_active(name, value)
+                enabled = http_enabled and redfish_enabled
+                details = {"transport": "HTTP"}
+            else:
+                enabled = configured and cls._section_active(name, value)
             inputs.append({
                 "name": name,
                 "label": label,
                 "management": "yaml",
-                "enabled": cls._section_active(name, value),
+                "configured": configured,
+                "enabled": enabled,
                 "details": details,
             })
         return inputs

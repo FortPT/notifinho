@@ -48,26 +48,36 @@ explicitly shared destination. Matching is deterministic and ordered first by
 numeric priority and then by normalized route name.
 
 Each route selects one source. Administrators may use the `*` source. Optional
-filters are ANDed across categories and ORed within each category:
+include filters are ANDed across categories and ORed within each category.
+Exclude filters always win:
 
 ```json
 {
   "hosts": ["pve-01"],
   "events": ["backup*"],
   "severities": ["critical", "warning"],
-  "statuses": ["active"]
+  "statuses": ["active"],
+  "exclude_hosts": ["test-*"],
+  "exclude_events": ["heartbeat*"]
 }
 ```
 
 - `hosts` checks normalized `host`, `hostname`, `device`, and `node` metadata;
 - `events` checks event metadata, notification category, and title;
 - `severities` checks severity metadata and normalized notification status;
-- `statuses` checks notification status and state/status metadata.
+- `statuses` checks notification status and state/status metadata;
+- `exclude_hosts`, `exclude_events`, `exclude_severities`, and
+  `exclude_statuses` reject matching values after include filters pass.
 
 Filter values are case-insensitive and may use shell-style patterns such as
 `backup*`. Unknown filter categories, empty lists, oversized values, and
 oversized filter documents are rejected. Disabled routes and disabled
 destinations never match.
+
+Since v2.5.1, wildcard (`*`) routes are fallback-only. Notifinho first evaluates
+specific integration routes. It evaluates wildcard routes only when no specific
+route matches. When multiple matching routes resolve to the same destination,
+only the highest-priority route delivers the event.
 
 ## Delivery orchestration
 

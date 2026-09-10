@@ -1,0 +1,25 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_routes_page_renders_capability_catalogue_without_removing_legacy_controls_yet():
+    index = (ROOT / "src/webui/index.html").read_text(encoding="utf-8")
+    service = (ROOT / "src/webui/service.py").read_text(encoding="utf-8")
+    routing_path = ROOT / "src/webui/routing_v2.js"
+
+    assert routing_path.exists(), "Routing V2 should use a dedicated late-loaded WebUI module"
+    routing = routing_path.read_text(encoding="utf-8")
+
+    assert '<div id="route-capability-catalogue"' in index
+    assert '<script src="/ui/routing_v2.js" defer></script>' in index
+    assert index.index('/ui/qa_patch.js') < index.index('/ui/routing_v2.js') < index.index('/ui/i18n.js')
+    assert '"/ui/routing_v2.js"' in service
+
+    assert "state.routeSourceOptions" in routing
+    assert 'byId("route-capability-catalogue")' in routing
+    assert 'capability.assignments || []' in routing
+    assert '"Configured"' in routing
+    assert '"Not configured"' in routing
+    assert "routingV2LegacyRenderRoutes" in routing

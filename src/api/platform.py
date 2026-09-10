@@ -1088,6 +1088,48 @@ class PlatformAPI:
             (("Cache-Control", "no-store"),),
         )
 
+    def _route_capabilities(self, actor, overrides):
+        if self.yaml_resource_authority:
+            routes = self.configuration_sync.list_routes(actor)
+        else:
+            routes, _errors = self.routes.list_visible_safe(actor)
+
+        integration_items = integrations(overrides)
+        integration_metadata = {
+            item["source"]: item
+            for item in integration_items
+        }
+        assignments = {}
+        for route in routes:
+            source = str(route.source or "").strip().casefold()
+            input_type = str(route.input_type or "").strip().casefold()
+            capability_id = (
+                f"fallback:{input_type}"
+                if source == "*"
+                else f"{source}:{input_type}"
+            )
+            assignments.setdefault(capability_id, []).append(
+                {
+                    "route_id": route.id,
+                    "destination_id": route.destination_id,
+                    "enabled": route.enabled,
+                }
+            )
+
+        capabilities = []
+        for option in route_options(overrides):
+            capability = dict(option)
+            metadata = integration_metadata.get(capability["source"])
+            capability["icon_key"] = (
+                metadata["icon_key"] if metadata is not None else "generic"
+            )
+            capability["category"] = (
+                metadata["category"] if metadata is not None else "generic"
+            )
+            capability["assignments"] = assignments.get(capability["id"], [])
+            capabilities.append(capability)
+        return capabilities
+
     def _integrations_endpoint(self, method, payload, actor) -> APIResponse:
         overrides = self.integration_categories.list_overrides()
         if method == "GET":
@@ -1095,7 +1137,7 @@ class PlatformAPI:
                 200,
                 {
                     "integrations": integrations(overrides),
-                    "route_options": route_options(overrides),
+                    "route_options": self._route_capabilities(actor, overrides),
                 },
             )
         if method == "PUT":
@@ -1120,7 +1162,7 @@ class PlatformAPI:
                 200,
                 {
                     "integrations": integrations(overrides),
-                    "route_options": route_options(overrides),
+                    "route_options": self._route_capabilities(actor, overrides),
                 },
             )
         return self._method_not_allowed("GET, PUT")

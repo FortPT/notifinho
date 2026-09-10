@@ -15,7 +15,7 @@ from urllib.parse import unquote
 
 from api.response import APIResponse
 from environment import compatible_environment
-from integrations.catalog import integrations, route_options
+from integrations.catalog import canonical_source, infer_input_type, integrations, route_options
 from logger import log
 from api.security import Principal, RateLimiter
 from outputs.platform import PlatformOutputRegistry
@@ -442,7 +442,7 @@ class PlatformAPI:
                 principal.actor,
                 "session.logout",
                 "session",
-                principal.session_id,
+                credentials.session_id,
                 "success",
             )
             return APIResponse(204, None, self._clear_cookies())
@@ -1162,8 +1162,10 @@ class PlatformAPI:
         }
         assignments = {}
         for route in routes:
-            source = str(route.source or "").strip().casefold()
+            source = canonical_source(route.source)
             input_type = str(route.input_type or "").strip().casefold()
+            if not input_type:
+                input_type = infer_input_type(source)
             capability_id = (
                 f"fallback:{input_type}"
                 if source == "*"

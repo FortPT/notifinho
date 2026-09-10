@@ -714,6 +714,16 @@ class PlatformAPI:
             raise PermissionError("administrator access is required")
         destination_id = str(data.get("destination_id") or "").strip()
         destination = self.destinations.get(actor, destination_id)
+        existing_routes = self.routes.list_for_owner(actor, actor.user_id)
+        if any(
+            route.source == capability["source"]
+            and route.input_type == capability["input_type"]
+            and route.destination_id == destination_id
+            for route in existing_routes
+        ):
+            raise ConflictError(
+                "destination is already assigned to this route capability"
+            )
         enabled = self._boolean(data, "enabled", True)
         suffix = f" [{str(destination.id)[:8]}]"
         base_name = f"{capability['label']} → {destination.name}"

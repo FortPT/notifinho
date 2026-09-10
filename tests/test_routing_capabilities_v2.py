@@ -36,6 +36,7 @@ def test_fallback_capability_identity_does_not_change_matching_contract():
             "input_name": "SMTP",
             "label": "Fallback (SMTP)",
             "generic": True,
+            "admin_only": True,
         },
         "fallback:http": {
             "id": "fallback:http",
@@ -45,6 +46,7 @@ def test_fallback_capability_identity_does_not_change_matching_contract():
             "input_name": "HTTP",
             "label": "Fallback (HTTP)",
             "generic": True,
+            "admin_only": True,
         },
         "fallback:redfish": {
             "id": "fallback:redfish",
@@ -54,5 +56,12 @@ def test_fallback_capability_identity_does_not_change_matching_contract():
             "input_name": "Redfish",
             "label": "Fallback (Redfish)",
             "generic": True,
+            "admin_only": True,
         },
     }
+
+
+def test_only_fallback_capabilities_are_administrator_only():
+    options = route_options()
+
+    assert all(item["admin_only"] is item["generic"] for item in options)

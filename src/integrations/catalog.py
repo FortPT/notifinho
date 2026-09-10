@@ -414,6 +414,7 @@ def route_options(overrides: dict[str, str] | None = None) -> list[dict]:
                     "input_name": input_item["name"],
                     "label": f'{item["name"]} ({input_item["name"]})',
                     "generic": False,
+                    "admin_only": False,
                 }
             )
     result.extend(
@@ -426,6 +427,7 @@ def route_options(overrides: dict[str, str] | None = None) -> list[dict]:
                 "input_name": "SMTP",
                 "label": "Fallback (SMTP)",
                 "generic": True,
+                "admin_only": True,
             },
             {
                 "id": "fallback:http",
@@ -435,6 +437,7 @@ def route_options(overrides: dict[str, str] | None = None) -> list[dict]:
                 "input_name": "HTTP",
                 "label": "Fallback (HTTP)",
                 "generic": True,
+                "admin_only": True,
             },
             {
                 "id": "fallback:redfish",
@@ -444,6 +447,7 @@ def route_options(overrides: dict[str, str] | None = None) -> list[dict]:
                 "input_name": "Redfish",
                 "label": "Fallback (Redfish)",
                 "generic": True,
+                "admin_only": True,
             },
         )
     )

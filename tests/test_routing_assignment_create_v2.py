@@ -59,11 +59,10 @@ class _Routes:
         )
 
 
-def test_post_route_assignment_resolves_capability_and_creates_compatible_route():
-    actor = Actor("a" * 32, "user")
+def _api_for(actor):
     principal = SimpleNamespace(
         session_id="session",
-        role="user",
+        role=actor.role,
         actor=actor,
     )
     api = PlatformAPI.__new__(PlatformAPI)
@@ -71,6 +70,12 @@ def test_post_route_assignment_resolves_capability_and_creates_compatible_route(
     api._session = lambda _headers, require_csrf: principal
     api.destinations = _Destinations()
     api.routes = _Routes()
+    return api
+
+
+def test_post_route_assignment_resolves_capability_and_creates_compatible_route():
+    actor = Actor("a" * 32, "user")
+    api = _api_for(actor)
 
     response = api.handle(
         "POST",
@@ -103,3 +108,24 @@ def test_post_route_assignment_resolves_capability_and_creates_compatible_route(
     assert api.routes.created["enabled"] is True
     assert "Zabbix (HTTP)" in api.routes.created["name"]
     assert "Operations Discord" in api.routes.created["name"]
+
+
+def test_non_admin_cannot_assign_fallback_capability():
+    actor = Actor("a" * 32, "user")
+    api = _api_for(actor)
+
+    response = api.handle(
+        "POST",
+        "/api/v2/route-assignments",
+        {
+            "capability_id": "fallback:http",
+            "destination_id": "d" * 32,
+            "enabled": True,
+        },
+        {},
+        "127.0.0.1",
+    )
+
+    assert response.status == 403
+    assert response.payload["code"] == "operation_not_permitted"
+    assert api.routes.created is None

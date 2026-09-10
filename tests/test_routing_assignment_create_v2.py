@@ -129,3 +129,25 @@ def test_non_admin_cannot_assign_fallback_capability():
     assert response.status == 403
     assert response.payload["code"] == "operation_not_permitted"
     assert api.routes.created is None
+
+
+def test_route_assignment_rejects_unknown_capability_id():
+    actor = Actor("a" * 32, "user")
+    api = _api_for(actor)
+
+    response = api.handle(
+        "POST",
+        "/api/v2/route-assignments",
+        {
+            "capability_id": "custom-system:http",
+            "destination_id": "d" * 32,
+            "enabled": True,
+        },
+        {},
+        "127.0.0.1",
+    )
+
+    assert response.status == 400
+    assert response.payload["code"] == "validation_error"
+    assert "route capability is invalid" in response.payload["error"]
+    assert api.routes.created is None

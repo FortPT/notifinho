@@ -66,6 +66,11 @@ class WebUIService:
                 "text/javascript; charset=utf-8",
                 "no-cache",
             ),
+            "/ui/routing_v2.js": (
+                "src/webui/routing_v2.js",
+                "text/javascript; charset=utf-8",
+                "no-cache",
+            ),
             "/ui/i18n.js": (
                 "src/webui/i18n.js",
                 "text/javascript; charset=utf-8",

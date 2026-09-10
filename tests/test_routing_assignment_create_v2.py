@@ -28,6 +28,9 @@ class _Routes:
     def __init__(self):
         self.created = None
 
+    def list_for_owner(self, _actor, _owner_user_id):
+        return []
+
     def create(
         self,
         actor,
@@ -57,6 +60,18 @@ class _Routes:
             destination_id=destination_id,
             enabled=enabled,
         )
+
+
+class _ExistingRoutes(_Routes):
+    def list_for_owner(self, _actor, _owner_user_id):
+        return [
+            SimpleNamespace(
+                id="e" * 32,
+                source="zabbix",
+                input_type="http",
+                destination_id="d" * 32,
+            )
+        ]
 
 
 def _api_for(actor):
@@ -150,4 +165,27 @@ def test_route_assignment_rejects_unknown_capability_id():
     assert response.status == 400
     assert response.payload["code"] == "validation_error"
     assert "route capability is invalid" in response.payload["error"]
+    assert api.routes.created is None
+
+
+def test_route_assignment_rejects_duplicate_capability_destination_binding():
+    actor = Actor("a" * 32, "user")
+    api = _api_for(actor)
+    api.routes = _ExistingRoutes()
+
+    response = api.handle(
+        "POST",
+        "/api/v2/route-assignments",
+        {
+            "capability_id": "zabbix:http",
+            "destination_id": "d" * 32,
+            "enabled": True,
+        },
+        {},
+        "127.0.0.1",
+    )
+
+    assert response.status == 409
+    assert response.payload["code"] == "resource_conflict"
+    assert "already assigned" in response.payload["error"]
     assert api.routes.created is None

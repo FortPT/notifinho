@@ -442,7 +442,7 @@ class PlatformAPI:
                 principal.actor,
                 "session.logout",
                 "session",
-                credentials.session_id,
+                principal.session_id,
                 "success",
             )
             return APIResponse(204, None, self._clear_cookies())

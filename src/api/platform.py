@@ -222,6 +222,8 @@ class PlatformAPI:
                 return self._destinations_endpoint(method, payload, actor)
             if path == "/api/v2/routes":
                 return self._routes_endpoint(method, payload, actor)
+            if path == "/api/v2/route-assignments":
+                return self._route_assignments_endpoint(method, payload, actor)
             if path == "/api/v2/deliveries":
                 return self._deliveries_endpoint(method, actor)
             delivery_page_size = re.fullmatch(
@@ -689,6 +691,55 @@ class PlatformAPI:
             )
             return APIResponse(201, {"route": self._route(route)})
         return self._method_not_allowed("GET, POST")
+
+    def _route_assignments_endpoint(self, method, payload, actor) -> APIResponse:
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(
+            payload,
+            {"capability_id", "destination_id", "enabled"},
+        )
+        capability_id = str(data.get("capability_id") or "").strip().casefold()
+        capability = next(
+            (
+                item
+                for item in route_options()
+                if item["id"] == capability_id
+            ),
+            None,
+        )
+        if capability is None:
+            raise ValueError("route capability is invalid")
+        if capability["admin_only"] and not actor.is_admin:
+            raise PermissionError("administrator access is required")
+        destination_id = str(data.get("destination_id") or "").strip()
+        destination = self.destinations.get(actor, destination_id)
+        enabled = self._boolean(data, "enabled", True)
+        suffix = f" [{str(destination.id)[:8]}]"
+        base_name = f"{capability['label']} → {destination.name}"
+        route_name = f"{base_name[:128 - len(suffix)]}{suffix}"
+        route = self.routes.create(
+            actor,
+            actor.user_id,
+            route_name,
+            capability["source"],
+            destination_id,
+            input_type=capability["input_type"],
+            filters={},
+            priority="normal",
+            enabled=enabled,
+        )
+        return APIResponse(
+            201,
+            {
+                "assignment": {
+                    "route_id": route.id,
+                    "capability_id": capability["id"],
+                    "destination_id": route.destination_id,
+                    "enabled": route.enabled,
+                }
+            },
+        )
 
     def _deliveries_endpoint(self, method, actor) -> APIResponse:
         if method != "GET":

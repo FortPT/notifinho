@@ -6,37 +6,27 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_administrator_announcement_composer_is_not_shipped():
+def test_administrator_announcement_composer_is_removed_at_runtime():
     markup = (ROOT / "src" / "webui" / "index.html").read_text(encoding="utf-8")
+    script = (ROOT / "src" / "webui" / "dashboard.js").read_text(encoding="utf-8")
 
-    for identifier in (
-        "notice-composer",
-        "notice-form",
-        "notice-id",
-        "notice-name",
-        "notice-status",
-        "notice-message",
-        "notice-submit",
-    ):
-        assert f'id="{identifier}"' not in markup
-
-    # Genuine platform/system notices still have a dedicated presentation surface.
+    # The hidden element remains only long enough for the legacy app.js event
+    # binding pass. The final presentation layer removes it before users can
+    # interact with the authenticated workspace.
+    assert 'id="notice-composer" class="panel notice-composer" hidden' in markup
     assert 'id="notice-panel"' in markup
     assert 'id="notice-list"' in markup
+    assert 'const adminNoticeComposer = byId("notice-composer")' in script
+    assert "adminNoticeComposer.remove()" in script
 
 
-def test_webui_renders_system_notices_without_announcement_authoring_actions():
-    script = (ROOT / "src" / "webui" / "app.js").read_text(encoding="utf-8")
+def test_webui_system_notice_renderer_excludes_human_announcements():
+    script = (ROOT / "src" / "webui" / "dashboard.js").read_text(encoding="utf-8")
 
-    # The API remains available for lifecycle-bound system notices, but human
-    # administrator announcements are not presented in the customer workspace.
     assert 'item.kind !== "announcement"' in script
-    assert 'byId("notice-form").addEventListener' not in script
-    assert "function saveNotice(" not in script
-    assert "function beginNoticeEdit(" not in script
-    assert 'action === "edit-notice"' not in script
-    assert 'action === "resolve-notice"' not in script
+    assert "renderNotices = renderSystemNotices" in script
+    assert 'actionButton("Edit", "edit-notice"' not in script
 
-    # Users can still dismiss non-persistent system notices and follow their target.
-    assert 'action === "dismiss-notice"' in script
-    assert 'action === "open-notice-target"' in script
+    # Lifecycle-bound platform notices keep their operational actions.
+    assert '"open-notice-target"' in script
+    assert '"dismiss-notice"' in script

@@ -80,3 +80,38 @@ def test_integrations_route_capabilities_expose_minimal_assignment_state():
     for capability in capabilities.values():
         for assignment in capability["assignments"]:
             assert set(assignment) == {"route_id", "destination_id", "enabled"}
+
+
+def test_route_capabilities_correlate_legacy_aliases_and_inferred_inputs():
+    api = PlatformAPI.__new__(PlatformAPI)
+    api.configuration_sync = None
+    api.integration_categories = _Categories()
+    api.routes = _Routes(
+        [
+            _route("route-xo-legacy", "xen_orchestra", "", "destination-xo"),
+            _route("route-zabbix-legacy", "zabbix", "", "destination-zabbix"),
+        ]
+    )
+
+    response = api._integrations_endpoint(
+        "GET",
+        None,
+        Actor("a" * 32, "admin"),
+    )
+
+    assert response.status == 200
+    capabilities = {item["id"]: item for item in response.payload["route_options"]}
+    assert capabilities["xo:smtp"]["assignments"] == [
+        {
+            "route_id": "route-xo-legacy",
+            "destination_id": "destination-xo",
+            "enabled": True,
+        }
+    ]
+    assert capabilities["zabbix:smtp"]["assignments"] == [
+        {
+            "route_id": "route-zabbix-legacy",
+            "destination_id": "destination-zabbix",
+            "enabled": True,
+        }
+    ]

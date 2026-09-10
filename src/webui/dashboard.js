@@ -319,4 +319,67 @@
     baseRenderDashboard();
     renderProfessionalDashboard();
   };
+
+  function renderSystemNotices() {
+    const noticeConsole = byId("notice-console");
+    const panel = byId("notice-panel");
+    const list = byId("notice-list");
+    if (!noticeConsole || !panel || !list) return;
+
+    const notices = (state.notices || []).filter(
+      (item) => item.kind !== "announcement",
+    );
+
+    panel.hidden = !notices.length;
+    noticeConsole.hidden = !notices.length;
+    list.replaceChildren();
+
+    for (const item of notices) {
+      const status = item.status === "severe"
+        ? "danger"
+        : item.status === "warning"
+          ? "warning"
+          : "information";
+      const actions = element("div", { className: "notice-actions" });
+
+      if (item.persistent) {
+        const target = item.kind === "update" ? "updates" : "audit";
+        actions.append(
+          actionButton(
+            "Resolve",
+            "open-notice-target",
+            target,
+            item.kind === "update" ? "primary" : "danger",
+          ),
+        );
+      } else {
+        const close = actionButton(
+          "×",
+          "dismiss-notice",
+          item.id,
+          "icon-button notice-close",
+        );
+        close.setAttribute("aria-label", `Close ${item.name}`);
+        close.title = "Close notice";
+        actions.append(close);
+      }
+
+      list.append(element("div", { className: `notice-item ${status}` }, [
+        element("div", {}, [
+          element("div", { className: "notice-title" }, [
+            element("strong", { text: item.name }),
+            badge(capitalize(item.status), status),
+          ]),
+          element("p", { text: item.message }),
+          element("small", { text: formatTime(item.created_at) }),
+        ]),
+        actions,
+      ]));
+    }
+  }
+
+  renderNotices = renderSystemNotices;
+
+  const adminNoticeComposer = byId("notice-composer");
+  if (adminNoticeComposer) adminNoticeComposer.remove();
 })();

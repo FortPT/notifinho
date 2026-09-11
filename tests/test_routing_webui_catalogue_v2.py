@@ -40,3 +40,13 @@ def test_route_capability_catalogue_can_assign_an_existing_destination():
     assert "enabled: true" in routing
     assert "await loadWorkspace();" in routing
     assert 'document.addEventListener("click", routingV2HandleClick);' in routing
+
+
+def test_routes_page_retires_legacy_route_creation_from_normal_flow():
+    index = (ROOT / "src/webui/index.html").read_text(encoding="utf-8")
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert '<tbody id="route-table">' in index
+    assert "routingV2DisableLegacyCreation" in routing
+    assert 'byId("add-route-button")' in routing
+    assert "addRouteButton.remove();" in routing

@@ -216,6 +216,7 @@ def test_webui_markup_is_semantic_external_and_complete():
         "/ui/app.js",
         "/ui/enhancements.js",
         "/ui/qa_patch.js",
+        "/ui/routing_v2.js",
         "/ui/i18n.js",
         "/ui/dashboard.js",
     ]

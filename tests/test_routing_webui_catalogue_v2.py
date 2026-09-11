@@ -1,0 +1,88 @@
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_routes_page_renders_capability_catalogue_without_removing_legacy_controls_yet():
+    index = (ROOT / "src/webui/index.html").read_text(encoding="utf-8")
+    service = (ROOT / "src/webui/service.py").read_text(encoding="utf-8")
+    routing_path = ROOT / "src/webui/routing_v2.js"
+
+    assert routing_path.exists(), "Routing V2 should use a dedicated late-loaded WebUI module"
+    routing = routing_path.read_text(encoding="utf-8")
+
+    assert '<div id="route-capability-catalogue"' in index
+    assert '<script src="/ui/routing_v2.js" defer></script>' in index
+    assert index.index('/ui/qa_patch.js') < index.index('/ui/routing_v2.js') < index.index('/ui/i18n.js')
+    assert '"/ui/routing_v2.js"' in service
+
+    assert "state.routeSourceOptions" in routing
+    assert 'byId("route-capability-catalogue")' in routing
+    assert 'capability.assignments || []' in routing
+    assert '"Configured"' in routing
+    assert '"Not configured"' in routing
+    assert "routingV2LegacyRenderRoutes" in routing
+
+
+def test_route_capability_catalogue_can_assign_an_existing_destination():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert '"Assign destination"' in routing
+    assert '"Add destination"' in routing
+    assert 'data-routing-v2-action' in routing
+    assert '"assign-route-capability"' in routing
+    assert "capabilityId: capability.id" in routing
+    assert "routingV2AvailableDestinations" in routing
+    assert 'request("/route-assignments"' in routing
+    assert "capability_id: capabilityId" in routing
+    assert "destination_id: destinationId" in routing
+    assert "enabled: true" in routing
+    assert "await loadWorkspace();" in routing
+    assert 'document.addEventListener("click", routingV2HandleClick);' in routing
+
+
+def test_routes_page_retires_legacy_route_creation_from_normal_flow():
+    index = (ROOT / "src/webui/index.html").read_text(encoding="utf-8")
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert '<tbody id="route-table">' in index
+    assert "routingV2DisableLegacyCreation" in routing
+    assert 'byId("add-route-button")' in routing
+    assert "addRouteButton.remove();" in routing
+
+
+def test_capability_assignments_can_be_enabled_disabled_and_removed():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert "routingV2AssignmentActions" in routing
+    assert '"disable-route-assignment"' in routing
+    assert '"enable-route-assignment"' in routing
+    assert '"remove-route-assignment"' in routing
+    assert "routeId: assignment.route_id" in routing
+    assert 'request(`/routes/${routeId}`, {' in routing
+    assert 'method: "PATCH"' in routing
+    assert "body: { enabled }" in routing
+    assert 'method: "DELETE"' in routing
+    assert '"Remove assignment"' in routing
+    assert "await loadWorkspace();" in routing
+
+
+def test_legacy_filters_are_visible_but_not_editable_from_routing_v2():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert "assignment.has_legacy_filters" in routing
+    assert '"Legacy filter attached"' in routing
+    assert 'data-routing-v2-action="edit-filter"' not in routing
+    assert 'request(`/routes/${routeId}`, {\n    method: "PATCH",\n    body: { filters' not in routing
+
+
+def test_routes_normal_flow_is_catalogue_only_after_compatibility_projection():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert "routingV2RetireLegacyTable" in routing
+    assert 'byId("route-table")' in routing
+    assert '.closest(".table-panel")' in routing
+    assert "legacyTablePanel.remove();" in routing
+    assert "routingV2LegacyRenderRoutes();" not in routing
+    assert "renderRouteCapabilityCatalogue();" in routing

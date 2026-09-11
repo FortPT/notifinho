@@ -15,7 +15,7 @@ from urllib.parse import unquote
 
 from api.response import APIResponse
 from environment import compatible_environment
-from integrations.catalog import integrations, route_options
+from integrations.catalog import canonical_source, infer_input_type, integrations, route_options
 from logger import log
 from api.security import Principal, RateLimiter
 from outputs.platform import PlatformOutputRegistry
@@ -222,6 +222,8 @@ class PlatformAPI:
                 return self._destinations_endpoint(method, payload, actor)
             if path == "/api/v2/routes":
                 return self._routes_endpoint(method, payload, actor)
+            if path == "/api/v2/route-assignments":
+                return self._route_assignments_endpoint(method, payload, actor)
             if path == "/api/v2/deliveries":
                 return self._deliveries_endpoint(method, actor)
             delivery_page_size = re.fullmatch(
@@ -690,6 +692,65 @@ class PlatformAPI:
             return APIResponse(201, {"route": self._route(route)})
         return self._method_not_allowed("GET, POST")
 
+    def _route_assignments_endpoint(self, method, payload, actor) -> APIResponse:
+        if method != "POST":
+            return self._method_not_allowed("POST")
+        data = self._object(
+            payload,
+            {"capability_id", "destination_id", "enabled"},
+        )
+        capability_id = str(data.get("capability_id") or "").strip().casefold()
+        capability = next(
+            (
+                item
+                for item in route_options()
+                if item["id"] == capability_id
+            ),
+            None,
+        )
+        if capability is None:
+            raise ValueError("route capability is invalid")
+        if capability["admin_only"] and not actor.is_admin:
+            raise PermissionError("administrator access is required")
+        destination_id = str(data.get("destination_id") or "").strip()
+        destination = self.destinations.get(actor, destination_id)
+        existing_routes = self.routes.list_for_owner(actor, actor.user_id)
+        if any(
+            route.source == capability["source"]
+            and route.input_type == capability["input_type"]
+            and route.destination_id == destination_id
+            for route in existing_routes
+        ):
+            raise ConflictError(
+                "destination is already assigned to this route capability"
+            )
+        enabled = self._boolean(data, "enabled", True)
+        suffix = f" [{str(destination.id)[:8]}]"
+        base_name = f"{capability['label']} → {destination.name}"
+        route_name = f"{base_name[:128 - len(suffix)]}{suffix}"
+        route = self.routes.create(
+            actor,
+            actor.user_id,
+            route_name,
+            capability["source"],
+            destination_id,
+            input_type=capability["input_type"],
+            filters={},
+            priority="normal",
+            enabled=enabled,
+        )
+        return APIResponse(
+            201,
+            {
+                "assignment": {
+                    "route_id": route.id,
+                    "capability_id": capability["id"],
+                    "destination_id": route.destination_id,
+                    "enabled": route.enabled,
+                }
+            },
+        )
+
     def _deliveries_endpoint(self, method, actor) -> APIResponse:
         if method != "GET":
             return self._method_not_allowed("GET")
@@ -1088,6 +1149,51 @@ class PlatformAPI:
             (("Cache-Control", "no-store"),),
         )
 
+    def _route_capabilities(self, actor, overrides):
+        if self.yaml_resource_authority:
+            routes = self.configuration_sync.list_routes(actor)
+        else:
+            routes, _errors = self.routes.list_visible_safe(actor)
+
+        integration_items = integrations(overrides)
+        integration_metadata = {
+            item["source"]: item
+            for item in integration_items
+        }
+        assignments = {}
+        for route in routes:
+            source = canonical_source(route.source)
+            input_type = str(route.input_type or "").strip().casefold()
+            if not input_type:
+                input_type = infer_input_type(source)
+            capability_id = (
+                f"fallback:{input_type}"
+                if source == "*"
+                else f"{source}:{input_type}"
+            )
+            assignments.setdefault(capability_id, []).append(
+                {
+                    "route_id": route.id,
+                    "destination_id": route.destination_id,
+                    "enabled": route.enabled,
+                    "has_legacy_filters": bool(route.filters),
+                }
+            )
+
+        capabilities = []
+        for option in route_options(overrides):
+            capability = dict(option)
+            metadata = integration_metadata.get(capability["source"])
+            capability["icon_key"] = (
+                metadata["icon_key"] if metadata is not None else "generic"
+            )
+            capability["category"] = (
+                metadata["category"] if metadata is not None else "generic"
+            )
+            capability["assignments"] = assignments.get(capability["id"], [])
+            capabilities.append(capability)
+        return capabilities
+
     def _integrations_endpoint(self, method, payload, actor) -> APIResponse:
         overrides = self.integration_categories.list_overrides()
         if method == "GET":
@@ -1095,7 +1201,7 @@ class PlatformAPI:
                 200,
                 {
                     "integrations": integrations(overrides),
-                    "route_options": route_options(overrides),
+                    "route_options": self._route_capabilities(actor, overrides),
                 },
             )
         if method == "PUT":
@@ -1120,7 +1226,7 @@ class PlatformAPI:
                 200,
                 {
                     "integrations": integrations(overrides),
-                    "route_options": route_options(overrides),
+                    "route_options": self._route_capabilities(actor, overrides),
                 },
             )
         return self._method_not_allowed("GET, PUT")

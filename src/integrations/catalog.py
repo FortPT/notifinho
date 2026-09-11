@@ -407,39 +407,47 @@ def route_options(overrides: dict[str, str] | None = None) -> list[dict]:
         for input_item in item["inputs"]:
             result.append(
                 {
+                    "id": f'{item["source"]}:{input_item["id"]}',
                     "source": item["source"],
                     "input_type": input_item["id"],
                     "integration_name": item["name"],
                     "input_name": input_item["name"],
                     "label": f'{item["name"]} ({input_item["name"]})',
                     "generic": False,
+                    "admin_only": False,
                 }
             )
     result.extend(
         (
             {
+                "id": "fallback:smtp",
                 "source": "*",
                 "input_type": "smtp",
                 "integration_name": "Fallback",
                 "input_name": "SMTP",
                 "label": "Fallback (SMTP)",
                 "generic": True,
+                "admin_only": True,
             },
             {
+                "id": "fallback:http",
                 "source": "*",
                 "input_type": "http",
                 "integration_name": "Fallback",
                 "input_name": "HTTP",
                 "label": "Fallback (HTTP)",
                 "generic": True,
+                "admin_only": True,
             },
             {
+                "id": "fallback:redfish",
                 "source": "*",
                 "input_type": "redfish",
                 "integration_name": "Fallback",
                 "input_name": "Redfish",
                 "label": "Fallback (Redfish)",
                 "generic": True,
+                "admin_only": True,
             },
         )
     )

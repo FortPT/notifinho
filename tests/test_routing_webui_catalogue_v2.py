@@ -50,3 +50,19 @@ def test_routes_page_retires_legacy_route_creation_from_normal_flow():
     assert "routingV2DisableLegacyCreation" in routing
     assert 'byId("add-route-button")' in routing
     assert "addRouteButton.remove();" in routing
+
+
+def test_capability_assignments_can_be_enabled_disabled_and_removed():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert "routingV2AssignmentActions" in routing
+    assert '"disable-route-assignment"' in routing
+    assert '"enable-route-assignment"' in routing
+    assert '"remove-route-assignment"' in routing
+    assert "routeId: assignment.route_id" in routing
+    assert 'request(`/routes/${routeId}`, {' in routing
+    assert 'method: "PATCH"' in routing
+    assert "body: { enabled }" in routing
+    assert 'method: "DELETE"' in routing
+    assert '"Remove assignment"' in routing
+    assert "await loadWorkspace();" in routing

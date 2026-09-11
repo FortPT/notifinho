@@ -75,3 +75,14 @@ def test_legacy_filters_are_visible_but_not_editable_from_routing_v2():
     assert '"Legacy filter attached"' in routing
     assert 'data-routing-v2-action="edit-filter"' not in routing
     assert 'request(`/routes/${routeId}`, {\n    method: "PATCH",\n    body: { filters' not in routing
+
+
+def test_routes_normal_flow_is_catalogue_only_after_compatibility_projection():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert "routingV2RetireLegacyTable" in routing
+    assert 'byId("route-table")' in routing
+    assert '.closest(".table-panel")' in routing
+    assert "legacyTablePanel.remove();" in routing
+    assert "routingV2LegacyRenderRoutes();" not in routing
+    assert "renderRouteCapabilityCatalogue();" in routing

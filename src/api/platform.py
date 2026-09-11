@@ -1176,6 +1176,7 @@ class PlatformAPI:
                     "route_id": route.id,
                     "destination_id": route.destination_id,
                     "enabled": route.enabled,
+                    "has_legacy_filters": bool(route.filters),
                 }
             )
 

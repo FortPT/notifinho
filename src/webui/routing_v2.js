@@ -229,10 +229,16 @@ function routingV2DisableLegacyCreation() {
   if (addRouteButton) addRouteButton.remove();
 }
 
+function routingV2RetireLegacyTable() {
+  const routeTable = byId("route-table");
+  const legacyTablePanel = routeTable && routeTable.closest(".table-panel");
+  if (legacyTablePanel) legacyTablePanel.remove();
+}
+
 renderRoutes = function renderRoutesWithCapabilityCatalogue() {
-  routingV2LegacyRenderRoutes();
   renderRouteCapabilityCatalogue();
 };
 
 routingV2DisableLegacyCreation();
+routingV2RetireLegacyTable();
 document.addEventListener("click", routingV2HandleClick);

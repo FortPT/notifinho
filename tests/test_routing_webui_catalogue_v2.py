@@ -66,3 +66,12 @@ def test_capability_assignments_can_be_enabled_disabled_and_removed():
     assert 'method: "DELETE"' in routing
     assert '"Remove assignment"' in routing
     assert "await loadWorkspace();" in routing
+
+
+def test_legacy_filters_are_visible_but_not_editable_from_routing_v2():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert "assignment.has_legacy_filters" in routing
+    assert '"Legacy filter attached"' in routing
+    assert 'data-routing-v2-action="edit-filter"' not in routing
+    assert 'request(`/routes/${routeId}`, {\n    method: "PATCH",\n    body: { filters' not in routing

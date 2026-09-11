@@ -14,6 +14,7 @@
   <script src="/ui/app.js" defer></script>
   <script src="/ui/enhancements.js" defer></script>
   <script src="/ui/qa_patch.js" defer></script>
+  <script src="/ui/routing_v2.js" defer></script>
   <script src="/ui/i18n.js" defer></script>
   <script src="/ui/dashboard.js" defer></script>
 </head>
@@ -236,6 +237,7 @@
 
         <section id="view-routes" class="view" data-page="routes" hidden>
           <div class="section-toolbar"><div><h2>Routes</h2><p>Connect integrations and inputs to destinations with priorities and event filters.</p></div><button id="add-route-button" class="button primary" type="button" data-action="new-route">Add route</button></div>
+          <div id="route-capability-catalogue" class="resource-grid" aria-label="Route capability catalogue"></div>
           <div class="table-panel"><div class="table-scroll"><table><thead><tr><th>Name</th><th>Integration</th><th>Input</th><th>Destination</th><th>Filters</th><th>Priority</th><th>Status</th><th><span class="sr-only">Delete</span></th></tr></thead><tbody id="route-table"></tbody></table></div><div id="route-empty" class="empty-state" hidden></div></div>
         </section>
 

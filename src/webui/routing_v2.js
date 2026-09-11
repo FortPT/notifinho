@@ -2,6 +2,35 @@
 
 const routingV2LegacyRenderRoutes = renderRoutes;
 
+function routingV2CanManageAssignment(assignment) {
+  const route = (state.routes || []).find((item) => item.id === assignment.route_id);
+  return Boolean(isAdmin() || (route && state.user && route.owner_user_id === state.user.id));
+}
+
+function routingV2AssignmentActions(assignment) {
+  if (!routingV2CanManageAssignment(assignment)) return null;
+
+  const toggleAction = assignment.enabled
+    ? "disable-route-assignment"
+    : "enable-route-assignment";
+  return element("div", { className: "button-row routing-v2-assignment-actions" }, [
+    element("button", {
+      className: "button small secondary",
+      text: assignment.enabled ? "Disable" : "Enable",
+      type: "button",
+      dataset: { routeId: assignment.route_id },
+      attributes: { "data-routing-v2-action": toggleAction },
+    }),
+    element("button", {
+      className: "button small danger",
+      text: "Remove assignment",
+      type: "button",
+      dataset: { routeId: assignment.route_id },
+      attributes: { "data-routing-v2-action": "remove-route-assignment" },
+    }),
+  ]);
+}
+
 function routingV2AssignmentSummary(capability) {
   const assignments = capability.assignments || [];
   if (!assignments.length) {
@@ -16,10 +45,13 @@ function routingV2AssignmentSummary(capability) {
     badge(`${assignments.length} destination${assignments.length === 1 ? "" : "s"}`),
   ]);
   for (const assignment of assignments) {
-    meta.append(element("span", {
-      className: "badge",
-      text: `${destinationName(assignment.destination_id)} · ${assignment.enabled ? "Enabled" : "Disabled"}`,
-    }));
+    meta.append(element("div", { className: "routing-v2-assignment-row" }, [
+      element("span", {
+        className: "badge",
+        text: `${destinationName(assignment.destination_id)} · ${assignment.enabled ? "Enabled" : "Disabled"}`,
+      }),
+      routingV2AssignmentActions(assignment),
+    ]));
   }
   return meta;
 }
@@ -121,10 +153,7 @@ function renderRouteCapabilityCatalogue() {
   }
 }
 
-async function routingV2HandleClick(event) {
-  const target = event.target.closest('[data-routing-v2-action="assign-route-capability"]');
-  if (!target) return;
-
+async function routingV2AssignDestination(target) {
   const capabilityId = target.dataset.capabilityId || "";
   const card = target.closest(".route-capability-card");
   const select = card && card.querySelector("[data-routing-v2-destination]");
@@ -134,20 +163,61 @@ async function routingV2HandleClick(event) {
     return;
   }
 
+  await request("/route-assignments", {
+    method: "POST",
+    body: {
+      capability_id: capabilityId,
+      destination_id: destinationId,
+      enabled: true,
+    },
+  });
+  await loadWorkspace();
+  toast("Destination assigned to route.");
+}
+
+async function routingV2SetAssignmentEnabled(routeId, enabled) {
+  await request(`/routes/${routeId}`, {
+    method: "PATCH",
+    body: { enabled },
+  });
+  await loadWorkspace();
+  toast(`Route assignment ${enabled ? "enabled" : "disabled"}.`);
+}
+
+async function routingV2RemoveAssignment(routeId) {
+  const confirmed = await confirmAction(
+    "Remove assignment",
+    "Remove this destination from the route capability? Existing delivery history is kept.",
+    "Remove",
+  );
+  if (!confirmed) return;
+
+  await request(`/routes/${routeId}`, {
+    method: "DELETE",
+  });
+  await loadWorkspace();
+  toast("Route assignment removed.");
+}
+
+async function routingV2HandleClick(event) {
+  const target = event.target.closest("[data-routing-v2-action]");
+  if (!target) return;
+
+  const action = target.getAttribute("data-routing-v2-action");
+  const routeId = target.dataset.routeId || "";
   target.disabled = true;
   try {
-    await request("/route-assignments", {
-      method: "POST",
-      body: {
-        capability_id: capabilityId,
-        destination_id: destinationId,
-        enabled: true,
-      },
-    });
-    await loadWorkspace();
-    toast("Destination assigned to route.");
+    if (action === "assign-route-capability") {
+      await routingV2AssignDestination(target);
+    } else if (action === "enable-route-assignment") {
+      await routingV2SetAssignmentEnabled(routeId, true);
+    } else if (action === "disable-route-assignment") {
+      await routingV2SetAssignmentEnabled(routeId, false);
+    } else if (action === "remove-route-assignment") {
+      await routingV2RemoveAssignment(routeId);
+    }
   } catch (error) {
-    toast(error.message || "Destination could not be assigned.", "error");
+    toast(error.message || "Route assignment could not be updated.", "error");
   } finally {
     target.disabled = false;
   }

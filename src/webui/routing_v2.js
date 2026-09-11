@@ -50,6 +50,7 @@ function routingV2AssignmentSummary(capability) {
         className: "badge",
         text: `${destinationName(assignment.destination_id)} · ${assignment.enabled ? "Enabled" : "Disabled"}`,
       }),
+      assignment.has_legacy_filters ? badge("Legacy filter attached", "warning") : null,
       routingV2AssignmentActions(assignment),
     ]));
   }

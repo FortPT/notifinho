@@ -20,13 +20,14 @@ class _Routes:
         return list(self._routes), []
 
 
-def _route(route_id, source, input_type, destination_id, enabled=True):
+def _route(route_id, source, input_type, destination_id, enabled=True, filters=None):
     return SimpleNamespace(
         id=route_id,
         source=source,
         input_type=input_type,
         destination_id=destination_id,
         enabled=enabled,
+        filters=filters or {},
     )
 
 
@@ -36,7 +37,13 @@ def test_integrations_route_capabilities_expose_minimal_assignment_state():
     api.integration_categories = _Categories()
     api.routes = _Routes(
         [
-            _route("route-zabbix-a", "zabbix", "http", "destination-a"),
+            _route(
+                "route-zabbix-a",
+                "zabbix",
+                "http",
+                "destination-a",
+                filters={"severity": ("high",)},
+            ),
             _route("route-zabbix-b", "zabbix", "http", "destination-b", False),
             _route("route-fallback", "*", "http", "destination-fallback"),
         ]
@@ -58,11 +65,13 @@ def test_integrations_route_capabilities_expose_minimal_assignment_state():
             "route_id": "route-zabbix-a",
             "destination_id": "destination-a",
             "enabled": True,
+            "has_legacy_filters": True,
         },
         {
             "route_id": "route-zabbix-b",
             "destination_id": "destination-b",
             "enabled": False,
+            "has_legacy_filters": False,
         },
     ]
     assert capabilities["grafana:http"]["assignments"] == []
@@ -74,12 +83,18 @@ def test_integrations_route_capabilities_expose_minimal_assignment_state():
             "route_id": "route-fallback",
             "destination_id": "destination-fallback",
             "enabled": True,
+            "has_legacy_filters": False,
         }
     ]
 
     for capability in capabilities.values():
         for assignment in capability["assignments"]:
-            assert set(assignment) == {"route_id", "destination_id", "enabled"}
+            assert set(assignment) == {
+                "route_id",
+                "destination_id",
+                "enabled",
+                "has_legacy_filters",
+            }
 
 
 def test_route_capabilities_correlate_legacy_aliases_and_inferred_inputs():
@@ -106,6 +121,7 @@ def test_route_capabilities_correlate_legacy_aliases_and_inferred_inputs():
             "route_id": "route-xo-legacy",
             "destination_id": "destination-xo",
             "enabled": True,
+            "has_legacy_filters": False,
         }
     ]
     assert capabilities["zabbix:smtp"]["assignments"] == [
@@ -113,5 +129,6 @@ def test_route_capabilities_correlate_legacy_aliases_and_inferred_inputs():
             "route_id": "route-zabbix-legacy",
             "destination_id": "destination-zabbix",
             "enabled": True,
+            "has_legacy_filters": False,
         }
     ]

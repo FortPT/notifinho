@@ -153,9 +153,15 @@ async function routingV2HandleClick(event) {
   }
 }
 
+function routingV2DisableLegacyCreation() {
+  const addRouteButton = byId("add-route-button");
+  if (addRouteButton) addRouteButton.remove();
+}
+
 renderRoutes = function renderRoutesWithCapabilityCatalogue() {
   routingV2LegacyRenderRoutes();
   renderRouteCapabilityCatalogue();
 };
 
+routingV2DisableLegacyCreation();
 document.addEventListener("click", routingV2HandleClick);

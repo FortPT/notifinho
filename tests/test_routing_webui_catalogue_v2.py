@@ -23,3 +23,20 @@ def test_routes_page_renders_capability_catalogue_without_removing_legacy_contro
     assert '"Configured"' in routing
     assert '"Not configured"' in routing
     assert "routingV2LegacyRenderRoutes" in routing
+
+
+def test_route_capability_catalogue_can_assign_an_existing_destination():
+    routing = (ROOT / "src/webui/routing_v2.js").read_text(encoding="utf-8")
+
+    assert '"Assign destination"' in routing
+    assert '"Add destination"' in routing
+    assert 'data-routing-v2-action' in routing
+    assert '"assign-route-capability"' in routing
+    assert "capabilityId: capability.id" in routing
+    assert "routingV2AvailableDestinations" in routing
+    assert 'request("/route-assignments"' in routing
+    assert "capability_id: capabilityId" in routing
+    assert "destination_id: destinationId" in routing
+    assert "enabled: true" in routing
+    assert "await loadWorkspace();" in routing
+    assert 'document.addEventListener("click", routingV2HandleClick);' in routing
